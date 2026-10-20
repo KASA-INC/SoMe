@@ -1,34 +1,50 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { openDb } from "../server/db.js";
 import { createApp } from "../server/app.js";
 import { checkText } from "../server/filter.js";
 
+const fixture = (name) => readFileSync(new URL(`fixtures/${name}`, import.meta.url));
+
 // Fast klokke: tirsdag kl. 12:00 i Oslo. Kan flyttes i testene.
 let clock = Date.parse("2026-10-20T10:00:00Z");
 let server, base;
+const mediaDir = mkdtempSync(join(tmpdir(), "some-media-"));
+const mediaLimits = { videoSeconds: 30, videoMb: 1, imageMb: 1 };
 
 before(async () => {
-  const app = createApp({ db: openDb(), now: () => clock });
+  const app = createApp({ db: openDb(), mediaDir, mediaLimits, now: () => clock });
   server = app.listen(0);
   await new Promise((r) => server.once("listening", r));
   base = `http://localhost:${server.address().port}/api`;
 });
-after(() => server.close());
+after(() => {
+  server.close();
+  rmSync(mediaDir, { recursive: true, force: true });
+});
 
 // Liten klient som husker sin egen cookie.
 function client() {
   let cookie = "";
-  return async (path, { method = "GET", body } = {}) => {
+  const call = async (path, { method = "GET", body, raw, headers = {} } = {}) => {
     const res = await fetch(base + path, {
       method,
-      headers: { cookie, ...(method === "GET" ? {} : { "Content-Type": "application/json" }) },
-      body: method === "GET" ? undefined : JSON.stringify(body || {}),
+      headers: {
+        cookie,
+        ...(method === "GET" ? {} : raw ? { "X-Upload": "1", "Content-Type": "application/octet-stream" } : { "Content-Type": "application/json" }),
+        ...headers,
+      },
+      body: method === "GET" ? undefined : raw ?? JSON.stringify(body || {}),
     });
     const set = res.headers.get("set-cookie");
     if (set) cookie = set.split(";")[0];
-    return { status: res.status, body: await res.json() };
+    const isJson = (res.headers.get("content-type") || "").includes("json");
+    return { status: res.status, headers: res.headers, body: isJson ? await res.json() : Buffer.from(await res.arrayBuffer()) };
   };
+  return call;
 }
 
 async function setupFamily(prefix) {
@@ -44,8 +60,19 @@ async function setupFamily(prefix) {
   return { parent, kid, code: g.inviteCode, childId: children[0].id, groupId: me.groups[0].id };
 }
 
-const post = (kid, groupId, text = "Jeg lærte å sykle i dag!") =>
-  kid("/posts", { method: "POST", body: { groupId, kind: "laerte", text, color: "gul", sticker: "🚲" } });
+const post = (kid, groupId, text = "Jeg lærte å sykle i dag!", mediaId) =>
+  kid("/posts", { method: "POST", body: { groupId, kind: "laerte", text, color: "gul", sticker: "🚲", mediaId } });
+
+const upload = (kid, buf) => kid("/media", { method: "POST", raw: buf });
+
+// JPEG med et EXIF-segment (APP1) som inneholder en "GPS-posisjon".
+function jpegWithExif() {
+  const jpg = fixture("plain.jpg");
+  const payload = Buffer.from("Exif\0\0GPS 59.9139 10.7522");
+  const app1 = Buffer.concat([Buffer.from([0xff, 0xe1]), Buffer.alloc(2), payload]);
+  app1.writeUInt16BE(payload.length + 2, 2);
+  return Buffer.concat([jpg.subarray(0, 2), app1, jpg.subarray(2)]);
+}
 
 test("filteret stopper stygge ord og personopplysninger", () => {
   assert.ok(checkText("du er dum"));
@@ -169,4 +196,93 @@ test("innloggingen bremses etter mange feil", async () => {
   const c = client();
   for (let i = 0; i < 5; i++) assert.equal((await c("/login", { method: "POST", body: { username: "ingen", password: "feil" } })).status, 401);
   assert.equal((await c("/login", { method: "POST", body: { username: "ingen", password: "feil" } })).status, 429);
+});
+
+test("bilde: EXIF/GPS fjernes, og bare gruppa ser det etter godkjenning", async () => {
+  const a = await setupFamily("m");
+  const outsider = await setupFamily("n");
+  await a.parent("/children", { method: "POST", body: { username: "m-per", password: "per12345", displayName: "Per", avatar: "🐼" } });
+  const per = (await a.parent("/children")).body.children.find((c) => c.displayName === "Per");
+  await a.parent("/groups/join", { method: "POST", body: { code: a.code, childId: per.id } });
+  const perClient = client();
+  await perClient("/login", { method: "POST", body: { username: "m-per", password: "per12345" } });
+
+  const up = await upload(a.kid, jpegWithExif());
+  assert.equal(up.status, 201);
+  assert.equal(up.body.type, "image");
+  const created = await post(a.kid, a.groupId, "Noe jeg tegnet i dag", up.body.id);
+  assert.equal(created.status, 201);
+  assert.equal(created.body.pending, true);
+
+  // Forfatteren ser innlegget (som venter), de andre i gruppa ser det ikke ennå.
+  const own = (await a.kid("/feed")).body.posts[0];
+  assert.deepEqual(own.media, { id: up.body.id, type: "image", pending: true });
+  assert.equal((await perClient("/feed")).body.posts.length, 0);
+  assert.equal((await perClient(`/media/${up.body.id}`)).status, 404);
+
+  // Gruppeeieren godkjenner.
+  const { body: g } = await a.parent("/groups");
+  assert.equal(g.groups[0].pendingMedia, 1);
+  const postId = (await a.parent(`/groups/${a.groupId}/posts`)).body.posts[0].id;
+  await a.parent(`/posts/${postId}/moderate`, { method: "POST", body: { action: "approve" } });
+
+  assert.equal((await perClient("/feed")).body.posts[0].media.pending, false);
+  const file = await perClient(`/media/${up.body.id}`);
+  assert.equal(file.status, 200);
+  assert.equal(file.headers.get("content-type"), "image/jpeg");
+  assert.equal(file.body.includes("GPS 59.9139"), false);
+  assert.equal(file.body[0], 0xff);
+  assert.equal(file.body[1], 0xd8);
+
+  // Barn i andre grupper, og utloggede, får ikke tak i fila.
+  assert.equal((await outsider.kid(`/media/${up.body.id}`)).status, 404);
+  assert.equal((await client()(`/media/${up.body.id}`)).status, 401);
+});
+
+test("video: lengden sjekkes på serveren, GPS fjernes og Range virker", async () => {
+  const a = await setupFamily("v");
+  await a.parent(`/groups/${a.groupId}`, { method: "PATCH", body: { mediaReview: false } });
+
+  const tooLong = await upload(a.kid, fixture("long.mp4"));
+  assert.equal(tooLong.status, 400);
+  assert.equal(tooLong.body.code, "TOO_LONG");
+  assert.match(tooLong.body.error, /45 sekunder\. Maks er 30/);
+
+  const up = await upload(a.kid, fixture("short.mov"));
+  assert.equal(up.status, 201);
+  assert.equal(up.body.type, "video");
+  const created = await post(a.kid, a.groupId, "Se hva jeg bygde!", up.body.id);
+  assert.equal(created.body.pending, false);
+
+  const file = await a.kid(`/media/${up.body.id}`);
+  assert.equal(file.headers.get("content-type"), "video/mp4");
+  assert.equal(file.body.includes("59.9139"), false);
+  const part = await a.kid(`/media/${up.body.id}`, { headers: { Range: "bytes=0-99" } });
+  assert.equal(part.status, 206);
+  assert.equal(part.body.length, 100);
+});
+
+test("opplasting avviser for store filer, feil filtyper og manglende X-Upload", async () => {
+  const a = await setupFamily("w");
+  const big = Buffer.concat([fixture("short.mp4"), Buffer.alloc(1.2 * 1024 * 1024)]);
+  assert.equal((await upload(a.kid, big)).status, 413);
+  assert.equal((await upload(a.kid, Buffer.from("<html>hei</html>"))).status, 400);
+  const noHeader = await a.kid("/media", { method: "POST", raw: fixture("plain.jpg"), headers: { "X-Upload": "0" } });
+  assert.equal(noHeader.status, 415);
+  // Foresatte laster ikke opp; det gjør bare barn.
+  assert.equal((await upload(a.parent, fixture("plain.jpg"))).status, 403);
+  // Man kan ikke dele andres opplasting.
+  const other = await setupFamily("x");
+  const up = await upload(other.kid, fixture("plain.jpg"));
+  assert.equal((await post(a.kid, a.groupId, "Hei alle sammen", up.body.id)).status, 400);
+});
+
+test("filer slettes fra disken når innlegget slettes", async () => {
+  const a = await setupFamily("y");
+  const up = await upload(a.kid, fixture("plain.jpg"));
+  await post(a.kid, a.groupId, "Bildet mitt", up.body.id);
+  assert.ok(readdirSync(mediaDir).includes(up.body.id));
+  const postId = (await a.kid("/feed")).body.posts[0].id;
+  await a.kid(`/posts/${postId}`, { method: "DELETE" });
+  assert.equal(readdirSync(mediaDir).includes(up.body.id), false);
 });

@@ -48,6 +48,64 @@ function timeAgo(t) {
   return `${Math.floor(hrs / 24)} d siden`;
 }
 
+// Opplasting med fremdrift (fetch kan ikke vise fremdrift for opplasting).
+function uploadMedia(blob, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/media");
+    xhr.setRequestHeader("X-Upload", "1");
+    xhr.setRequestHeader("Content-Type", blob.type || "application/octet-stream");
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.onload = () => {
+      let data = {};
+      try { data = JSON.parse(xhr.responseText); } catch { /* ikke JSON */ }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+      else reject(Object.assign(new Error(data.error || "Opplastingen feilet"), { status: xhr.status, code: data.code }));
+    };
+    xhr.onerror = () => reject(new Error("Fikk ikke kontakt. Sjekk nettet og prøv igjen."));
+    xhr.send(blob);
+  });
+}
+
+// Bilder tegnes på nytt i et canvas: det fjerner EXIF/GPS, retter opp rotasjon,
+// gjør dem mindre og gjør HEIC fra iPhone om til JPEG.
+async function prepareImage(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("Klarte ikke å åpne bildet. Prøv et annet."));
+      i.src = url;
+    });
+    const MAX = 1600;
+    const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.naturalWidth * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    return await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+// Sjekker lengden før opplasting, så barnet slipper å vente på en video som blir avvist.
+// Serveren sjekker uansett selv.
+function videoDuration(file) {
+  return new Promise((resolve) => {
+    const v = document.createElement("video");
+    const url = URL.createObjectURL(file);
+    const done = (d) => { URL.revokeObjectURL(url); resolve(d); };
+    v.preload = "metadata";
+    v.muted = true;
+    v.onloadedmetadata = () => done(Number.isFinite(v.duration) ? v.duration : null);
+    v.onerror = () => done(null);
+    setTimeout(() => done(null), 8000);
+    v.src = url;
+  });
+}
+
 const field = (label, input) => h("label", {}, label, input);
 const formData = (form) => Object.fromEntries(new FormData(form));
 
@@ -203,6 +261,73 @@ function composer(groups, status) {
   const stickerRow = choiceRow(config.stickers, (b, s) => (b.textContent = s || "✖️"), "", "choices stickers");
   const groupSelect = h("select", { "aria-label": "Gruppe" }, ...groups.map((g) => h("option", { value: g.id }, g.name)));
   const warning = h("p", { class: "warning hidden" });
+  const showWarning = (msg) => { warning.textContent = msg; warning.classList.remove("hidden"); };
+
+  // ---- Bilde eller video ----
+  const limits = config.media;
+  let attachment = null; // { id, type } når opplastingen er ferdig
+  let uploading = false;
+  const preview = h("div", { class: "preview hidden" });
+  const fileInput = h("input", { type: "file", accept: "image/*,video/*", class: "visually-hidden", id: "fileInput" });
+  const attachBtn = h("label", { class: "btn secondary", for: "fileInput" }, "📷 Bilde eller video");
+
+  const clearAttachment = () => {
+    attachment = null;
+    preview.replaceChildren();
+    preview.classList.add("hidden");
+    attachBtn.classList.remove("hidden");
+    fileInput.value = "";
+  };
+
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    warning.classList.add("hidden");
+    const isVideo = file.type.startsWith("video/") || /\.(mov|mp4|m4v)$/i.test(file.name);
+    let blob = file;
+    try {
+      if (isVideo) {
+        if (file.size > limits.videoMb * 1024 * 1024) {
+          clearAttachment();
+          return showWarning(`Videoen er for stor (${Math.round(file.size / 1048576)} MB). Maks er ${limits.videoMb} MB. Prøv en kortere video.`);
+        }
+        const d = await videoDuration(file);
+        if (d && d > limits.videoSeconds + 0.5) {
+          clearAttachment();
+          return showWarning(`Videoen er ${Math.round(d)} sekunder. Maks er ${limits.videoSeconds} sekunder. Du kan klippe den i Bilder-appen ✂️`);
+        }
+      } else {
+        blob = await prepareImage(file);
+      }
+    } catch (err) {
+      clearAttachment();
+      return showWarning(err.message);
+    }
+
+    const localUrl = URL.createObjectURL(blob);
+    const bar = h("progress", { max: 1, value: 0 });
+    const media = isVideo
+      ? h("video", { src: localUrl, controls: true, playsinline: true, muted: true, preload: "metadata" })
+      : h("img", { src: localUrl, alt: "Bildet du har valgt" });
+    const remove = h("button", { type: "button", class: "link small", onclick: clearAttachment }, "Fjern");
+    preview.replaceChildren(media, h("div", { class: "row" }, bar, remove));
+    preview.classList.remove("hidden");
+    attachBtn.classList.add("hidden");
+
+    uploading = true;
+    send.disabled = true;
+    try {
+      attachment = await uploadMedia(blob, (p) => (bar.value = p));
+      bar.replaceWith(h("span", { class: "muted small" }, isVideo ? "🎬 Video klar" : "📷 Bilde klart"));
+    } catch (err) {
+      clearAttachment();
+      if (err.code === "CLOSED" || err.code === "TIME_UP") return handleChildError(err);
+      showWarning(err.message);
+    } finally {
+      uploading = false;
+      send.disabled = false;
+    }
+  });
 
   text.addEventListener("input", () => {
     count.textContent = `${text.value.length}/200`;
@@ -211,18 +336,22 @@ function composer(groups, status) {
 
   const send = h("button", { class: "btn", type: "button" }, "Del 💬");
   send.addEventListener("click", async () => {
+    if (uploading) return;
+    send.disabled = true;
     try {
-      await api("/posts", {
+      const { pending } = await api("/posts", {
         method: "POST",
-        body: { groupId: Number(groupSelect.value), kind: kindRow.value, text: text.value, sticker: stickerRow.value, color: colorRow.value },
+        body: {
+          groupId: Number(groupSelect.value), kind: kindRow.value, text: text.value,
+          sticker: stickerRow.value, color: colorRow.value, mediaId: attachment?.id,
+        },
       });
-      toast("Delt! Takk for at du gjør kanalen fin 💛");
+      toast(pending ? "Delt! En voksen ser på det før de andre får se det 👀" : "Delt! Takk for at du gjør kanalen fin 💛");
       showChild();
     } catch (err) {
-      if (err.code === "FILTER" || err.status === 400) {
-        warning.textContent = err.message;
-        warning.classList.remove("hidden");
-      } else handleChildError(err);
+      send.disabled = false;
+      if (err.code === "FILTER" || err.status === 400) showWarning(err.message);
+      else handleChildError(err);
     }
   });
 
@@ -232,6 +361,7 @@ function composer(groups, status) {
     text,
     h("div", { class: "row" }, colorRow, count),
     stickerRow,
+    fileInput, attachBtn, preview,
     h("div", { class: "row" }, groups.length > 1 ? groupSelect : h("span", { class: "muted" }, `Deles med ${groups[0].name}`), send),
     warning);
 }
@@ -247,7 +377,19 @@ function postCard(p, { actions } = {}) {
       h("div", { class: "kind" }, config.kinds[p.kind] || ""),
       h("div", {}, p.text),
       p.sticker && h("span", { class: "sticker" }, p.sticker)),
+    p.media && mediaView(p),
     h("div", { class: "actions" }, actions ? actions(p) : childActions(p)));
+}
+
+function mediaView(p) {
+  const src = `/api/media/${p.media.id}`;
+  const el = p.media.type === "video"
+    // playsinline: ellers åpner iPhone videoen i fullskjerm. Ingen autoavspilling.
+    ? h("video", { src, controls: true, playsinline: true, preload: "metadata" })
+    : h("img", { src, alt: `Bilde fra ${p.author}`, loading: "lazy" });
+  return h("div", { class: "media" }, el,
+    p.media.pending && p.mine && h("p", { class: "pending" },
+      `⏳ ${p.media.type === "video" ? "Videoen" : "Bildet"} venter på at en voksen ser på det`));
 }
 
 function childActions(p) {
@@ -379,7 +521,10 @@ function addChildForm() {
 
 function groupPanel(g) {
   return h("div", { class: "panel" },
-    h("h3", {}, g.name, g.openReports ? h("span", { class: "badge" }, `${g.openReports} rapportert`) : null),
+    h("h3", {}, g.name,
+      g.openReports ? h("span", { class: "badge" }, `${g.openReports} rapportert`) : null,
+      g.pendingMedia ? h("span", { class: "badge info" }, `${g.pendingMedia} venter`) : null),
+    g.isOwner && reviewToggle(g),
     g.isOwner ? h("p", {}, "Invitasjonskode: ", h("code", {}, g.inviteCode)) : h("p", { class: "muted small" }, "Du er ikke eier av denne gruppa."),
     h("p", { class: "muted small" }, g.members.length ? `Med: ${g.members.map((m) => `${m.avatar} ${m.displayName}`).join(", ")}` : "Ingen medlemmer ennå"),
     h("div", { class: "row" },
@@ -392,6 +537,20 @@ function groupPanel(g) {
           showParent();
         },
       }, "Slett gruppa")));
+}
+
+function reviewToggle(g) {
+  const box = h("input", { type: "checkbox", checked: g.mediaReview });
+  box.addEventListener("change", async () => {
+    try {
+      await api(`/groups/${g.id}`, { method: "PATCH", body: { mediaReview: box.checked } });
+      toast(box.checked ? "Bilder og video må nå godkjennes" : "Bilder og video vises med en gang");
+    } catch (err) {
+      box.checked = !box.checked;
+      toast(err.message);
+    }
+  });
+  return h("label", { class: "check small" }, box, " Bilder og video må godkjennes av meg før barna ser dem");
 }
 
 function createGroupForm() {
@@ -416,6 +575,8 @@ async function showGroupPosts(g) {
 
   const actions = (p) => [
     p.status === "hidden" && h("span", { class: "badge" }, `Rapportert (${p.reports}) – skjult for barna`),
+    p.media?.pending && h("span", { class: "badge info" }, "Venter på godkjenning"),
+    isOwner && p.media?.pending && p.status === "visible" && h("button", { class: "btn small", onclick: () => moderate(p, "approve") }, "Godkjenn"),
     isOwner && p.status === "hidden" && h("button", { class: "btn small", onclick: () => moderate(p, "restore") }, "Vis igjen"),
     isOwner && h("button", { class: "link danger small", onclick: () => confirm("Fjerne innlegget?") && moderate(p, "remove") }, "Fjern"),
     !isOwner && p.byMyChild && h("button", {

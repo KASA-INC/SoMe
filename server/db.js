@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS groups (
   name TEXT NOT NULL,
   invite_code TEXT NOT NULL UNIQUE,
   owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  -- 1: bilder og video vises ikke for andre barn før gruppeeieren har godkjent dem
+  media_review INTEGER NOT NULL DEFAULT 1,
   created_at INTEGER NOT NULL
 );
 
@@ -63,6 +65,19 @@ CREATE TABLE IF NOT EXISTS reports (
   created_at INTEGER NOT NULL
 );
 
+-- Bilde eller video. Lastes opp først (post_id NULL), og knyttes til et innlegg når det deles.
+CREATE TABLE IF NOT EXISTS media (
+  id TEXT PRIMARY KEY, -- tilfeldig, brukes også som filnavn
+  owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_id INTEGER UNIQUE REFERENCES posts(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('image', 'video')),
+  mime TEXT NOT NULL,
+  size INTEGER NOT NULL,
+  duration REAL,
+  approved INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS usage (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   day TEXT NOT NULL,
@@ -77,5 +92,14 @@ export function openDb(path = ":memory:") {
   const db = new DatabaseSync(path);
   db.exec("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;");
   db.exec(SCHEMA);
+  migrate(db);
   return db;
+}
+
+// Legg til kolonner i databaser som ble laget før kolonnene fantes.
+function migrate(db) {
+  const columns = (table) => db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+  if (!columns("groups").includes("media_review")) {
+    db.exec("ALTER TABLE groups ADD COLUMN media_review INTEGER NOT NULL DEFAULT 1");
+  }
 }

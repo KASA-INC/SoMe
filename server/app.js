@@ -1,7 +1,10 @@
 import express from "express";
 import { randomBytes } from "node:crypto";
+import { mkdirSync, writeFileSync, readdirSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkText } from "./filter.js";
+import { isJpeg, stripJpegMetadata, inspectVideo, MediaError } from "./media.js";
 import {
   COOKIE, hashPassword, verifyPassword, createSession, destroySession, userFromToken,
   readCookie, sessionCookie, tooManyAttempts, recordFailure, clearFailures,
@@ -17,6 +20,15 @@ export const KINDS = {
 export const COLORS = ["gul", "gronn", "bla", "rosa", "oransje", "lilla"];
 export const STICKERS = ["", "⚽", "🎨", "🎮", "📚", "🍕", "🌞", "🎵", "🏰", "🚲", "🐶", "🌈"];
 export const AVATARS = ["🐶", "🐱", "🦊", "🐼", "🐸", "🦄", "🐵", "🐯", "🐰", "🐧", "🐢", "🦖"];
+
+// Grenser for opplasting. Kan endres med miljøvariabler.
+export const DEFAULT_MEDIA_LIMITS = {
+  videoSeconds: Number(process.env.MAX_VIDEO_SECONDS) || 30,
+  videoMb: Number(process.env.MAX_VIDEO_MB) || 50,
+  imageMb: Number(process.env.MAX_IMAGE_MB) || 8,
+};
+const MAX_PENDING_UPLOADS = 3; // opplastinger som ikke er delt ennå
+const MEDIA_ID = /^[0-9a-f]{32}$/;
 
 const FEED_DAYS = 3; // Bare ferske innlegg: feeden tar slutt.
 const FEED_MAX = 30;
@@ -34,9 +46,10 @@ class HttpError extends Error {
 }
 const fail = (status, message, code) => { throw new HttpError(status, message, code); };
 
-export function createApp({ db, now = Date.now, secureCookies = false }) {
+export function createApp({ db, mediaDir, mediaLimits = DEFAULT_MEDIA_LIMITS, now = Date.now, secureCookies = false }) {
   const app = express();
   app.disable("x-powered-by");
+  mkdirSync(mediaDir, { recursive: true });
 
   const clock = () => {
     const s = new Date(now()).toLocaleString("sv-SE", { timeZone: TZ });
@@ -48,7 +61,7 @@ export function createApp({ db, now = Date.now, secureCookies = false }) {
   // ---------- Sikkerhet ----------
   app.use((req, res, next) => {
     res.set({
-      "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+      "Content-Security-Policy": "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
       "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "no-referrer",
       "X-Frame-Options": "DENY",
@@ -57,7 +70,12 @@ export function createApp({ db, now = Date.now, secureCookies = false }) {
   });
   app.use(express.json({ limit: "10kb" }));
   // CSRF-vern: i tillegg til SameSite=Strict-cookie krever vi JSON på alle endringer.
+  // Opplasting sender rå fildata og krever i stedet en egen header, som andre nettsider ikke kan sette.
   app.use("/api", (req, res, next) => {
+    if (req.method === "POST" && req.path === "/media") {
+      if (req.get("X-Upload") !== "1") return res.status(415).json({ error: "Mangler X-Upload" });
+      return next();
+    }
     if (req.method !== "GET" && !req.is("application/json")) {
       return res.status(415).json({ error: "Forventet JSON" });
     }
@@ -162,12 +180,13 @@ export function createApp({ db, now = Date.now, secureCookies = false }) {
       me.groups = q(`SELECT g.id, g.name FROM groups g JOIN memberships m ON m.group_id = g.id
         WHERE m.user_id = ? ORDER BY g.name`).all(req.user.id);
     }
-    res.json({ me, kinds: KINDS, colors: COLORS, stickers: STICKERS, avatars: AVATARS });
+    res.json({ me, kinds: KINDS, colors: COLORS, stickers: STICKERS, avatars: AVATARS, media: mediaLimits });
   });
 
   // Foresatte kan slette sin egen konto. Barnekontoene og alt innholdet slettes også.
   app.delete("/api/me", parent, (req, res) => {
     q("DELETE FROM users WHERE id = ?").run(req.user.id);
+    sweepMedia();
     res.set("Set-Cookie", sessionCookie(null, secureCookies)).json({ ok: true });
   });
 
@@ -184,19 +203,94 @@ export function createApp({ db, now = Date.now, secureCookies = false }) {
   });
 
   const POST_FIELDS = `p.id, p.kind, p.text, p.sticker, p.color, p.created_at AS createdAt, p.status,
-    u.display_name AS author, u.avatar, g.id AS groupId, g.name AS groupName`;
+    u.display_name AS author, u.avatar, g.id AS groupId, g.name AS groupName,
+    md.id AS mediaId, md.type AS mediaType, md.approved AS mediaApproved`;
+  const POST_JOINS = `FROM posts p JOIN users u ON u.id = p.author_id JOIN groups g ON g.id = p.group_id
+    LEFT JOIN media md ON md.post_id = p.id`;
 
+  const withMedia = ({ mediaId, mediaType, mediaApproved, ...p }) =>
+    ({ ...p, media: mediaId ? { id: mediaId, type: mediaType, pending: !mediaApproved } : null });
+
+  // Innlegg med bilde/video som venter på godkjenning, ser bare forfatteren selv.
   app.get("/api/feed", child, (req, res) => {
-    const posts = q(`SELECT ${POST_FIELDS}, (p.author_id = ?) AS mine
-      FROM posts p JOIN users u ON u.id = p.author_id JOIN groups g ON g.id = p.group_id
+    const posts = q(`SELECT ${POST_FIELDS}, (p.author_id = ?) AS mine ${POST_JOINS}
       WHERE p.status = 'visible' AND p.created_at >= ?
         AND p.group_id IN (SELECT group_id FROM memberships WHERE user_id = ?)
-      ORDER BY p.created_at DESC LIMIT ?`).all(req.user.id, now() - FEED_DAYS * 864e5, req.user.id, FEED_MAX);
-    res.json({ posts: posts.map(({ status, ...p }) => ({ ...p, mine: !!p.mine })), status: req.limits });
+        AND (md.id IS NULL OR md.approved = 1 OR p.author_id = ?)
+      ORDER BY p.created_at DESC LIMIT ?`).all(req.user.id, now() - FEED_DAYS * 864e5, req.user.id, req.user.id, FEED_MAX);
+    res.json({ posts: posts.map(({ status, ...p }) => withMedia({ ...p, mine: !!p.mine })), status: req.limits });
   });
 
+  // ---------- Bilder og video ----------
+  const maxUploadBytes = Math.max(mediaLimits.videoMb, mediaLimits.imageMb) * 1024 * 1024;
+
+  app.post("/api/media", child, express.raw({ type: () => true, limit: maxUploadBytes }), (req, res) => {
+    const buf = req.body;
+    if (!Buffer.isBuffer(buf) || !buf.length) fail(400, "Fila er tom");
+    const pending = q("SELECT COUNT(*) AS n FROM media WHERE owner_id = ? AND post_id IS NULL").get(req.user.id).n;
+    if (pending >= MAX_PENDING_UPLOADS) {
+      q("DELETE FROM media WHERE owner_id = ? AND post_id IS NULL").run(req.user.id);
+      sweepMedia();
+    }
+
+    let media;
+    try {
+      if (isJpeg(buf)) {
+        if (buf.length > mediaLimits.imageMb * 1024 * 1024) fail(413, `Bildet er for stort. Maks ${mediaLimits.imageMb} MB.`);
+        media = { type: "image", mime: "image/jpeg", data: stripJpegMetadata(buf), duration: null };
+      } else if (buf.length > 12 && buf.toString("latin1", 4, 8) === "ftyp") {
+        if (buf.length > mediaLimits.videoMb * 1024 * 1024) fail(413, `Videoen er for stor. Maks ${mediaLimits.videoMb} MB.`, "TOO_BIG");
+        const { duration } = inspectVideo(buf);
+        if (duration > mediaLimits.videoSeconds + 0.5) {
+          fail(400, `Videoen er ${Math.round(duration)} sekunder. Maks er ${mediaLimits.videoSeconds} sekunder. Du kan klippe den i Bilder-appen ✂️`, "TOO_LONG");
+        }
+        media = { type: "video", mime: "video/mp4", data: buf, duration };
+      } else {
+        fail(400, "Bare bilder og video (MP4/MOV) kan lastes opp");
+      }
+    } catch (err) {
+      if (err instanceof MediaError) fail(400, err.message);
+      throw err;
+    }
+
+    const id = randomBytes(16).toString("hex");
+    writeFileSync(join(mediaDir, id), media.data);
+    q(`INSERT INTO media (id, owner_id, type, mime, size, duration, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .run(id, req.user.id, media.type, media.mime, media.data.length, media.duration, now());
+    res.status(201).json({ id, type: media.type });
+  });
+
+  app.get("/api/media/:id", needUser(), (req, res) => {
+    if (!MEDIA_ID.test(req.params.id)) fail(404, "Finnes ikke");
+    const m = q(`SELECT md.*, p.group_id AS groupId, p.status FROM media md LEFT JOIN posts p ON p.id = md.post_id
+      WHERE md.id = ?`).get(req.params.id);
+    if (!m) fail(404, "Finnes ikke");
+    const me = req.user;
+    if (me.role === "child") childGate(req, res, () => {});
+    const allowed = m.owner_id === me.id || (m.groupId && m.status !== "removed" && (
+      me.role === "child"
+        ? m.approved && m.status === "visible" && q("SELECT 1 FROM memberships WHERE group_id = ? AND user_id = ?").get(m.groupId, me.id)
+        : visibleGroup(me.id, m.groupId)));
+    if (!allowed) fail(404, "Finnes ikke");
+    res.type(m.mime).set({ "Cache-Control": "private, max-age=86400", "Content-Disposition": "inline" });
+    // sendFile støtter Range-forespørsler, som Safari på iPhone krever for å spille av video.
+    res.sendFile(join(mediaDir, m.id), { dotfiles: "deny" });
+  });
+
+  // Rydder bort filer som ikke hører til noe lenger, og opplastinger som aldri ble delt.
+  function sweepMedia() {
+    q("DELETE FROM media WHERE post_id IS NULL AND created_at < ?").run(now() - 3600e3);
+    const keep = new Set(q("SELECT id FROM media").all().map((r) => r.id));
+    for (const file of readdirSync(mediaDir)) {
+      if (!keep.has(file)) {
+        try { unlinkSync(join(mediaDir, file)); } catch { /* allerede borte */ }
+      }
+    }
+  }
+  app.locals.sweepMedia = sweepMedia;
+
   app.post("/api/posts", child, (req, res) => {
-    const { groupId, kind, sticker = "", color } = req.body;
+    const { groupId, kind, sticker = "", color, mediaId } = req.body;
     const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
     if (req.limits.postsLeft <= 0) fail(429, "Du har delt nok for i dag. Spar resten til i morgen! ✨", "POST_LIMIT");
     if (!q("SELECT 1 FROM memberships WHERE group_id = ? AND user_id = ?").get(groupId, req.user.id)) fail(403, "Du er ikke med i den gruppa");
@@ -206,9 +300,18 @@ export function createApp({ db, now = Date.now, secureCookies = false }) {
     if (text.length < 2 || text.length > 200) fail(400, "Innlegget må ha 2–200 tegn");
     const problem = checkText(text);
     if (problem) fail(400, problem, "FILTER");
-    q(`INSERT INTO posts (group_id, author_id, kind, text, sticker, color, day, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(groupId, req.user.id, kind, text, sticker, color, clock().day, now());
-    res.status(201).json({ ok: true });
+    if (mediaId !== undefined && mediaId !== null &&
+        !q("SELECT 1 FROM media WHERE id = ? AND owner_id = ? AND post_id IS NULL").get(String(mediaId), req.user.id)) {
+      fail(400, "Fant ikke bildet eller videoen. Prøv å legge det til på nytt.");
+    }
+    const { lastInsertRowid } = q(`INSERT INTO posts (group_id, author_id, kind, text, sticker, color, day, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(groupId, req.user.id, kind, text, sticker, color, clock().day, now());
+    let pending = false;
+    if (mediaId) {
+      pending = !!q("SELECT media_review FROM groups WHERE id = ?").get(groupId).media_review;
+      q("UPDATE media SET post_id = ?, approved = ? WHERE id = ?").run(lastInsertRowid, pending ? 0 : 1, mediaId);
+    }
+    res.status(201).json({ ok: true, pending });
   });
 
   // Barn kan slette sine egne innlegg.
@@ -219,6 +322,7 @@ export function createApp({ db, now = Date.now, secureCookies = false }) {
     const allowed = post.author_id === req.user.id || author.parent_id === req.user.id;
     if (!allowed) fail(403, "Ikke tilgang");
     q("DELETE FROM posts WHERE id = ?").run(post.id);
+    sweepMedia();
     res.json({ ok: true });
   });
 
@@ -289,6 +393,7 @@ export function createApp({ db, now = Date.now, secureCookies = false }) {
 
   app.delete("/api/children/:id", parent, (req, res) => {
     q("DELETE FROM users WHERE id = ?").run(ownChild(req).id);
+    sweepMedia();
     res.json({ ok: true });
   });
 
@@ -311,6 +416,9 @@ export function createApp({ db, now = Date.now, secureCookies = false }) {
           name: g.name,
           isOwner,
           inviteCode: isOwner ? g.invite_code : undefined,
+          mediaReview: !!g.media_review,
+          pendingMedia: isOwner ? q(`SELECT COUNT(*) AS n FROM media md JOIN posts p ON p.id = md.post_id
+            WHERE p.group_id = ? AND md.approved = 0 AND p.status = 'visible'`).get(g.id).n : undefined,
           members: q(`SELECT u.display_name AS displayName, u.avatar FROM memberships m JOIN users u ON u.id = m.user_id
             WHERE m.group_id = ? ORDER BY u.display_name`).all(g.id),
           openReports: isOwner ? q(`SELECT COUNT(DISTINCT r.post_id) AS n FROM reports r JOIN posts p ON p.id = r.post_id
@@ -345,6 +453,15 @@ export function createApp({ db, now = Date.now, secureCookies = false }) {
   app.delete("/api/groups/:groupId", parent, (req, res) => {
     const { changes } = q("DELETE FROM groups WHERE id = ? AND owner_id = ?").run(req.params.groupId, req.user.id);
     if (!changes) fail(404, "Fant ikke gruppa");
+    sweepMedia();
+    res.json({ ok: true });
+  });
+
+  app.patch("/api/groups/:groupId", parent, (req, res) => {
+    if (typeof req.body.mediaReview !== "boolean") fail(400, "Ugyldig innstilling");
+    const { changes } = q("UPDATE groups SET media_review = ? WHERE id = ? AND owner_id = ?")
+      .run(req.body.mediaReview ? 1 : 0, req.params.groupId, req.user.id);
+    if (!changes) fail(404, "Fant ikke gruppa");
     res.json({ ok: true });
   });
 
@@ -355,10 +472,12 @@ export function createApp({ db, now = Date.now, secureCookies = false }) {
     const posts = q(`SELECT ${POST_FIELDS},
         (SELECT COUNT(*) FROM reports r WHERE r.post_id = p.id AND r.resolved = 0) AS reports,
         (u.parent_id = ?) AS byMyChild
-      FROM posts p JOIN users u ON u.id = p.author_id JOIN groups g ON g.id = p.group_id
+      ${POST_JOINS}
       WHERE p.group_id = ? AND (p.status = 'visible' OR (? AND p.status = 'hidden'))
-      ORDER BY (p.status = 'hidden') DESC, p.created_at DESC LIMIT 100`).all(req.user.id, g.id, g.isOwner ? 1 : 0);
-    res.json({ isOwner: !!g.isOwner, posts: posts.map((p) => ({ ...p, byMyChild: !!p.byMyChild })) });
+        AND (md.id IS NULL OR md.approved = 1 OR ? OR u.parent_id = ?)
+      ORDER BY (p.status = 'hidden') DESC, (md.approved = 0) DESC, p.created_at DESC LIMIT 100`)
+      .all(req.user.id, g.id, g.isOwner ? 1 : 0, g.isOwner ? 1 : 0, req.user.id);
+    res.json({ isOwner: !!g.isOwner, posts: posts.map((p) => withMedia({ ...p, byMyChild: !!p.byMyChild })) });
   });
 
   app.post("/api/posts/:id/moderate", parent, (req, res) => {
@@ -367,8 +486,12 @@ export function createApp({ db, now = Date.now, secureCookies = false }) {
     if (!post) fail(404, "Fant ikke innlegget");
     const action = req.body.action;
     if (action === "restore") q("UPDATE posts SET status = 'visible' WHERE id = ?").run(post.id);
-    else if (action === "remove") q("UPDATE posts SET status = 'removed' WHERE id = ?").run(post.id);
-    else fail(400, "Ugyldig handling");
+    else if (action === "approve") q("UPDATE media SET approved = 1 WHERE post_id = ?").run(post.id);
+    else if (action === "remove") {
+      q("UPDATE posts SET status = 'removed' WHERE id = ?").run(post.id);
+      q("DELETE FROM media WHERE post_id = ?").run(post.id);
+      sweepMedia();
+    } else fail(400, "Ugyldig handling");
     q("UPDATE reports SET resolved = 1 WHERE post_id = ?").run(post.id);
     res.json({ ok: true });
   });
@@ -382,6 +505,9 @@ export function createApp({ db, now = Date.now, secureCookies = false }) {
   app.use((err, req, res, next) => {
     if (err instanceof HttpError) return res.status(err.status).json({ error: err.message, code: err.code });
     if (err.type === "entity.parse.failed") return res.status(400).json({ error: "Ugyldig JSON" });
+    if (err.type === "entity.too.large") {
+      return res.status(413).json({ error: `Fila er for stor. Video kan være maks ${mediaLimits.videoMb} MB.`, code: "TOO_BIG" });
+    }
     console.error(err);
     res.status(500).json({ error: "Noe gikk galt" });
   });

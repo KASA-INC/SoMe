@@ -2,9 +2,20 @@
 <html lang="no">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>SoMe Kids</title>
-  <link rel="icon" href="data:,">
+  <meta name="description" content="En trygg og rolig sosial kanal for barn">
+  <meta name="theme-color" content="#ff8fb1">
+  <meta name="color-scheme" content="light">
+  <!-- Kan legges på hjemskjermen og åpnes som en app på iPhone, iPad og Android -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="SoMe Kids">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,7 +33,7 @@
     <p>💡 Vær snill på nett, og del aldri adresse, telefonnummer eller passord.</p>
   </footer>
 
-  <div id="toast" class="toast hidden" role="status"></div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <script src="app.js" type="module"></script>
 </body>
 </html>
