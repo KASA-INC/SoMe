@@ -286,3 +286,24 @@ test("filer slettes fra disken når innlegget slettes", async () => {
   await a.kid(`/posts/${postId}`, { method: "DELETE" });
   assert.equal(readdirSync(mediaDir).includes(up.body.id), false);
 });
+
+test("registreringskode kreves når den er satt", async () => {
+  const app = createApp({ db: openDb(), mediaDir, registrationCode: "hemmelig-kode" });
+  const srv = app.listen(0);
+  await new Promise((r) => srv.once("listening", r));
+  const url = `http://localhost:${srv.address().port}`;
+  const register = (code) => fetch(`${url}/api/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: `kode-${code || "ingen"}`, password: "hemmelig123", displayName: "Voksen", code }),
+  });
+  try {
+    assert.deepEqual(await (await fetch(`${url}/api/signup-info`)).json(), { codeRequired: true });
+    assert.equal((await register()).status, 403);
+    assert.equal((await register("feil")).status, 403);
+    assert.equal((await register("hemmelig-kode")).status, 201);
+    assert.equal((await fetch(`${url}/healthz`)).status, 200);
+  } finally {
+    srv.close();
+  }
+});

@@ -7,6 +7,7 @@ const app = createApp({
   db,
   mediaDir: process.env.MEDIA_DIR || "data/media",
   secureCookies: process.env.NODE_ENV === "production",
+  registrationCode: process.env.REGISTRATION_CODE || "",
 });
 
 // Bak en proxy (f.eks. Render, Fly eller nginx) trenger vi riktig klient-IP til innloggingsbremsen.
@@ -16,4 +17,4 @@ if (process.env.TRUST_PROXY) app.set("trust proxy", 1);
 app.locals.sweepMedia();
 setInterval(app.locals.sweepMedia, 15 * 60 * 1000).unref();
 
-app.listen(port, () => console.log(`SoMe Kids kjører på http://localhost:${port}`));
+app.listen(port, "0.0.0.0", () => console.log(`SoMe Kids kjører på http://localhost:${port}`));

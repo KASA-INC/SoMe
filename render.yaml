@@ -1,0 +1,34 @@
+# Render Blueprint for SoMe Kids. I Render: New → Blueprint → velg dette repoet.
+services:
+  - type: web
+    name: some-kids
+    runtime: node
+    region: frankfurt # EU
+    # Databasen og bildene ligger på en disk som tåler omstart. Disk krever betalt plan (ikke "free").
+    plan: starter
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    disk:
+      name: some-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: DB_PATH
+        value: /var/data/some.db
+      - key: MEDIA_DIR
+        value: /var/data/media
+      - key: MAX_VIDEO_SECONDS
+        value: "30"
+      - key: MAX_VIDEO_MB
+        value: "50"
+      # Koden foresatte må skrive inn for å lage konto. Du velger den selv når du oppretter tjenesten.
+      - key: REGISTRATION_CODE
+        sync: false

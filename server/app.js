@@ -1,5 +1,5 @@
 import express from "express";
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { mkdirSync, writeFileSync, readdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -46,7 +46,16 @@ class HttpError extends Error {
 }
 const fail = (status, message, code) => { throw new HttpError(status, message, code); };
 
-export function createApp({ db, mediaDir, mediaLimits = DEFAULT_MEDIA_LIMITS, now = Date.now, secureCookies = false }) {
+function safeEqual(a, b) {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
+
+// registrationCode: hvis satt, må foresatte oppgi denne koden for å lage konto.
+export function createApp({
+  db, mediaDir, mediaLimits = DEFAULT_MEDIA_LIMITS, now = Date.now, secureCookies = false, registrationCode = "",
+}) {
   const app = express();
   app.disable("x-powered-by");
   mkdirSync(mediaDir, { recursive: true });
@@ -143,8 +152,19 @@ export function createApp({ db, mediaDir, mediaLimits = DEFAULT_MEDIA_LIMITS, no
     return name;
   }
 
+  // Brukes av Render (og andre) for å sjekke at appen kjører.
+  app.get("/healthz", (req, res) => {
+    q("SELECT 1").get();
+    res.json({ ok: true });
+  });
+
+  app.get("/api/signup-info", (req, res) => res.json({ codeRequired: !!registrationCode }));
+
   app.post("/api/register", (req, res) => {
     const { username, password } = req.body;
+    if (registrationCode && !safeEqual(String(req.body.code || "").trim(), registrationCode)) {
+      fail(403, "Feil registreringskode. Spør den som inviterte deg.");
+    }
     validateCredentials(username, password);
     const displayName = validateDisplayName(req.body.displayName);
     const { lastInsertRowid } = q(`INSERT INTO users (username, password_hash, role, display_name, avatar, created_at)

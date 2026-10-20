@@ -44,7 +44,18 @@ npm start          # http://localhost:3000
 npm test
 ```
 
-## Drift på server
+## Drift på Render
+
+Repoet har en ferdig `render.yaml`:
+
+1. Logg inn på [dashboard.render.com](https://dashboard.render.com) og velg **New → Blueprint**.
+2. Koble til GitHub og velg repoet `KASA-INC/SoMe` og grenen med koden. Hvis repoet ikke vises, må Render få tilgang til organisasjonen KASA-INC i GitHub.
+3. Render leser `render.yaml` og ber deg fylle inn **REGISTRATION_CODE**. Velg en kode som du gir til foresatte som skal teste.
+4. Trykk **Apply**. Etter noen minutter får du en adresse som `https://some-kids.onrender.com`.
+
+Tjenesten bruker planen *Starter* med en disk på 1 GB i Frankfurt (EU), fordi databasen og bildene må overleve omstarter. Gratisplanen har ikke disk. Render tar daglige øyeblikksbilder av disken. Nye endringer på grenen publiseres automatisk.
+
+## Drift på annen server
 
 ```bash
 docker build -t some-kids .
@@ -64,6 +75,7 @@ Miljøvariabler:
 | `MAX_VIDEO_SECONDS` | `30` | Maks lengde per video i sekunder |
 | `MAX_VIDEO_MB` | `50` | Maks størrelse per video i MB |
 | `MAX_IMAGE_MB` | `8` | Maks størrelse per bilde i MB |
+| `REGISTRATION_CODE` | – | Hvis satt, må foresatte oppgi denne koden for å lage konto |
 
 Hvis det står en proxy foran appen (for eksempel nginx), må den tillate store nok opplastinger, f.eks. `client_max_body_size 55m;`.
 

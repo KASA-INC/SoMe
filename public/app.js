@@ -177,13 +177,15 @@ function showLogin() {
   );
 }
 
-function showRegister() {
+async function showRegister() {
+  const { codeRequired } = await api("/signup-info").catch(() => ({ codeRequired: false }));
   const form = h("form", { class: "card" },
     h("h2", {}, "Ny foresatt-konto"),
     h("p", { class: "muted" }, "Kontoen er for en voksen. Etterpå lager du kontoer til barna og velger hvilke grupper de skal være med i."),
     field("Ditt navn (vises for andre foresatte)", h("input", { name: "displayName", required: true, maxlength: 20 })),
     field("Brukernavn", h("input", { name: "username", autocomplete: "username", required: true })),
     field("Passord (minst 8 tegn)", h("input", { name: "password", type: "password", autocomplete: "new-password", required: true, minlength: 8 })),
+    codeRequired && field("Registreringskode (fra den som inviterte deg)", h("input", { name: "code", required: true, autocomplete: "off" })),
     h("label", { class: "check" }, h("input", { type: "checkbox", required: true }),
       " Jeg er over 18 år og er foresatt for barna jeg lager kontoer til."),
     h("button", { class: "btn" }, "Lag konto"),
