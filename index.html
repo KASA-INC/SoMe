@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SoMe Kids</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>🌈 SoMe Kids</h1>
+    <div id="me" class="me"></div>
+  </header>
+
+  <!-- Velg profil -->
+  <section id="setup" class="card hidden">
+    <h2>Hei! Hvem er du?</h2>
+    <label>Kallenavn (ikke ditt ekte fulle navn)
+      <input id="nameInput" maxlength="16" placeholder="F.eks. Superkatt">
+    </label>
+    <p>Velg et dyr:</p>
+    <div id="avatarPicker" class="avatars"></div>
+    <button id="startBtn" class="btn">Start 🚀</button>
+  </section>
+
+  <main id="app" class="hidden">
+    <!-- Ny post -->
+    <section class="card composer">
+      <textarea id="postText" maxlength="140" placeholder="Hva gjorde du i dag? 😊"></textarea>
+      <div class="row">
+        <div id="colorPicker" class="colors"></div>
+        <span id="charCount" class="muted">0/140</span>
+      </div>
+      <div class="row">
+        <div id="stickerPicker" class="stickers"></div>
+        <button id="postBtn" class="btn">Del 💬</button>
+      </div>
+      <p id="warning" class="warning hidden"></p>
+    </section>
+
+    <section id="feed"></section>
+  </main>
+
+  <footer class="footer">
+    <p>💡 Husk: Vær snill på nett, og del aldri adresse, telefonnummer eller passord.</p>
+    <button id="parentBtn" class="link">👨‍👩‍👧 Foreldremodus</button>
+  </footer>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
