@@ -12,14 +12,14 @@ import {
 
 // Innleggstyper: alle innlegg må ha en positiv ramme.
 export const KINDS = {
-  glad: "Noe jeg er glad for",
-  laerte: "Noe jeg lærte",
-  takk: "En takk til noen",
-  laget: "Noe jeg laget",
+  glad: "Glad for",
+  laerte: "Lærte noe",
+  takk: "Takk til",
+  laget: "Har laget",
 };
-export const COLORS = ["gul", "gronn", "bla", "rosa", "oransje", "lilla"];
-export const STICKERS = ["", "⚽", "🎨", "🎮", "📚", "🍕", "🌞", "🎵", "🏰", "🚲", "🐶", "🌈"];
-export const AVATARS = ["🐶", "🐱", "🦊", "🐼", "🐸", "🦄", "🐵", "🐯", "🐰", "🐧", "🐢", "🦖"];
+export const COLORS = ["lilla", "bla", "gronn", "gul", "oransje", "rosa"];
+export const STICKERS = ["", "⚽", "🏀", "🎮", "🎨", "📚", "🎵", "🎬", "🍕", "🚲", "🐶", "☀️"];
+export const AVATARS = ["🦊", "🐼", "🐸", "🐯", "🐧", "🦖", "🐙", "🦉", "⚡", "🎧", "🚀", "🌊", "🔥", "🌙", "🎮", "🎸"];
 
 // Grenser for opplasting. Kan endres med miljøvariabler.
 export const DEFAULT_MEDIA_LIMITS = {
@@ -120,8 +120,8 @@ export function createApp({
 
   const childGate = (req, res, next) => {
     const status = childStatus(req.user);
-    if (!status.open) fail(403, `Kanalen er stengt nå. Den åpner kl. ${status.openFrom} 🌙`, "CLOSED");
-    if (status.minutesLeft <= 0) fail(403, "Tiden for i dag er brukt opp. Vi ses i morgen! 🌳", "TIME_UP");
+    if (!status.open) fail(403, `SoMe åpner igjen kl. ${status.openFrom}.`, "CLOSED");
+    if (status.minutesLeft <= 0) fail(403, "Du har brukt tiden din for i dag. Vi ses i morgen.", "TIME_UP");
     req.limits = status;
     next();
   };
@@ -262,7 +262,7 @@ export function createApp({
         if (buf.length > mediaLimits.videoMb * 1024 * 1024) fail(413, `Videoen er for stor. Maks ${mediaLimits.videoMb} MB.`, "TOO_BIG");
         const { duration } = inspectVideo(buf);
         if (duration > mediaLimits.videoSeconds + 0.5) {
-          fail(400, `Videoen er ${Math.round(duration)} sekunder. Maks er ${mediaLimits.videoSeconds} sekunder. Du kan klippe den i Bilder-appen ✂️`, "TOO_LONG");
+          fail(400, `Videoen er ${Math.round(duration)} sekunder. Maks er ${mediaLimits.videoSeconds} sekunder. Du kan klippe den i Bilder-appen.`, "TOO_LONG");
         }
         media = { type: "video", mime: "video/mp4", data: buf, duration };
       } else {
@@ -312,7 +312,7 @@ export function createApp({
   app.post("/api/posts", child, (req, res) => {
     const { groupId, kind, sticker = "", color, mediaId } = req.body;
     const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
-    if (req.limits.postsLeft <= 0) fail(429, "Du har delt nok for i dag. Spar resten til i morgen! ✨", "POST_LIMIT");
+    if (req.limits.postsLeft <= 0) fail(429, "Du har delt det du kan i dag. Du kan dele mer i morgen.", "POST_LIMIT");
     if (!q("SELECT 1 FROM memberships WHERE group_id = ? AND user_id = ?").get(groupId, req.user.id)) fail(403, "Du er ikke med i den gruppa");
     if (!KINDS[kind]) fail(400, "Velg hva slags innlegg det er");
     if (!COLORS.includes(color)) fail(400, "Ugyldig farge");
@@ -380,7 +380,7 @@ export function createApp({
     const { username, password, avatar } = req.body;
     validateCredentials(username, password);
     const displayName = validateDisplayName(req.body.displayName);
-    if (!AVATARS.includes(avatar)) fail(400, "Velg et dyr");
+    if (!AVATARS.includes(avatar)) fail(400, "Velg et profilbilde");
     q(`INSERT INTO users (username, password_hash, role, display_name, avatar, parent_id, created_at)
       VALUES (?, ?, 'child', ?, ?, ?, ?)`).run(username, hashPassword(password), displayName, avatar, req.user.id, now());
     res.status(201).json({ ok: true });
@@ -400,7 +400,7 @@ export function createApp({
     if (!Number.isInteger(next.daily_minutes) || next.daily_minutes < 0 || next.daily_minutes > 120) fail(400, "Tidsgrense må være 0–120 minutter");
     if (!Number.isInteger(next.posts_per_day) || next.posts_per_day < 0 || next.posts_per_day > 10) fail(400, "Innlegg per dag må være 0–10");
     if (!HM.test(next.open_from) || !HM.test(next.open_to) || next.open_from >= next.open_to) fail(400, "Ugyldige åpningstider");
-    if (!AVATARS.includes(next.avatar)) fail(400, "Ugyldig dyr");
+    if (b.avatar !== undefined && !AVATARS.includes(b.avatar)) fail(400, "Ugyldig profilbilde");
     q(`UPDATE users SET daily_minutes = ?, open_from = ?, open_to = ?, posts_per_day = ?, avatar = ?, display_name = ? WHERE id = ?`)
       .run(next.daily_minutes, next.open_from, next.open_to, next.posts_per_day, next.avatar, next.display_name, c.id);
     if (b.password !== undefined) {

@@ -3,16 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>SoMe Kids</title>
-  <meta name="description" content="En trygg og rolig sosial kanal for barn">
-  <meta name="theme-color" content="#ff8fb1">
-  <meta name="color-scheme" content="light">
+  <title>SoMe</title>
+  <meta name="description" content="Det rolige stedet for klassen din">
+  <meta name="theme-color" content="#f5f6fa" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d0e12" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
   <!-- Kan legges på hjemskjermen og åpnes som en app på iPhone, iPad og Android -->
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="SoMe Kids">
+  <meta name="apple-mobile-web-app-title" content="SoMe">
   <meta name="format-detection" content="telephone=no">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -20,18 +21,13 @@
 </head>
 <body>
   <header class="topbar">
-    <h1>🌈 SoMe Kids</h1>
-    <div class="me">
-      <span id="meLabel"></span>
-      <button id="logoutBtn" class="link light hidden">Logg ut</button>
-    </div>
+    <div class="brand" id="brand">SoMe</div>
+    <div class="me" id="headerRight"></div>
   </header>
 
   <main id="view"></main>
 
-  <footer class="footer">
-    <p>💡 Vær snill på nett, og del aldri adresse, telefonnummer eller passord.</p>
-  </footer>
+  <footer class="footer">Vær snill på nett. Del aldri adresse, telefonnummer eller passord.</footer>
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <script src="app.js" type="module"></script>

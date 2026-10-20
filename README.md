@@ -1,9 +1,9 @@
-# 🌈 SoMe Kids
+# SoMe
 
-En ekte, men rolig sosial kanal for barn, laget som det motsatte av X og Facebook:
+En ekte, men rolig sosial kanal for barn (laget for mellomtrinnet), og det motsatte av X og Facebook:
 
 - **Ingen likes, hjerter, stjerner, følgere eller tall.** Ingenting å konkurrere om.
-- **Bare positive innlegg.** Hvert innlegg må være én av fire typer: *Noe jeg er glad for*, *Noe jeg lærte*, *En takk til noen* eller *Noe jeg laget*. Et snillfilter på serveren stopper stygge ord, telefonnumre, e-post, adresser, lenker og brukernavn fra andre apper.
+- **Bare positive innlegg.** Hvert innlegg må være én av fire typer: *Glad for*, *Lærte noe*, *Takk til* eller *Har laget*. Et snillfilter på serveren stopper stygge ord, telefonnumre, e-post, adresser, lenker og brukernavn fra andre apper.
 - **Laget for lite bruk.** Feeden viser bare de siste tre dagene og tar slutt («Du har sett alt som er nytt!»). Det er ingen uendelig scrolling og ingen varsler. Foresatte bestemmer daglig tidsgrense (standard 20 min), åpningstider (standard 07–20) og antall innlegg per dag (standard 2). Alt dette håndheves på serveren.
 - **Bilder og video.** Hver video kan være maks 30 sekunder og 50 MB. Grensene kan endres, se under. GPS-posisjon og annen metadata fjernes fra både bilder og video. Som standard må gruppeeieren godkjenne bilder og video før de andre barna ser dem. Videoer spiller aldri av automatisk.
 - **Lukkede grupper.** Barn ser bare innlegg fra gruppene sine, for eksempel klassen eller en vennegjeng. Det finnes ingen søk, ingen profiler å bla i og ingen direktemeldinger.
@@ -18,6 +18,10 @@ En ekte, men rolig sosial kanal for barn, laget som det motsatte av X og Faceboo
 
 Barn kan ikke registrere seg selv. Det er alltid en foresatt som lager kontoen, slik at det er samtykke fra foresatte (GDPR-kravet for barn under 13 år i Norge).
 
+## Design
+
+Rolig og moderne uttrykk med nøytrale flater, én aksentfarge og strekikoner. Lys og mørk modus følger telefonens innstilling. Nye innlegg skrives i et ark som glir opp nedenfra, og foresatte har faner for barn, grupper og konto.
+
 ## Mobil: iPhone, iPad og Android
 
 Appen er laget for mobil først. Den har store trykkflater, støtter hakket og hjem-linja på iPhone og zoomer ikke inn når man skriver. Den er en installerbar nettapp (PWA), så den trenger ingen App Store eller Google Play:
@@ -25,7 +29,7 @@ Appen er laget for mobil først. Den har store trykkflater, støtter hakket og h
 - **iPhone/iPad (Safari):** Åpne adressen, trykk Del-knappen ⬆️ og velg «Legg til på Hjem-skjerm».
 - **Android (Chrome):** Åpne adressen, trykk menyen ⋮ og velg «Legg til på startsiden» eller «Installer app».
 
-Da åpnes SoMe Kids som en egen app med eget ikon og uten nettleserlinjer.
+Da åpnes SoMe som en egen app med eget ikon og uten nettleserlinjer.
 
 ### Bilder og video
 
@@ -91,5 +95,6 @@ Kjør alltid bak HTTPS i produksjon (for eksempel Caddy, nginx eller en plattfor
 ## Tilpasning
 
 - Ordlisten for snillfilteret: `server/filter.js`
-- Innleggstyper, farger, klistremerker og dyr: øverst i `server/app.js`
+- Innleggstyper, bakgrunner, emojier og profilbilder: øverst i `server/app.js`
+- Farger og utseende: variablene øverst i `public/style.css` (egne verdier for mørk modus)
 - Standardgrenser: `server/db.js`

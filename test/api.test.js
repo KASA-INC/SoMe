@@ -100,7 +100,7 @@ test("barn i samme gruppe ser hverandres innlegg, uten reaksjoner eller tall", a
   const a = await setupFamily("a");
   const b = client();
   await b("/register", { method: "POST", body: { username: "b-far", password: "hemmelig123", displayName: "Pappa" } });
-  await b("/children", { method: "POST", body: { username: "b-kari", password: "kari1234", displayName: "Kari", avatar: "🦄" } });
+  await b("/children", { method: "POST", body: { username: "b-kari", password: "kari1234", displayName: "Kari", avatar: "🐯" } });
   const { body: { children } } = await b("/children");
   await b("/groups/join", { method: "POST", body: { code: a.code, childId: children[0].id } });
   const kari = client();
