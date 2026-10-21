@@ -1,4 +1,6 @@
-# SoMe
+# quipu
+
+*(Arbeidsnavn i koden: SoMe. Navn og logo ligger i `public/brand.js` og `server/config.js`.)*
 
 En ekte, men rolig sosial kanal for barn (laget for mellomtrinnet), og det motsatte av X og Facebook:
 
@@ -16,7 +18,7 @@ En ekte, men rolig sosial kanal for barn (laget for mellomtrinnet), og det motsa
 | **Gruppeeier** (foresatt som laget gruppa) | Det samme, og i tillegg godkjenne bilder og video, se rapporterte innlegg og vise dem igjen eller fjerne dem, og slå av eller på kravet om godkjenning for gruppa. |
 | **Barn** | Logge inn med brukernavnet og passordet den foresatte har laget (barn har ikke e-post), lese feeden, dele innlegg med bilde eller video, slette egne innlegg og trykke «🚩 Si fra». Et innlegg som blir rapportert, skjules med en gang til en voksen har sett på det. |
 
-**Åpenhet overfor barna:** Første gang et barn logger inn, får det en kort introduksjon. Den forteller blant annet at foreldrene deres, og foreldrene til de andre i gruppa, kan lese alt som deles i gruppa. Det står også fast der barnet deler («6B og foreldrene i gruppa ser det du deler»). Introduksjonen kan åpnes igjen med «Slik fungerer SoMe» nederst i feeden.
+**Åpenhet overfor barna:** Første gang et barn logger inn, får det en kort introduksjon. Den forteller blant annet at foreldrene deres, og foreldrene til de andre i gruppa, kan lese alt som deles i gruppa. Det står også fast der barnet deler («6B og foreldrene i gruppa ser det du deler»). Introduksjonen kan åpnes igjen med «Slik fungerer quipu» nederst i feeden.
 
 **Innlogging:** Én side for alle, med feltet «E-post eller brukernavn». Foresatte bruker e-post. Barn bruker brukernavnet de har fått. Foresatte som registrerte seg før e-post kom, kan også bruke det gamle brukernavnet.
 
@@ -54,7 +56,7 @@ Kommandoen skriver ut en lenke som virker i én time. Gi den bare til den det gj
 
 ## Design
 
-Rolig og moderne uttrykk med nøytrale flater, én aksentfarge og strekikoner. Lys og mørk modus følger telefonens innstilling. Nye innlegg skrives i et ark som glir opp nedenfra, og foresatte har faner for barn, grupper og konto.
+Rolig og moderne uttrykk med strekikoner og quipu-paletten: petrol `#0E5B5E` som hovedfarge, korall `#F4795B` som aksent, nesten svart `#17171B` og kremhvit `#F7F5F1`. Logoen (en Q formet som en snakkeboble) og ordbildet ligger som vektorer i `public/brand.js`. I mørk modus er logoen korall. Lys og mørk modus følger telefonens innstilling. Nye innlegg skrives i et ark som glir opp nedenfra, og foresatte har faner for barn, grupper og konto.
 
 ## Mobil: iPhone, iPad og Android
 
@@ -63,7 +65,7 @@ Appen er laget for mobil først. Den har store trykkflater, støtter hakket og h
 - **iPhone/iPad (Safari):** Åpne adressen, trykk Del-knappen ⬆️ og velg «Legg til på Hjem-skjerm».
 - **Android (Chrome):** Åpne adressen, trykk menyen ⋮ og velg «Legg til på startsiden» eller «Installer app».
 
-Da åpnes SoMe som en egen app med eget ikon og uten nettleserlinjer.
+Da åpnes quipu som en egen app med eget ikon og uten nettleserlinjer.
 
 ### Bilder og video
 

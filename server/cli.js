@@ -1,4 +1,4 @@
-// Verktøy for den som drifter SoMe. Kjøres på serveren, f.eks. i Render sin «Shell»:
+// Verktøy for den som drifter tjenesten. Kjøres på serveren, f.eks. i Render sin «Shell»:
 //   npm run reset-link -- <e-post eller brukernavn>
 // Skriver ut en engangslenke (gyldig i én time) for å sette nytt passord.
 import { openDb } from "./db.js";

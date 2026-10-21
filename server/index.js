@@ -1,7 +1,7 @@
 import { openDb } from "./db.js";
 import { createApp } from "./app.js";
 import { createMailer } from "./mail.js";
-import { appUrl } from "./config.js";
+import { appUrl, APP_NAME } from "./config.js";
 
 const port = Number(process.env.PORT) || 3000;
 const db = openDb(process.env.DB_PATH || "data/some.db");
@@ -22,6 +22,6 @@ app.locals.sweepMedia();
 setInterval(app.locals.sweepMedia, 15 * 60 * 1000).unref();
 
 app.listen(port, "0.0.0.0", () => {
-  console.log(`SoMe kjører på ${appUrl()}`);
+  console.log(`${APP_NAME} kjører på ${appUrl()}`);
   if (!process.env.SMTP_HOST) console.log("E-post er ikke satt opp (SMTP_HOST). Lenker for nytt passord skrives til loggen.");
 });

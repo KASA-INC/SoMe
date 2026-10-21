@@ -1,19 +1,20 @@
 /* SoMe — rolig, moderne design. Mobil først, lys og mørk modus. */
 
 :root {
-  --bg: #f5f6fa;
+  --bg: #f7f5f1;
   --surface: #ffffff;
-  --surface-2: #f0f1f6;
-  --surface-3: #e6e8f0;
-  --border: #e3e5ed;
-  --text: #15161b;
-  --text-2: #5d6172;
-  --text-3: #8b90a0;
-  --accent: #5b4cf0;
-  --accent-hover: #4b3be0;
+  --surface-2: #f1eee8;
+  --surface-3: #e6e2da;
+  --border: #e7e3db;
+  --text: #17171b;
+  --text-2: #5b5a58;
+  --text-3: #8b8883;
+  --accent: #0e5b5e;
+  --accent-hover: #0a4b4e;
   --accent-ink: #ffffff;
-  --accent-soft: #eeecff;
-  --accent-soft-ink: #3f31c9;
+  --accent-soft: #e2efee;
+  --accent-soft-ink: #0e5b5e;
+  --link: #0e5b5e;
   --danger: #d4294a;
   --danger-soft: #fdecef;
   --warn: #a96500;
@@ -21,7 +22,7 @@
   --ok: #0c8f62;
   --shadow: 0 1px 2px rgba(20, 22, 40, 0.04), 0 4px 16px rgba(20, 22, 40, 0.05);
   --shadow-lg: 0 -8px 40px rgba(20, 22, 40, 0.18);
-  --header-bg: rgba(245, 246, 250, 0.82);
+  --header-bg: rgba(247, 245, 241, 0.85);
 
   /* Bakgrunner for innlegg (nøklene er lagret i databasen) */
   --t-gul: #fdf3d7;
@@ -30,6 +31,12 @@
   --t-rosa: #fde4ec;
   --t-oransje: #feeadb;
   --t-lilla: #ebe7ff;
+
+  /* quipu: petrol, korall, nesten svart og kremhvit */
+  --brand: #0e5b5e;
+  --coral: #f4795b;
+  --coral-ink: #17171b;
+  --cream: #f7f5f1;
 
   --radius: 16px;
   --radius-sm: 12px;
@@ -43,19 +50,20 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0d0e12;
-    --surface: #17181e;
-    --surface-2: #1f2028;
-    --surface-3: #2a2c36;
-    --border: #262833;
-    --text: #f1f2f6;
-    --text-2: #a3a8b8;
-    --text-3: #747a8c;
-    --accent: #8475ff;
-    --accent-hover: #9587ff;
+    --bg: #0f1415;
+    --surface: #171d1e;
+    --surface-2: #1e2627;
+    --surface-3: #2a3334;
+    --border: #253031;
+    --text: #f3f1ed;
+    --text-2: #a9b1b0;
+    --text-3: #77807f;
+    --accent: #1f7a7b;
+    --accent-hover: #268889;
     --accent-ink: #ffffff;
-    --accent-soft: #252148;
-    --accent-soft-ink: #c3bbff;
+    --accent-soft: #173233;
+    --accent-soft-ink: #8fd3cd;
+    --link: #7cc9c2;
     --danger: #ff5c78;
     --danger-soft: #3a1820;
     --warn: #f0b44c;
@@ -63,7 +71,9 @@
     --ok: #3ccf95;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 -8px 40px rgba(0, 0, 0, 0.6);
-    --header-bg: rgba(13, 14, 18, 0.8);
+    --header-bg: rgba(15, 20, 21, 0.85);
+
+    --brand: #f4795b; /* petrol blir for mørk mot mørk bakgrunn, så logoen er korall */
 
     --t-gul: #3a3220;
     --t-gronn: #1d3328;
@@ -134,8 +144,18 @@ h3 { margin: 0; font-size: 1.05rem; font-weight: 650; }
   backdrop-filter: saturate(180%) blur(16px);
   border-bottom: 1px solid var(--border);
 }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 750; font-size: 1.2rem; letter-spacing: -0.02em; }
-.brand svg { width: 30px; height: 30px; }
+.brand { display: flex; align-items: center; color: var(--brand); }
+
+/* Logo: Q-merke + ordbilde. Høyden på ordbildet styrer størrelsen. */
+.lockup { display: inline-flex; align-items: center; color: var(--brand); }
+.lockup .mark { height: 1.25em; width: 1.25em; }
+.lockup .wordmark { height: 0.85em; width: auto; margin-left: 0.3em; margin-top: 0.12em; }
+.header-lockup { font-size: 26px; }
+.hero-lockup { font-size: 64px; flex-direction: column; }
+.hero-lockup .mark { height: 1.3em; width: 1.3em; }
+.hero-lockup .wordmark { margin: 0.3em 0 0; height: 0.62em; }
+.app-icon { display: inline-grid; place-items: center; width: 64px; height: 64px; border-radius: 16px; background: var(--brand); color: var(--cream); overflow: hidden; }
+.app-icon .mark { width: 100%; height: 100%; }
 .me { display: flex; gap: 6px; align-items: center; min-width: 0; }
 
 main {
@@ -256,7 +276,7 @@ select {
 .icon-btn:active { background: var(--surface-3); }
 @media (hover: hover) { .icon-btn:hover { background: var(--surface-2); color: var(--text); } }
 
-.link { background: none; border: none; color: var(--accent); font-weight: 600; cursor: pointer; padding: 10px 2px; min-height: var(--tap); }
+.link { background: none; border: none; color: var(--link); font-weight: 600; cursor: pointer; padding: 10px 2px; min-height: var(--tap); }
 .link.danger { color: var(--danger); }
 
 .pill {
@@ -298,7 +318,7 @@ select {
 /* ---------- Innlogging ---------- */
 .auth { max-width: 400px; margin: 0 auto; padding-top: 4vh; }
 .auth-hero { text-align: center; margin: 12px 0 24px; }
-.auth-hero svg { width: 64px; height: 64px; }
+.auth-hero .brand-title { margin: 0 0 14px; line-height: 1; }
 .auth-hero h1 { font-size: 1.9rem; margin: 14px 0 6px; font-weight: 800; letter-spacing: -0.03em; }
 .auth-hero p { margin: 0; color: var(--text-2); }
 .auth .card { padding: 20px; }
@@ -322,7 +342,7 @@ select {
   text-overflow: ellipsis;
   min-width: 0;
 }
-.compose-prompt .icon-btn { background: var(--accent); color: var(--accent-ink); }
+.compose-prompt .icon-btn { background: var(--coral); color: var(--coral-ink); }
 .compose-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin: -4px 4px 14px; font-size: 0.85rem; color: var(--text-3); }
 
 .notice { display: flex; gap: 12px; align-items: flex-start; }
@@ -414,7 +434,7 @@ select {
 .intro p { color: var(--text-2); margin: 0 0 10px; text-align: left; }
 .intro-dots { display: flex; justify-content: center; gap: 6px; }
 .intro-dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--surface-3); transition: width 0.2s, background 0.2s; }
-.intro-dots i.on { width: 20px; background: var(--accent); }
+.intro-dots i.on { width: 20px; background: var(--coral); }
 .intro-nav { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 18px; }
 .intro-nav .btn:last-child { min-width: 140px; }
 

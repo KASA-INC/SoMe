@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { checkText } from "./filter.js";
 import { isJpeg, stripJpegMetadata, inspectVideo, MediaError } from "./media.js";
 import { createMailer } from "./mail.js";
+import { APP_NAME } from "./config.js";
 import {
   COOKIE, hashPassword, verifyPassword, createSession, destroySession, userFromToken,
   readCookie, sessionCookie, tooManyAttempts, recordFailure, clearFailures, sha256,
@@ -124,7 +125,7 @@ export function createApp({
 
   const childGate = (req, res, next) => {
     const status = childStatus(req.user);
-    if (!status.open) fail(403, `SoMe åpner igjen kl. ${status.openFrom}.`, "CLOSED");
+    if (!status.open) fail(403, `${APP_NAME} åpner igjen kl. ${status.openFrom}.`, "CLOSED");
     if (status.minutesLeft <= 0) fail(403, "Du har brukt tiden din for i dag. Vi ses i morgen.", "TIME_UP");
     req.limits = status;
     next();
@@ -287,8 +288,8 @@ export function createApp({
       try {
         await mailer.send({
           to: email,
-          subject: "Nytt passord til SoMe",
-          text: `Hei ${user.display_name}!\n\nNoen (forhåpentligvis du) har bedt om å sette nytt passord for SoMe-kontoen din (${email}).\n\n`
+          subject: `Nytt passord til ${APP_NAME}`,
+          text: `Hei ${user.display_name}!\n\nNoen (forhåpentligvis du) har bedt om å sette nytt passord for ${APP_NAME}-kontoen din (${email}).\n\n`
             + `Åpne denne lenken for å velge et nytt passord. Den virker i ${RESET_MINUTES} minutter og kan bare brukes én gang:\n${link}\n\n`
             + "Hvis det ikke var du, kan du se bort fra denne e-posten. Passordet ditt er ikke endret.",
         });

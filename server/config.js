@@ -1,3 +1,6 @@
+// Navnet på tjenesten, brukt i meldinger og e-post. (Klienten har sitt i public/brand.js.)
+export const APP_NAME = "quipu";
+
 // Adressen appen ligger på, brukt i lenker som sendes på e-post.
 // Settes med APP_URL. På Render settes RENDER_EXTERNAL_URL automatisk.
 // Vi bruker aldri Host-headeren fra forespørselen, siden den kan forfalskes.

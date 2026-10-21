@@ -1,14 +1,14 @@
 {
-  "name": "SoMe",
-  "short_name": "SoMe",
+  "name": "quipu",
+  "short_name": "quipu",
   "description": "Det rolige stedet for klassen din",
   "lang": "no",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f5f6fa",
-  "theme_color": "#f5f6fa",
+  "background_color": "#f7f5f1",
+  "theme_color": "#f7f5f1",
   "icons": [
     {
       "src": "icons/icon-192.png",

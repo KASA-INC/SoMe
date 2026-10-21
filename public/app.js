@@ -1,4 +1,5 @@
-// SoMe — klient. All brukertekst settes med textContent, aldri som HTML.
+// quipu — klient. All brukertekst settes med textContent, aldri som HTML.
+import { APP_NAME, MARK_VIEWBOX, MARK_PATH, MARK_TIGHT_VIEWBOX, WORDMARK_VIEWBOX, WORDMARK_PATH } from "./brand.js";
 
 const view = document.getElementById("view");
 let config = null; // { me, kinds, colors, stickers, avatars, media }
@@ -89,35 +90,29 @@ function icon(name) {
   return svg;
 }
 
-// Logoen: en snakkeboble. Hver logo får egen id på fargeovergangen, ellers forsvinner
-// bakgrunnen når en annen logo på siden er skjult.
-let logoCount = 0;
-function logo() {
-  const gradId = `logoGrad${++logoCount}`;
+// Logo: Q-boblen og ordbildet fra brand.js. Fargen styres av CSS (currentColor).
+function brandSvg(viewBox, d, cls) {
   const svg = document.createElementNS(SVG_NS, "svg");
-  svg.setAttribute("viewBox", "0 0 512 512");
+  svg.setAttribute("viewBox", viewBox);
+  svg.setAttribute("class", cls);
   svg.setAttribute("aria-hidden", "true");
-  const defs = document.createElementNS(SVG_NS, "defs");
-  const grad = document.createElementNS(SVG_NS, "linearGradient");
-  grad.id = gradId;
-  grad.setAttribute("x1", "0"); grad.setAttribute("y1", "0"); grad.setAttribute("x2", "1"); grad.setAttribute("y2", "1");
-  for (const [offset, color] of [["0", "#7a6cff"], ["1", "#4a3ad6"]]) {
-    const stop = document.createElementNS(SVG_NS, "stop");
-    stop.setAttribute("offset", offset); stop.setAttribute("stop-color", color);
-    grad.append(stop);
-  }
-  defs.append(grad);
-  const add = (tag, attrs) => {
-    const el = document.createElementNS(SVG_NS, tag);
-    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-    svg.append(el);
-  };
-  svg.append(defs);
-  add("rect", { width: 512, height: 512, rx: 120, fill: `url(#${gradId})` });
-  add("path", { fill: "#fff", d: "M256 120c-82 0-148 57-148 128 0 39 20 73 52 96v52l54-30c13 4 27 6 42 6 82 0 148-57 148-128S338 120 256 120z" });
-  for (const cx of [196, 256, 316]) add("circle", { cx, cy: 250, r: 20, fill: "#5b4cf0" });
+  const path = document.createElementNS(SVG_NS, "path");
+  path.setAttribute("d", d);
+  path.setAttribute("fill", "currentColor");
+  path.setAttribute("fill-rule", "evenodd");
+  svg.append(path);
   return svg;
 }
+const markSvg = (cls = "mark") => brandSvg(MARK_TIGHT_VIEWBOX, MARK_PATH, cls);
+const wordmarkSvg = (cls = "wordmark") => brandSvg(WORDMARK_VIEWBOX, WORDMARK_PATH, cls);
+
+// Appikonet: kremhvit Q på petrol.
+function logo() {
+  return h("span", { class: "app-icon", "aria-hidden": "true" }, brandSvg(MARK_VIEWBOX, MARK_PATH, "mark"));
+}
+
+// Merke + ordbilde, med navnet som tekst for skjermlesere.
+const lockup = (cls) => h("span", { class: `lockup ${cls}`, role: "img", "aria-label": APP_NAME }, markSvg(), wordmarkSvg());
 
 const KIND_ICONS = { glad: "sun", laerte: "bulb", takk: "sparkles", laget: "pencil" };
 const KIND_PROMPTS = {
@@ -215,7 +210,7 @@ function openSheet(title, content) {
 }
 
 // ---------- Topp ----------
-document.getElementById("brand").replaceChildren(logo(), h("span", {}, "SoMe"));
+document.getElementById("brand").replaceChildren(lockup("header-lockup"));
 
 function setHeader(status) {
   const me = config?.me;
@@ -266,7 +261,10 @@ async function start() {
 
 // ---------- Innlogging ----------
 function authHero(title, text) {
-  return h("div", { class: "auth-hero" }, logo(), h("h1", {}, title), h("p", {}, text));
+  // Uten tittel vises logoen med ordbildet (innloggingssiden), ellers appikonet og tittelen.
+  return title
+    ? h("div", { class: "auth-hero" }, logo(), h("h1", {}, title), h("p", {}, text))
+    : h("div", { class: "auth-hero" }, h("h1", { class: "brand-title" }, lockup("hero-lockup")), h("p", {}, text));
 }
 
 function showLogin() {
@@ -286,7 +284,7 @@ function showLogin() {
     } catch (err) { showWarning(warning, err.message); }
   });
   render(h("div", { class: "auth" },
-    authHero("SoMe", "Det rolige stedet for klassen din."),
+    authHero(null, "Det rolige stedet for klassen din."),
     form,
     h("p", { class: "auth-switch" }, "Forelder eller foresatt? ",
       h("button", { class: "link", type: "button", onclick: showRegister }, "Lag konto"))));
@@ -397,7 +395,7 @@ function startHeartbeat() {
 const INTRO = [
   {
     icon: "sparkles",
-    title: "Velkommen til SoMe",
+    title: `Velkommen til ${APP_NAME}`,
     text: ["Her deler du ting med klassen din. Det finnes ingen likes, følgere eller tall, så det er ingenting å konkurrere om.",
       "Du ser bare innlegg fra gruppene du er med i."],
   },
@@ -420,7 +418,7 @@ const INTRO = [
     title: "Hvis noe føles feil",
     text: ["Trykk «Si fra» på innlegget. Da blir det skjult, og en voksen ser på det.",
       "Snakk gjerne med en voksen du stoler på.",
-      "SoMe har en tidsgrense og stenger om kvelden. Det er meningen – det er mye annet gøy å gjøre også."],
+      `${APP_NAME} har en tidsgrense og stenger om kvelden. Det er meningen – det er mye annet gøy å gjøre også.`],
   },
 ];
 
@@ -472,7 +470,7 @@ async function showChild() {
       h("h3", {}, data.posts.length ? "Du er oppdatert" : "Ingenting nytt ennå"),
       h("p", {}, data.posts.length ? "Det var alt fra de siste tre dagene." : "Ingen har delt noe de siste tre dagene."),
       btn("Se etter nytt", showChild, "secondary small", "refresh"),
-      h("p", {}, h("button", { type: "button", class: "link small", onclick: () => showIntro({ again: true }) }, "Slik fungerer SoMe"))));
+      h("p", {}, h("button", { type: "button", class: "link small", onclick: () => showIntro({ again: true }) }, `Slik fungerer ${APP_NAME}`))));
 }
 
 function composePrompt(groups, status) {
@@ -1058,7 +1056,7 @@ async function showGroupPosts(g) {
     }));
 }
 
-// En lenke for nytt passord kan åpnes i en fane der SoMe allerede er åpen.
+// En lenke for nytt passord kan åpnes i en fane der appen allerede er åpen.
 window.addEventListener("hashchange", () => location.hash.startsWith("#reset=") && start());
 
 start();
