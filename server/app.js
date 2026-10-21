@@ -629,7 +629,8 @@ export function createApp({
   });
 
   // ---------- Statiske filer og feil ----------
-  app.use(express.static(fileURLToPath(new URL("../public", import.meta.url))));
+  // extensions: /om viser om.html.
+  app.use(express.static(fileURLToPath(new URL("../public", import.meta.url)), { extensions: ["html"] }));
 
   app.use("/api", (req, res) => res.status(404).json({ error: "Finnes ikke" }));
 

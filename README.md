@@ -10,6 +10,8 @@ En ekte, men rolig sosial kanal for barn (laget for mellomtrinnet), og det motsa
 - **Bilder og video.** Hver video kan være maks 30 sekunder og 50 MB. Grensene kan endres, se under. GPS-posisjon og annen metadata fjernes fra både bilder og video. Som standard må gruppeeieren godkjenne bilder og video før de andre barna ser dem. Videoer spiller aldri av automatisk.
 - **Lukkede grupper.** Barn ser bare innlegg fra gruppene sine, for eksempel klassen eller en vennegjeng. Det finnes ingen søk, ingen profiler å bla i og ingen direktemeldinger.
 
+**Informasjonsside:** [`/om`](public/om.html) forklarer valgene som gjør quipu trygt for barn, og historien bak navnet. Siden er åpen uten innlogging, så den kan deles med foresatte og skolen. Den lenkes fra innloggingssiden, bunnteksten og Konto-fanen.
+
 ## Roller
 
 | Hvem | Kan |

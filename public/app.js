@@ -287,7 +287,8 @@ function showLogin() {
     authHero(null, "Det rolige stedet for klassen din."),
     form,
     h("p", { class: "auth-switch" }, "Forelder eller foresatt? ",
-      h("button", { class: "link", type: "button", onclick: showRegister }, "Lag konto"))));
+      h("button", { class: "link", type: "button", onclick: showRegister }, "Lag konto")),
+    h("p", { class: "auth-switch" }, h("a", { class: "link", href: "/om" }, `Slik gjør vi ${APP_NAME} trygt for barn`))));
 }
 
 async function showRegister() {
@@ -971,6 +972,9 @@ function accountTab() {
       h("div", { class: "entity-head" }, avatar(config.me.avatar, "lg"),
         h("div", { class: "who" }, h("h3", {}, config.me.displayName), h("div", { class: "sub" }, config.me.email || `@${config.me.username}`))),
       h("div", { class: "card-actions" }, btn("Logg ut", logout, "secondary", "logout"))),
+    h("a", { class: "card notice info-link", href: "/om" }, icon("shield"),
+      h("div", {}, h("strong", {}, `Slik gjør vi ${APP_NAME} trygt`),
+        h("p", { class: "muted small" }, "Valgene vi har tatt, og historien bak navnet. Fin å dele med andre foresatte."))),
     emailCard(),
     passwordCard(),
     h("section", { class: "card" },
