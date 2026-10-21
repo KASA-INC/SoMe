@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('parent', 'child')),
   display_name TEXT NOT NULL,
+  email TEXT, -- bare for foresatte, brukes til «Glemt passord»
   avatar TEXT NOT NULL DEFAULT '🙂',
   parent_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   -- Grenser som foresatte styrer (gjelder bare barn)
@@ -22,6 +23,13 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at INTEGER NOT NULL
+);
+
+-- Engangslenker for å sette nytt passord. Bare en hash av koden lagres.
+CREATE TABLE IF NOT EXISTS password_resets (
   token_hash TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   expires_at INTEGER NOT NULL
@@ -107,4 +115,8 @@ function migrate(db) {
   if (!columns("users").includes("onboarded")) {
     db.exec("ALTER TABLE users ADD COLUMN onboarded INTEGER NOT NULL DEFAULT 0");
   }
+  if (!columns("users").includes("email")) {
+    db.exec("ALTER TABLE users ADD COLUMN email TEXT");
+  }
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS users_email ON users (email) WHERE email IS NOT NULL");
 }

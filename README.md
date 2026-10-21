@@ -20,6 +20,36 @@ En ekte, men rolig sosial kanal for barn (laget for mellomtrinnet), og det motsa
 
 Barn kan ikke registrere seg selv. Det er alltid en foresatt som lager kontoen, slik at det er samtykke fra foresatte (GDPR-kravet for barn under 13 år i Norge).
 
+## Glemt passord
+
+- **Foresatte:** «Glemt passord?» på innloggingssiden sender en lenke til e-posten på kontoen. Lenken virker i én time og kan bare brukes én gang, og alle andre enheter blir logget ut når passordet endres. Svaret er det samme uansett om e-posten finnes, så ingen kan sjekke hvem som har konto. E-post og passord kan også endres under **Konto**.
+- **Barn:** Foresatte setter nytt passord under **Barn → grenser og passord**.
+- **Foresatte uten e-post på kontoen** (de som registrerte seg før funksjonen kom) får en oppfordring om å legge den inn. Er de allerede låst ute, kan den som drifter tjenesten lage en lenke (se under).
+
+### Sende e-post
+
+Legg inn disse miljøvariablene (i Render: tjenesten → **Environment**):
+
+| Variabel | Eksempel |
+|---|---|
+| `SMTP_HOST` | `smtp.gmail.com`, `smtp-relay.brevo.com`, `smtp.office365.com` |
+| `SMTP_PORT` | `587` (eller `465`) |
+| `SMTP_USER` | brukernavnet hos e-postleverandøren |
+| `SMTP_PASS` | passordet, for Gmail et [app-passord](https://myaccount.google.com/apppasswords) |
+| `MAIL_FROM` | `SoMe <noreply@dittdomene.no>` (standard: `SMTP_USER`) |
+
+Uten `SMTP_HOST` sendes ingen e-post. Lenken skrives i stedet til serverloggen (Render → **Logs**). Lenkene peker til `APP_URL`, eller til `RENDER_EXTERNAL_URL`, som Render setter automatisk.
+
+### Lage lenke for nytt passord på serveren
+
+Hvis en foresatt er låst ute og ikke har e-post på kontoen, åpner du **Shell** for tjenesten i Render og kjører:
+
+```bash
+npm run reset-link -- brukernavn
+```
+
+Kommandoen skriver ut en lenke som virker i én time. Gi den bare til den det gjelder.
+
 ## Design
 
 Rolig og moderne uttrykk med nøytrale flater, én aksentfarge og strekikoner. Lys og mørk modus følger telefonens innstilling. Nye innlegg skrives i et ark som glir opp nedenfra, og foresatte har faner for barn, grupper og konto.
@@ -82,6 +112,8 @@ Miljøvariabler:
 | `MAX_VIDEO_MB` | `50` | Maks størrelse per video i MB |
 | `MAX_IMAGE_MB` | `8` | Maks størrelse per bilde i MB |
 | `REGISTRATION_CODE` | – | Hvis satt, må foresatte oppgi denne koden for å lage konto |
+| `APP_URL` | `RENDER_EXTERNAL_URL` eller `http://localhost:3000` | Adressen som brukes i lenker på e-post |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | – | E-post, se «Sende e-post» |
 
 Hvis det står en proxy foran appen (for eksempel nginx), må den tillate store nok opplastinger, f.eks. `client_max_body_size 55m;`.
 

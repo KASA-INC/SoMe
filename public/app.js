@@ -58,6 +58,8 @@ const ICONS = {
   sliders: ["M4 21v-7", "M4 10V3", "M12 21v-9", "M12 8V3", "M20 21v-5", "M20 12V3", "M1 14h6", "M9 8h6", "M17 16h6"],
   shield: ["M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10", "m9 12 2 2 4-4"],
   eye: ["M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z", "circle:12,12,3"],
+  eyeOff: ["M9.9 9.9a3 3 0 1 0 4.2 4.2", "M10.7 5.1A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13.2 13.2 0 0 1-1.7 2.7", "M6.6 6.6A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.4-1.6", "M2 2l20 20"],
+  mail: ["rect:2,4,20,16,2", "m22 7-10 6L2 7"],
   alert: ["circle:12,12,10", "M12 8v4", "M12 16h.01"],
   lock: ["rect:3,11,18,11,2", "M7 11V7a5 5 0 0 1 10 0v4"],
 };
@@ -87,14 +89,17 @@ function icon(name) {
   return svg;
 }
 
-// Logoen: en snakkeboble.
+// Logoen: en snakkeboble. Hver logo får egen id på fargeovergangen, ellers forsvinner
+// bakgrunnen når en annen logo på siden er skjult.
+let logoCount = 0;
 function logo() {
+  const gradId = `logoGrad${++logoCount}`;
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 512 512");
   svg.setAttribute("aria-hidden", "true");
   const defs = document.createElementNS(SVG_NS, "defs");
   const grad = document.createElementNS(SVG_NS, "linearGradient");
-  grad.id = "logoGrad";
+  grad.id = gradId;
   grad.setAttribute("x1", "0"); grad.setAttribute("y1", "0"); grad.setAttribute("x2", "1"); grad.setAttribute("y2", "1");
   for (const [offset, color] of [["0", "#7a6cff"], ["1", "#4a3ad6"]]) {
     const stop = document.createElementNS(SVG_NS, "stop");
@@ -108,7 +113,7 @@ function logo() {
     svg.append(el);
   };
   svg.append(defs);
-  add("rect", { width: 512, height: 512, rx: 120, fill: "url(#logoGrad)" });
+  add("rect", { width: 512, height: 512, rx: 120, fill: `url(#${gradId})` });
   add("path", { fill: "#fff", d: "M256 120c-82 0-148 57-148 128 0 39 20 73 52 96v52l54-30c13 4 27 6 42 6 82 0 148-57 148-128S338 120 256 120z" });
   for (const cx of [196, 256, 316]) add("circle", { cx, cy: 250, r: 20, fill: "#5b4cf0" });
   return svg;
@@ -148,6 +153,20 @@ const render = (...nodes) => {
 
 const avatar = (emoji, size = "") => h("span", { class: `avatar ${size}`, "aria-hidden": "true" }, emoji);
 const field = (label, input) => h("label", { class: "field" }, label, input);
+
+// Passordfelt med knapp for å vise passordet (nyttig når mobilen har laget et langt passord).
+function passwordInput(attrs) {
+  const input = h("input", { ...attrs, type: "password", autocapitalize: "none", spellcheck: "false" });
+  const toggle = h("button", { type: "button", class: "icon-btn", "aria-label": "Vis passord", title: "Vis passord" }, icon("eye"));
+  toggle.addEventListener("click", () => {
+    const show = input.type === "password";
+    input.type = show ? "text" : "password";
+    toggle.replaceChildren(icon(show ? "eyeOff" : "eye"));
+    toggle.setAttribute("aria-label", show ? "Skjul passord" : "Vis passord");
+    toggle.title = toggle.getAttribute("aria-label");
+  });
+  return h("div", { class: "pw" }, input, toggle);
+}
 const formData = (form) => Object.fromEntries(new FormData(form));
 const iconBtn = (name, label, onclick, cls = "") => h("button", { type: "button", class: `icon-btn ${cls}`, "aria-label": label, title: label, onclick }, icon(name));
 const btn = (label, onclick, cls = "", iconName) => h("button", { type: "button", class: `btn ${cls}`, onclick }, iconName && icon(iconName), label);
@@ -226,6 +245,14 @@ async function logout() {
 
 // ---------- Start ----------
 async function start() {
+  const reset = location.hash.match(/^#reset=([0-9a-f]{64})$/);
+  if (reset) {
+    // Fjern koden fra adresselinja, så den ikke blir liggende i historikken.
+    history.replaceState(null, "", location.pathname);
+    config = null;
+    setHeader();
+    return showReset(reset[1]);
+  }
   try {
     config = await api("/me");
   } catch {
@@ -246,8 +273,10 @@ function showLogin() {
   const warning = warningBox();
   const form = h("form", { class: "card" },
     field("Brukernavn", h("input", { name: "username", autocomplete: "username", autocapitalize: "none", required: true })),
-    field("Passord", h("input", { name: "password", type: "password", autocomplete: "current-password", required: true })),
+    field("Passord", passwordInput({ name: "password", autocomplete: "current-password", required: true })),
     h("button", { class: "btn block" }, "Logg inn"),
+    h("p", { class: "center", style: "margin:8px 0 0" },
+      h("button", { class: "link small", type: "button", onclick: showForgot }, "Glemt passord?")),
     warning);
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -268,8 +297,9 @@ async function showRegister() {
   const warning = warningBox();
   const form = h("form", { class: "card" },
     field("Navnet ditt", h("input", { name: "displayName", required: true, maxlength: 20, autocomplete: "given-name" })),
+    field("E-post (brukes hvis du glemmer passordet)", h("input", { name: "email", type: "email", autocomplete: "email", autocapitalize: "none", inputmode: "email", required: true })),
     field("Brukernavn", h("input", { name: "username", autocomplete: "username", autocapitalize: "none", required: true })),
-    field("Passord (minst 8 tegn)", h("input", { name: "password", type: "password", autocomplete: "new-password", required: true, minlength: 8 })),
+    field("Passord (minst 8 tegn)", passwordInput({ name: "password", autocomplete: "new-password", required: true, minlength: 8 })),
     codeRequired && field("Registreringskode", h("input", { name: "code", required: true, autocomplete: "off", autocapitalize: "none" })),
     h("label", { class: "check" }, h("input", { type: "checkbox", required: true }),
       h("span", {}, "Jeg er over 18 år og er foresatt for barna jeg lager kontoer til.")),
@@ -287,6 +317,54 @@ async function showRegister() {
     form,
     h("p", { class: "auth-switch" }, "Har du allerede konto? ",
       h("button", { class: "link", type: "button", onclick: showLogin }, "Logg inn"))));
+}
+
+function showForgot() {
+  const warning = warningBox();
+  const form = h("form", { class: "card" },
+    field("E-postadressen på kontoen din", h("input", { name: "email", type: "email", autocomplete: "email", autocapitalize: "none", inputmode: "email", required: true })),
+    h("button", { class: "btn block" }, "Send lenke"),
+    warning);
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/password/forgot", { method: "POST", body: formData(form) });
+      form.replaceChildren(h("div", { class: "notice" }, icon("mail"),
+        h("div", {}, h("strong", {}, "Sjekk e-posten din"),
+          h("p", { class: "muted small" }, "Hvis adressen hører til en konto, har vi sendt en lenke for å velge nytt passord. Den virker i én time. Se også i søppelpost.")))); 
+    } catch (err) { showWarning(warning, err.message); }
+  });
+  render(h("div", { class: "auth" },
+    authHero("Glemt passord", "Vi sender deg en lenke for å velge et nytt passord."),
+    form,
+    h("div", { class: "card notice" }, icon("user"),
+      h("div", {}, h("strong", {}, "Er du barn?"),
+        h("p", { class: "muted small" }, "Spør en voksen hjemme. De kan lage et nytt passord til deg."))),
+    h("p", { class: "auth-switch" }, h("button", { class: "link", type: "button", onclick: showLogin }, "Tilbake til innlogging"))));
+}
+
+function showReset(token) {
+  const warning = warningBox();
+  const form = h("form", { class: "card" },
+    field("Nytt passord (minst 8 tegn)", passwordInput({ name: "password", autocomplete: "new-password", required: true, minlength: 8 })),
+    h("button", { class: "btn block" }, "Lagre nytt passord"),
+    warning);
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/password/reset", { method: "POST", body: { token, password: formData(form).password } });
+      toast("Passordet er endret. Du er logget inn.");
+      start();
+    } catch (err) {
+      showWarning(warning, err.message);
+      if (err.code === "RESET_INVALID") {
+        form.append(h("p", { class: "center" }, h("button", { class: "link", type: "button", onclick: showForgot }, "Be om en ny lenke")));
+      }
+    }
+  });
+  render(h("div", { class: "auth" },
+    authHero("Velg nytt passord", "Du blir logget ut på alle andre enheter."),
+    form));
 }
 
 // ---------- Barn ----------
@@ -675,7 +753,13 @@ async function showParent() {
     konto: accountTab,
   }[parentTab]();
 
+  const emailNotice = !config.me.email && parentTab !== "konto" && h("div", { class: "card notice" }, icon("mail"),
+    h("div", {}, h("strong", {}, "Legg inn e-posten din"),
+      h("p", { class: "muted small" }, "Da kan du få en lenke for å velge nytt passord hvis du glemmer det."),
+      btn("Legg inn e-post", () => { parentTab = "konto"; showParent(); }, "soft small")));
+
   render(
+    emailNotice,
     h("div", { class: "tabs", role: "tablist" }, tab("barn", "Barn"), tab("grupper", "Grupper"), tab("konto", "Konto")),
     content);
 }
@@ -709,7 +793,7 @@ function childCard(c) {
       field("Innlegg per dag", num("postsPerDay", c.postsPerDay, 0, 10)),
       field("Åpen fra", time("openFrom", c.openFrom)),
       field("Åpen til", time("openTo", c.openTo)),
-      h("div", { class: "full" }, field("Nytt passord (valgfritt)", h("input", { name: "password", type: "password", autocomplete: "new-password", minlength: 8 })))),
+      h("div", { class: "full" }, field("Nytt passord (valgfritt)", passwordInput({ name: "password", autocomplete: "new-password", minlength: 8 })))),
     h("div", { class: "row between" },
       h("button", { class: "btn small" }, "Lagre"),
       h("button", {
@@ -783,7 +867,7 @@ function openAddChild() {
     const form = h("form", {},
       field("Kallenavn (ikke fullt navn)", h("input", { name: "displayName", required: true, maxlength: 20 })),
       field("Brukernavn til innlogging", h("input", { name: "username", required: true, autocomplete: "off", autocapitalize: "none" })),
-      field("Passord (minst 8 tegn)", h("input", { name: "password", type: "password", required: true, minlength: 8, autocomplete: "new-password" })),
+      field("Passord (minst 8 tegn)", passwordInput({ name: "password", required: true, minlength: 8, autocomplete: "new-password" })),
       h("div", { class: "subhead" }, "Profilbilde"), avatars,
       h("button", { class: "btn block" }, "Lag konto"),
       warning);
@@ -890,6 +974,8 @@ function accountTab() {
       h("div", { class: "entity-head" }, avatar(config.me.avatar, "lg"),
         h("div", { class: "who" }, h("h3", {}, config.me.displayName), h("div", { class: "sub" }, `@${config.me.username} · foresatt`))),
       h("div", { class: "card-actions" }, btn("Logg ut", logout, "secondary", "logout"))),
+    emailCard(),
+    passwordCard(),
     h("section", { class: "card" },
       h("h3", {}, "Slett konto"),
       h("p", { class: "muted small" }, "Sletter kontoen din, barnekontoene og alt de har delt. Dette kan ikke angres."),
@@ -899,6 +985,49 @@ function accountTab() {
         start();
       }, "danger", "trash")),
   ];
+}
+
+function emailCard() {
+  const warning = warningBox();
+  const form = h("form", { class: "card" },
+    h("h3", {}, "E-post"),
+    h("p", { class: "muted small" }, config.me.email
+      ? "Brukes bare hvis du glemmer passordet."
+      : "Legg inn e-post, så kan du få en lenke hvis du glemmer passordet."),
+    field("E-postadresse", h("input", { name: "email", type: "email", value: config.me.email, autocomplete: "email", autocapitalize: "none", inputmode: "email", required: true })),
+    h("button", { class: "btn secondary" }, "Lagre e-post"),
+    warning);
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/me", { method: "PATCH", body: formData(form) });
+      config.me.email = formData(form).email.trim().toLowerCase();
+      toast("E-post lagret");
+      warning.classList.add("hidden");
+    } catch (err) { showWarning(warning, err.message); }
+  });
+  return form;
+}
+
+function passwordCard() {
+  const warning = warningBox();
+  const form = h("form", { class: "card" },
+    h("h3", {}, "Bytt passord"),
+    h("p", { class: "muted small" }, "Du blir logget ut på andre enheter."),
+    field("Nåværende passord", passwordInput({ name: "current", autocomplete: "current-password", required: true })),
+    field("Nytt passord (minst 8 tegn)", passwordInput({ name: "password", autocomplete: "new-password", required: true, minlength: 8 })),
+    h("button", { class: "btn secondary" }, "Bytt passord"),
+    warning);
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/me/password", { method: "POST", body: formData(form) });
+      form.reset();
+      warning.classList.add("hidden");
+      toast("Passordet er byttet");
+    } catch (err) { showWarning(warning, err.message); }
+  });
+  return form;
 }
 
 async function showGroupPosts(g) {
@@ -929,5 +1058,8 @@ async function showGroupPosts(g) {
       return card;
     }));
 }
+
+// En lenke for nytt passord kan åpnes i en fane der SoMe allerede er åpen.
+window.addEventListener("hashchange", () => location.hash.startsWith("#reset=") && start());
 
 start();

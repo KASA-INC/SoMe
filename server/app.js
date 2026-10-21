@@ -5,9 +5,10 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkText } from "./filter.js";
 import { isJpeg, stripJpegMetadata, inspectVideo, MediaError } from "./media.js";
+import { createMailer } from "./mail.js";
 import {
   COOKIE, hashPassword, verifyPassword, createSession, destroySession, userFromToken,
-  readCookie, sessionCookie, tooManyAttempts, recordFailure, clearFailures,
+  readCookie, sessionCookie, tooManyAttempts, recordFailure, clearFailures, sha256,
 } from "./auth.js";
 
 // Innleggstyper: alle innlegg må ha en positiv ramme.
@@ -36,6 +37,8 @@ const TZ = process.env.TZ_APP || "Europe/Oslo";
 
 const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const USERNAME = /^[a-z0-9._-]{3,24}$/i;
+const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
+const RESET_MINUTES = 60;
 
 class HttpError extends Error {
   constructor(status, message, code) {
@@ -55,6 +58,7 @@ function safeEqual(a, b) {
 // registrationCode: hvis satt, må foresatte oppgi denne koden for å lage konto.
 export function createApp({
   db, mediaDir, mediaLimits = DEFAULT_MEDIA_LIMITS, now = Date.now, secureCookies = false, registrationCode = "",
+  appUrl = "http://localhost:3000", mailer = createMailer(),
 }) {
   const app = express();
   app.disable("x-powered-by");
@@ -167,8 +171,9 @@ export function createApp({
     }
     validateCredentials(username, password);
     const displayName = validateDisplayName(req.body.displayName);
-    const { lastInsertRowid } = q(`INSERT INTO users (username, password_hash, role, display_name, avatar, created_at)
-      VALUES (?, ?, 'parent', ?, '🧑', ?)`).run(username, hashPassword(password), displayName, now());
+    const email = validateEmail(req.body.email);
+    const { lastInsertRowid } = q(`INSERT INTO users (username, password_hash, role, display_name, email, avatar, created_at)
+      VALUES (?, ?, 'parent', ?, ?, '🧑', ?)`).run(username, hashPassword(password), displayName, email, now());
     const token = createSession(db, lastInsertRowid);
     res.set("Set-Cookie", sessionCookie(token, secureCookies)).status(201).json({ ok: true });
   });
@@ -195,6 +200,7 @@ export function createApp({
 
   app.get("/api/me", needUser(), (req, res) => {
     const me = publicUser(req.user);
+    if (req.user.role === "parent") me.email = req.user.email || "";
     if (req.user.role === "child") {
       me.status = childStatus(req.user);
       me.onboarded = !!req.user.onboarded;
@@ -208,6 +214,93 @@ export function createApp({
   app.post("/api/onboarded", needUser("child"), (req, res) => {
     q("UPDATE users SET onboarded = 1 WHERE id = ?").run(req.user.id);
     res.json({ ok: true });
+  });
+
+  // ---------- Passord og e-post ----------
+  function validateEmail(value, userId = 0) {
+    const email = typeof value === "string" ? value.trim().toLowerCase() : "";
+    if (!EMAIL.test(email)) fail(400, "Skriv inn en gyldig e-postadresse");
+    if (q("SELECT 1 FROM users WHERE email = ? AND id != ?").get(email, userId)) fail(409, "E-postadressen er allerede i bruk");
+    return email;
+  }
+
+  function validateNewPassword(password) {
+    if (typeof password !== "string" || password.length < 8) fail(400, "Passordet må ha minst 8 tegn");
+    if (password.length > 200) fail(400, "Passordet er for langt");
+  }
+
+  // Lager en engangslenke for å sette nytt passord. Brukes av «Glemt passord» og av cli.js.
+  function createResetLink(userId) {
+    const token = randomBytes(32).toString("hex");
+    q("DELETE FROM password_resets WHERE user_id = ? OR expires_at < ?").run(userId, now());
+    q("INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES (?, ?, ?)")
+      .run(sha256(token), userId, now() + RESET_MINUTES * 60e3);
+    // Koden ligger etter # så den aldri sendes til serveren i loggede URL-er eller Referer.
+    return `${appUrl.replace(/\/$/, "")}/#reset=${token}`;
+  }
+  app.locals.createResetLink = createResetLink;
+
+  app.patch("/api/me", parent, (req, res) => {
+    if (req.body.email !== undefined) {
+      q("UPDATE users SET email = ? WHERE id = ?").run(validateEmail(req.body.email, req.user.id), req.user.id);
+    }
+    if (req.body.displayName !== undefined) {
+      q("UPDATE users SET display_name = ? WHERE id = ?").run(validateDisplayName(req.body.displayName), req.user.id);
+    }
+    res.json({ ok: true });
+  });
+
+  // Bytt passord når man er logget inn. Krever det gamle passordet.
+  app.post("/api/me/password", parent, (req, res) => {
+    const key = `pw|${req.user.id}`;
+    if (tooManyAttempts(key)) fail(429, "For mange forsøk. Vent litt og prøv igjen.");
+    if (typeof req.body.current !== "string" || !verifyPassword(req.body.current, req.user.password_hash)) {
+      recordFailure(key);
+      fail(400, "Nåværende passord er feil");
+    }
+    validateNewPassword(req.body.password);
+    q("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(req.body.password), req.user.id);
+    // Logg ut alle andre enheter, men behold denne.
+    q("DELETE FROM sessions WHERE user_id = ?").run(req.user.id);
+    res.set("Set-Cookie", sessionCookie(createSession(db, req.user.id), secureCookies)).json({ ok: true });
+  });
+
+  // Glemt passord: svarer alltid det samme, så ingen kan finne ut hvilke e-poster som finnes.
+  app.post("/api/password/forgot", async (req, res) => {
+    const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const key = `reset|${req.ip}`;
+    if (tooManyAttempts(key)) fail(429, "For mange forsøk. Vent litt og prøv igjen.");
+    recordFailure(key); // teller alle forsøk, så man ikke kan sende mange e-poster
+    const user = EMAIL.test(email) && q("SELECT * FROM users WHERE email = ? AND role = 'parent'").get(email);
+    if (user) {
+      const link = createResetLink(user.id);
+      try {
+        await mailer.send({
+          to: email,
+          subject: "Nytt passord til SoMe",
+          text: `Hei ${user.display_name}!\n\nNoen (forhåpentligvis du) har bedt om å sette nytt passord for SoMe-kontoen «${user.username}».\n\n`
+            + `Åpne denne lenken for å velge et nytt passord. Den virker i ${RESET_MINUTES} minutter og kan bare brukes én gang:\n${link}\n\n`
+            + "Hvis det ikke var du, kan du se bort fra denne e-posten. Passordet ditt er ikke endret.",
+        });
+      } catch (err) {
+        console.error("Klarte ikke å sende e-post:", err.message);
+      }
+    }
+    res.json({ ok: true });
+  });
+
+  app.post("/api/password/reset", (req, res) => {
+    const token = typeof req.body.token === "string" ? req.body.token : "";
+    const row = /^[0-9a-f]{64}$/.test(token) &&
+      q("SELECT * FROM password_resets WHERE token_hash = ? AND expires_at > ?").get(sha256(token), now());
+    if (!row) fail(400, "Lenken er utløpt eller allerede brukt. Be om en ny.", "RESET_INVALID");
+    validateNewPassword(req.body.password);
+    q("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(req.body.password), row.user_id);
+    q("DELETE FROM password_resets WHERE user_id = ?").run(row.user_id);
+    q("DELETE FROM sessions WHERE user_id = ?").run(row.user_id);
+    const user = q("SELECT username FROM users WHERE id = ?").get(row.user_id);
+    clearFailures(`${user.username.toLowerCase()}|${req.ip}`);
+    res.set("Set-Cookie", sessionCookie(createSession(db, row.user_id), secureCookies)).json({ ok: true });
   });
 
   // Foresatte kan slette sin egen konto. Barnekontoene og alt innholdet slettes også.

@@ -15,7 +15,7 @@ export function verifyPassword(password, stored) {
   return timingSafeEqual(hash, Buffer.from(hashHex, "hex"));
 }
 
-const sha256 = (s) => createHash("sha256").update(s).digest("hex");
+export const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
 export function createSession(db, userId) {
   const token = randomBytes(32).toString("hex");
