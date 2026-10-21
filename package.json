@@ -11,7 +11,8 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server/index.js",
     "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
-    "reset-link": "node --disable-warning=ExperimentalWarning server/cli.js reset-link"
+    "reset-link": "node --disable-warning=ExperimentalWarning server/cli.js reset-link",
+    "reset-all": "node --disable-warning=ExperimentalWarning server/cli.js reset-all"
   },
   "dependencies": {
     "express": "^5.1.0",

@@ -56,6 +56,17 @@ npm run reset-link -- e-post-eller-brukernavn
 
 Kommandoen skriver ut en lenke som virker i én time. Gi den bare til den det gjelder.
 
+### Nullstille alt
+
+For å slette alle kontoer, grupper, innlegg, bilder og videoer, og logge ut alle, åpner du **Shell** i Render og kjører:
+
+```bash
+npm run reset-all              # viser hva som vil bli slettet, sletter ingenting
+npm run reset-all -- SLETT-ALT # sletter alt
+```
+
+Dette kan ikke angres i appen. Render tar daglige øyeblikksbilder av disken, så en nylig kopi kan gjenopprettes fra Render sitt dashbord.
+
 ## Design
 
 Rolig og moderne uttrykk med strekikoner og quipu-paletten: petrol `#0E5B5E` som hovedfarge, korall `#F4795B` som aksent, nesten svart `#17171B` og kremhvit `#F7F5F1`. Logoen (en Q formet som en snakkeboble) og ordbildet ligger som vektorer i `public/brand.js`. I mørk modus er logoen korall. Lys og mørk modus følger telefonens innstilling. Nye innlegg skrives i et ark som glir opp nedenfra, og foresatte har faner for barn, grupper og konto.
