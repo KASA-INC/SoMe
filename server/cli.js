@@ -1,5 +1,5 @@
 // Verktøy for den som drifter SoMe. Kjøres på serveren, f.eks. i Render sin «Shell»:
-//   npm run reset-link -- <brukernavn>
+//   npm run reset-link -- <e-post eller brukernavn>
 // Skriver ut en engangslenke (gyldig i én time) for å sette nytt passord.
 import { openDb } from "./db.js";
 import { createApp } from "./app.js";
@@ -7,14 +7,15 @@ import { appUrl } from "./config.js";
 
 const [command, username] = process.argv.slice(2);
 if (command !== "reset-link" || !username) {
-  console.log("Bruk: npm run reset-link -- <brukernavn>");
+  console.log("Bruk: npm run reset-link -- <e-post eller brukernavn>");
   process.exit(1);
 }
 
 const db = openDb(process.env.DB_PATH || "data/some.db");
-const user = db.prepare("SELECT id, role, display_name FROM users WHERE username = ?").get(username);
+const login = username.trim().toLowerCase();
+const user = db.prepare(`SELECT id, role, display_name FROM users WHERE ${login.includes("@") ? "email" : "username"} = ?`).get(login);
 if (!user) {
-  console.error(`Fant ingen bruker med brukernavnet «${username}».`);
+  console.error(`Fant ingen bruker med «${username}».`);
   process.exit(1);
 }
 if (user.role !== "parent") {

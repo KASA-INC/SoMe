@@ -272,7 +272,7 @@ function authHero(title, text) {
 function showLogin() {
   const warning = warningBox();
   const form = h("form", { class: "card" },
-    field("Brukernavn", h("input", { name: "username", autocomplete: "username", autocapitalize: "none", required: true })),
+    field("E-post eller brukernavn", h("input", { name: "login", autocomplete: "username", autocapitalize: "none", autocorrect: "off", spellcheck: "false", required: true })),
     field("Passord", passwordInput({ name: "password", autocomplete: "current-password", required: true })),
     h("button", { class: "btn block" }, "Logg inn"),
     h("p", { class: "center", style: "margin:8px 0 0" },
@@ -297,8 +297,7 @@ async function showRegister() {
   const warning = warningBox();
   const form = h("form", { class: "card" },
     field("Navnet ditt", h("input", { name: "displayName", required: true, maxlength: 20, autocomplete: "given-name" })),
-    field("E-post (brukes hvis du glemmer passordet)", h("input", { name: "email", type: "email", autocomplete: "email", autocapitalize: "none", inputmode: "email", required: true })),
-    field("Brukernavn", h("input", { name: "username", autocomplete: "username", autocapitalize: "none", required: true })),
+    field("E-post (du logger inn med denne)", h("input", { name: "email", type: "email", autocomplete: "username", autocapitalize: "none", inputmode: "email", required: true })),
     field("Passord (minst 8 tegn)", passwordInput({ name: "password", autocomplete: "new-password", required: true, minlength: 8 })),
     codeRequired && field("Registreringskode", h("input", { name: "code", required: true, autocomplete: "off", autocapitalize: "none" })),
     h("label", { class: "check" }, h("input", { type: "checkbox", required: true }),
@@ -972,7 +971,7 @@ function accountTab() {
     h("div", { class: "section-title" }, h("h2", {}, "Konto")),
     h("section", { class: "card" },
       h("div", { class: "entity-head" }, avatar(config.me.avatar, "lg"),
-        h("div", { class: "who" }, h("h3", {}, config.me.displayName), h("div", { class: "sub" }, `@${config.me.username} · foresatt`))),
+        h("div", { class: "who" }, h("h3", {}, config.me.displayName), h("div", { class: "sub" }, config.me.email || `@${config.me.username}`))),
       h("div", { class: "card-actions" }, btn("Logg ut", logout, "secondary", "logout"))),
     emailCard(),
     passwordCard(),
@@ -992,7 +991,7 @@ function emailCard() {
   const form = h("form", { class: "card" },
     h("h3", {}, "E-post"),
     h("p", { class: "muted small" }, config.me.email
-      ? "Brukes bare hvis du glemmer passordet."
+      ? "Du logger inn med denne, og får lenke hit hvis du glemmer passordet."
       : "Legg inn e-post, så kan du få en lenke hvis du glemmer passordet."),
     field("E-postadresse", h("input", { name: "email", type: "email", value: config.me.email, autocomplete: "email", autocapitalize: "none", inputmode: "email", required: true })),
     h("button", { class: "btn secondary" }, "Lagre e-post"),

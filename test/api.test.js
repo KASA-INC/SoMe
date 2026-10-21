@@ -322,7 +322,7 @@ test("barnet ser introduksjonen én gang, og det huskes på serveren", async () 
 test("glemt passord: lenke på e-post, nytt passord, engangsbruk og utlogging", async () => {
   const a = await setupFamily("p");
   const otherDevice = client();
-  await otherDevice("/login", { method: "POST", body: { username: "p-mor", password: "hemmelig123" } });
+  await otherDevice("/login", { method: "POST", body: { login: "p@example.com", password: "hemmelig123" } });
 
   // Ukjent e-post gir samme svar, men ingen e-post.
   outbox.length = 0;
@@ -339,10 +339,10 @@ test("glemt passord: lenke på e-post, nytt passord, engangsbruk og utlogging", 
   assert.equal((await anon("/password/reset", { method: "POST", body: { token, password: "kort" } })).status, 400);
   const ok = await anon("/password/reset", { method: "POST", body: { token, password: "nytt-passord-123" } });
   assert.equal(ok.status, 200);
-  assert.equal((await anon("/me")).body.me.username, "p-mor"); // logget inn
+  assert.equal((await anon("/me")).body.me.email, "p@example.com"); // logget inn
   assert.equal((await otherDevice("/me")).status, 401); // andre enheter logget ut
-  assert.equal((await client()("/login", { method: "POST", body: { username: "p-mor", password: "hemmelig123" } })).status, 401);
-  assert.equal((await client()("/login", { method: "POST", body: { username: "p-mor", password: "nytt-passord-123" } })).status, 200);
+  assert.equal((await client()("/login", { method: "POST", body: { login: "p@example.com", password: "hemmelig123" } })).status, 401);
+  assert.equal((await client()("/login", { method: "POST", body: { login: "p@example.com", password: "nytt-passord-123" } })).status, 200);
 
   // Lenken kan bare brukes én gang.
   const again = await anon("/password/reset", { method: "POST", body: { token, password: "enda-et-passord" } });
@@ -368,7 +368,7 @@ test("foresatte kan bytte passord og e-post når de er logget inn", async () => 
   assert.equal((await a.parent("/me/password", { method: "POST", body: { current: "feil-passord", password: "nytt-passord-123" } })).status, 400);
   assert.equal((await a.parent("/me/password", { method: "POST", body: { current: "hemmelig123", password: "nytt-passord-123" } })).status, 200);
   assert.equal((await a.parent("/me")).status, 200); // fortsatt logget inn på denne enheten
-  assert.equal((await client()("/login", { method: "POST", body: { username: "r-mor", password: "nytt-passord-123" } })).status, 200);
+  assert.equal((await client()("/login", { method: "POST", body: { login: "r@example.com", password: "nytt-passord-123" } })).status, 200);
 
   assert.equal((await a.parent("/me", { method: "PATCH", body: { email: "ikke-en-epost" } })).status, 400);
   assert.equal((await a.parent("/me", { method: "PATCH", body: { email: "p@example.com" } })).status, 409); // tatt
@@ -382,4 +382,32 @@ test("registrering krever gyldig e-post", async () => {
   const c = client();
   const res = await c("/register", { method: "POST", body: { username: "uten-epost", password: "hemmelig123", displayName: "Voksen" } });
   assert.equal(res.status, 400);
+});
+
+test("foresatte logger inn med e-post, barn med brukernavn", async () => {
+  const a = await setupFamily("s");
+  // Registreringen trenger ikke brukernavn, og e-post er ikke følsom for store bokstaver.
+  assert.equal((await client()("/login", { method: "POST", body: { login: " S@Example.com ", password: "hemmelig123" } })).status, 200);
+  assert.equal((await client()("/login", { method: "POST", body: { login: "s@example.com", password: "feil-passord" } })).status, 401);
+  assert.equal((await client()("/login", { method: "POST", body: { login: "s-ola", password: "ola12345" } })).status, 200);
+  assert.match((await a.parent("/me")).body.me.username, /^foresatt-[0-9a-f]{10}$/);
+});
+
+test("foresatte fra før e-post kom kan fortsatt logge inn med brukernavn", async () => {
+  const db = openDb();
+  const app = createApp({ db, mediaDir, mailer });
+  const srv = app.listen(0);
+  await new Promise((r) => srv.once("listening", r));
+  const { hashPassword } = await import("../server/auth.js");
+  db.prepare("INSERT INTO users (username, password_hash, role, display_name, created_at) VALUES ('gammel', ?, 'parent', 'Gammel', 0)")
+    .run(hashPassword("hemmelig123"));
+  try {
+    const res = await fetch(`http://localhost:${srv.address().port}/api/login`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ login: "Gammel", password: "hemmelig123" }),
+    });
+    assert.equal(res.status, 200);
+  } finally {
+    srv.close();
+  }
 });

@@ -12,11 +12,13 @@ En ekte, men rolig sosial kanal for barn (laget for mellomtrinnet), og det motsa
 
 | Hvem | Kan |
 |---|---|
-| **Foresatt** | Registrere seg, lage og slette barnekontoer, sette grenser, lage grupper (og få en invitasjonskode), melde barna inn og ut av grupper, lese alt i gruppene barna er med i, slette barnas innlegg og slette hele kontoen sin med alle data. |
+| **Foresatt** | Registrere seg og logge inn med e-post, lage og slette barnekontoer, sette grenser, lage grupper (og få en invitasjonskode), melde barna inn og ut av grupper, lese alt i gruppene barna er med i, slette barnas innlegg og slette hele kontoen sin med alle data. |
 | **Gruppeeier** (foresatt som laget gruppa) | Det samme, og i tillegg godkjenne bilder og video, se rapporterte innlegg og vise dem igjen eller fjerne dem, og slå av eller på kravet om godkjenning for gruppa. |
-| **Barn** | Logge inn med brukernavnet og passordet den foresatte har laget, lese feeden, dele innlegg med bilde eller video, slette egne innlegg og trykke «🚩 Si fra». Et innlegg som blir rapportert, skjules med en gang til en voksen har sett på det. |
+| **Barn** | Logge inn med brukernavnet og passordet den foresatte har laget (barn har ikke e-post), lese feeden, dele innlegg med bilde eller video, slette egne innlegg og trykke «🚩 Si fra». Et innlegg som blir rapportert, skjules med en gang til en voksen har sett på det. |
 
 **Åpenhet overfor barna:** Første gang et barn logger inn, får det en kort introduksjon. Den forteller blant annet at foreldrene deres, og foreldrene til de andre i gruppa, kan lese alt som deles i gruppa. Det står også fast der barnet deler («6B og foreldrene i gruppa ser det du deler»). Introduksjonen kan åpnes igjen med «Slik fungerer SoMe» nederst i feeden.
+
+**Innlogging:** Én side for alle, med feltet «E-post eller brukernavn». Foresatte bruker e-post. Barn bruker brukernavnet de har fått. Foresatte som registrerte seg før e-post kom, kan også bruke det gamle brukernavnet.
 
 Barn kan ikke registrere seg selv. Det er alltid en foresatt som lager kontoen, slik at det er samtykke fra foresatte (GDPR-kravet for barn under 13 år i Norge).
 
@@ -45,7 +47,7 @@ Uten `SMTP_HOST` sendes ingen e-post. Lenken skrives i stedet til serverloggen (
 Hvis en foresatt er låst ute og ikke har e-post på kontoen, åpner du **Shell** for tjenesten i Render og kjører:
 
 ```bash
-npm run reset-link -- brukernavn
+npm run reset-link -- e-post-eller-brukernavn
 ```
 
 Kommandoen skriver ut en lenke som virker i én time. Gi den bare til den det gjelder.

@@ -164,28 +164,38 @@ export function createApp({
 
   app.get("/api/signup-info", (req, res) => res.json({ codeRequired: !!registrationCode }));
 
+  // Foresatte logger inn med e-post. Brukernavnet lages automatisk og vises ikke,
+  // men databasen krever et unikt brukernavn på alle kontoer (barna bruker sitt).
   app.post("/api/register", (req, res) => {
-    const { username, password } = req.body;
+    const { password } = req.body;
     if (registrationCode && !safeEqual(String(req.body.code || "").trim(), registrationCode)) {
       fail(403, "Feil registreringskode. Spør den som inviterte deg.");
     }
-    validateCredentials(username, password);
     const displayName = validateDisplayName(req.body.displayName);
     const email = validateEmail(req.body.email);
+    validateNewPassword(password);
+    let username;
+    do username = `foresatt-${randomBytes(5).toString("hex")}`;
+    while (q("SELECT 1 FROM users WHERE username = ?").get(username));
     const { lastInsertRowid } = q(`INSERT INTO users (username, password_hash, role, display_name, email, avatar, created_at)
       VALUES (?, ?, 'parent', ?, ?, '🧑', ?)`).run(username, hashPassword(password), displayName, email, now());
     const token = createSession(db, lastInsertRowid);
     res.set("Set-Cookie", sessionCookie(token, secureCookies)).status(201).json({ ok: true });
   });
 
+  // Én innlogging for alle: foresatte skriver e-post, barn skriver brukernavn.
+  // Foresatte som registrerte seg før e-post kom, kan også bruke brukernavnet sitt.
   app.post("/api/login", (req, res) => {
-    const { username, password } = req.body;
-    const key = `${String(username).toLowerCase()}|${req.ip}`;
+    const { password } = req.body;
+    const login = String(req.body.login ?? req.body.username ?? "").trim().toLowerCase();
+    const key = `${login}|${req.ip}`;
     if (tooManyAttempts(key)) fail(429, "For mange forsøk. Vent litt og prøv igjen.");
-    const user = q("SELECT * FROM users WHERE username = ?").get(String(username || ""));
+    const user = login.includes("@")
+      ? q("SELECT * FROM users WHERE email = ? AND role = 'parent'").get(login)
+      : q("SELECT * FROM users WHERE username = ?").get(login);
     if (!user || typeof password !== "string" || !verifyPassword(password, user.password_hash)) {
       recordFailure(key);
-      fail(401, "Feil brukernavn eller passord");
+      fail(401, "Feil e-post, brukernavn eller passord");
     }
     clearFailures(key);
     const token = createSession(db, user.id);
@@ -278,7 +288,7 @@ export function createApp({
         await mailer.send({
           to: email,
           subject: "Nytt passord til SoMe",
-          text: `Hei ${user.display_name}!\n\nNoen (forhåpentligvis du) har bedt om å sette nytt passord for SoMe-kontoen «${user.username}».\n\n`
+          text: `Hei ${user.display_name}!\n\nNoen (forhåpentligvis du) har bedt om å sette nytt passord for SoMe-kontoen din (${email}).\n\n`
             + `Åpne denne lenken for å velge et nytt passord. Den virker i ${RESET_MINUTES} minutter og kan bare brukes én gang:\n${link}\n\n`
             + "Hvis det ikke var du, kan du se bort fra denne e-posten. Passordet ditt er ikke endret.",
         });
@@ -298,8 +308,9 @@ export function createApp({
     q("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(req.body.password), row.user_id);
     q("DELETE FROM password_resets WHERE user_id = ?").run(row.user_id);
     q("DELETE FROM sessions WHERE user_id = ?").run(row.user_id);
-    const user = q("SELECT username FROM users WHERE id = ?").get(row.user_id);
+    const user = q("SELECT username, email FROM users WHERE id = ?").get(row.user_id);
     clearFailures(`${user.username.toLowerCase()}|${req.ip}`);
+    if (user.email) clearFailures(`${user.email}|${req.ip}`);
     res.set("Set-Cookie", sessionCookie(createSession(db, row.user_id), secureCookies)).json({ ok: true });
   });
 
