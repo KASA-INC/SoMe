@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS users (
   open_from TEXT NOT NULL DEFAULT '07:00',
   open_to TEXT NOT NULL DEFAULT '20:00',
   posts_per_day INTEGER NOT NULL DEFAULT 2,
+  -- 1 når barnet har sett introduksjonen (bl.a. at voksne kan lese det som deles)
+  onboarded INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL
 );
 
@@ -101,5 +103,8 @@ function migrate(db) {
   const columns = (table) => db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
   if (!columns("groups").includes("media_review")) {
     db.exec("ALTER TABLE groups ADD COLUMN media_review INTEGER NOT NULL DEFAULT 1");
+  }
+  if (!columns("users").includes("onboarded")) {
+    db.exec("ALTER TABLE users ADD COLUMN onboarded INTEGER NOT NULL DEFAULT 0");
   }
 }

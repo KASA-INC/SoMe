@@ -319,7 +319,7 @@ select {
   min-width: 0;
 }
 .compose-prompt .icon-btn { background: var(--accent); color: var(--accent-ink); }
-.compose-meta { display: flex; justify-content: space-between; gap: 8px; margin: -4px 4px 14px; font-size: 0.85rem; color: var(--text-3); }
+.compose-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin: -4px 4px 14px; font-size: 0.85rem; color: var(--text-3); }
 
 .notice { display: flex; gap: 12px; align-items: flex-start; }
 .notice svg.icon { color: var(--accent); margin-top: 2px; }
@@ -396,6 +396,27 @@ select {
 
 .blocked { text-align: center; padding: 40px 20px; margin-top: 8vh; }
 .blocked p { color: var(--text-2); margin: 6px 0 0; }
+
+/* ---------- Introduksjon ---------- */
+.intro { text-align: center; padding: 28px 22px 20px; margin-top: 2vh; }
+.intro .end-icon {
+  display: inline-grid; place-items: center;
+  width: 64px; height: 64px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent-soft-ink);
+  margin: 14px 0 12px;
+}
+.intro .end-icon svg.icon { width: 30px; height: 30px; }
+.intro h2 { font-size: 1.4rem; margin-bottom: 10px; }
+.intro p { color: var(--text-2); margin: 0 0 10px; text-align: left; }
+.intro-dots { display: flex; justify-content: center; gap: 6px; }
+.intro-dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--surface-3); transition: width 0.2s, background 0.2s; }
+.intro-dots i.on { width: 20px; background: var(--accent); }
+.intro-nav { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 18px; }
+.intro-nav .btn:last-child { min-width: 140px; }
+
+.audience { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.audience svg.icon { width: 15px; height: 15px; flex: none; }
+.composer .audience { margin: 12px 0 0; font-size: 0.8rem; color: var(--text-3); }
 
 /* ---------- Ark (bottom sheet) ---------- */
 .sheet-layer { position: fixed; inset: 0; z-index: 30; display: flex; align-items: flex-end; justify-content: center; }

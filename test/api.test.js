@@ -307,3 +307,12 @@ test("registreringskode kreves når den er satt", async () => {
     srv.close();
   }
 });
+
+test("barnet ser introduksjonen én gang, og det huskes på serveren", async () => {
+  const a = await setupFamily("o");
+  assert.equal((await a.kid("/me")).body.me.onboarded, false);
+  assert.equal((await a.kid("/onboarded", { method: "POST" })).status, 200);
+  assert.equal((await a.kid("/me")).body.me.onboarded, true);
+  // Foresatte har ingen introduksjon å bekrefte.
+  assert.equal((await a.parent("/onboarded", { method: "POST" })).status, 403);
+});

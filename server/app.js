@@ -197,10 +197,17 @@ export function createApp({
     const me = publicUser(req.user);
     if (req.user.role === "child") {
       me.status = childStatus(req.user);
+      me.onboarded = !!req.user.onboarded;
       me.groups = q(`SELECT g.id, g.name FROM groups g JOIN memberships m ON m.group_id = g.id
         WHERE m.user_id = ? ORDER BY g.name`).all(req.user.id);
     }
     res.json({ me, kinds: KINDS, colors: COLORS, stickers: STICKERS, avatars: AVATARS, media: mediaLimits });
+  });
+
+  // Barnet har lest introduksjonen og vet at voksne kan lese det som deles.
+  app.post("/api/onboarded", needUser("child"), (req, res) => {
+    q("UPDATE users SET onboarded = 1 WHERE id = ?").run(req.user.id);
+    res.json({ ok: true });
   });
 
   // Foresatte kan slette sin egen konto. Barnekontoene og alt innholdet slettes også.

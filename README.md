@@ -16,6 +16,8 @@ En ekte, men rolig sosial kanal for barn (laget for mellomtrinnet), og det motsa
 | **Gruppeeier** (foresatt som laget gruppa) | Det samme, og i tillegg godkjenne bilder og video, se rapporterte innlegg og vise dem igjen eller fjerne dem, og slå av eller på kravet om godkjenning for gruppa. |
 | **Barn** | Logge inn med brukernavnet og passordet den foresatte har laget, lese feeden, dele innlegg med bilde eller video, slette egne innlegg og trykke «🚩 Si fra». Et innlegg som blir rapportert, skjules med en gang til en voksen har sett på det. |
 
+**Åpenhet overfor barna:** Første gang et barn logger inn, får det en kort introduksjon. Den forteller blant annet at foreldrene deres, og foreldrene til de andre i gruppa, kan lese alt som deles i gruppa. Det står også fast der barnet deler («6B og foreldrene i gruppa ser det du deler»). Introduksjonen kan åpnes igjen med «Slik fungerer SoMe» nederst i feeden.
+
 Barn kan ikke registrere seg selv. Det er alltid en foresatt som lager kontoen, slik at det er samtykke fra foresatte (GDPR-kravet for barn under 13 år i Norge).
 
 ## Design

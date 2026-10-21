@@ -316,7 +316,68 @@ function startHeartbeat() {
   }, 60000);
 }
 
+// Introduksjon første gang barnet logger inn. Kan åpnes igjen nederst i feeden.
+const INTRO = [
+  {
+    icon: "sparkles",
+    title: "Velkommen til SoMe",
+    text: ["Her deler du ting med klassen din. Det finnes ingen likes, følgere eller tall, så det er ingenting å konkurrere om.",
+      "Du ser bare innlegg fra gruppene du er med i."],
+  },
+  {
+    icon: "eye",
+    title: "Voksne kan se det du deler",
+    text: ["Foreldrene dine, og foreldrene til de andre i gruppa, kan lese alt som blir delt i gruppa. Det gjelder også innleggene dine.",
+      "Bilder og videoer blir som regel sett av en voksen før de andre i gruppa får se dem.",
+      "Det er for å passe på at alle har det bra her. Det du skriver, blir ikke sendt før du trykker «Del»."],
+  },
+  {
+    icon: "pencil",
+    title: "Del noe fint",
+    text: ["Hvert innlegg er noe du er glad for, noe du har lært, en takk til noen eller noe du har laget.",
+      "Et godt spørsmål før du deler: Ville jeg sagt dette ansikt til ansikt?",
+      "Del aldri adresse, telefonnummer eller passord."],
+  },
+  {
+    icon: "shield",
+    title: "Hvis noe føles feil",
+    text: ["Trykk «Si fra» på innlegget. Da blir det skjult, og en voksen ser på det.",
+      "Snakk gjerne med en voksen du stoler på.",
+      "SoMe har en tidsgrense og stenger om kvelden. Det er meningen – det er mye annet gøy å gjøre også."],
+  },
+];
+
+function showIntro({ again = false } = {}) {
+  let step = 0;
+  const draw = () => {
+    const s = INTRO[step];
+    const last = step === INTRO.length - 1;
+    render(h("div", { class: "card intro" },
+      h("div", { class: "intro-dots", "aria-hidden": "true" }, INTRO.map((_, i) => h("i", { class: i === step ? "on" : "" }))),
+      h("div", { class: "end-icon" }, icon(s.icon)),
+      h("h2", {}, s.title),
+      s.text.map((t) => h("p", {}, t)),
+      h("div", { class: "intro-nav" },
+        step > 0 ? btn("Tilbake", () => { step--; draw(); }, "ghost") : h("span", {}),
+        btn(last ? (again ? "Ferdig" : "Jeg forstår") : "Neste", async () => {
+          if (!last) { step++; return draw(); }
+          if (!again) {
+            await api("/onboarded", { method: "POST" }).catch(() => {});
+            config.me.onboarded = true;
+          }
+          showChild();
+        }))));
+    window.scrollTo(0, 0);
+  };
+  draw();
+}
+
+// Vises der barnet deler, så det alltid er tydelig hvem som kan lese.
+const audienceNote = (groupName) => h("p", { class: "audience" }, icon("eye"),
+  h("span", {}, `${groupName} og foreldrene i gruppa kan se det du deler.`));
+
 async function showChild() {
+  if (!config.me.onboarded) return showIntro();
   let data;
   try {
     data = await api("/feed");
@@ -333,7 +394,8 @@ async function showChild() {
       h("div", { class: "end-icon" }, icon("check")),
       h("h3", {}, data.posts.length ? "Du er oppdatert" : "Ingenting nytt ennå"),
       h("p", {}, data.posts.length ? "Det var alt fra de siste tre dagene." : "Ingen har delt noe de siste tre dagene."),
-      btn("Se etter nytt", showChild, "secondary small", "refresh")));
+      btn("Se etter nytt", showChild, "secondary small", "refresh"),
+      h("p", {}, h("button", { type: "button", class: "link small", onclick: () => showIntro({ again: true }) }, "Slik fungerer SoMe"))));
 }
 
 function composePrompt(groups, status) {
@@ -355,7 +417,7 @@ function composePrompt(groups, status) {
       h("span", { class: "fake-input" }, "Del noe …"),
       h("span", { class: "icon-btn", "aria-hidden": "true" }, icon("plus"))),
     h("div", { class: "compose-meta" },
-      h("span", {}, `Deles med ${groupName}`),
+      h("span", { class: "audience" }, icon("eye"), h("span", {}, `${groupName} og foreldrene i gruppa ser det du deler`)),
       h("span", {}, status.postsLeft === 1 ? "1 innlegg igjen i dag" : `${status.postsLeft} innlegg igjen i dag`)),
   ];
 }
@@ -496,7 +558,8 @@ function composer(groups, close) {
     warning,
     h("div", { class: "composer-foot" },
       groups.length > 1 ? groupSelect : h("span", { class: "to" }, `Til ${groups[0].name}`),
-      send));
+      send),
+    audienceNote(groups.length > 1 ? "Gruppa" : groups[0].name));
 }
 
 function postCard(p, { actions } = {}) {
