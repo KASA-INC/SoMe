@@ -768,7 +768,4 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 }
 
 /* ---------- Hvem står bak (hvem.html) ---------- */
-.person-photo {
-  display: block; width: min(240px, 64vw); height: auto; aspect-ratio: 4 / 5; object-fit: cover;
-  margin: 8px auto 0; border-radius: 28px; box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .45);
-}
+.person-frame { display: block; width: min(260px, 70vw); height: auto; margin: 8px auto 0; color: var(--brand); overflow: visible; }
