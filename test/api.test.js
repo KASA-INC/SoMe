@@ -67,7 +67,7 @@ async function setupFamily(prefix) {
   const parent = client();
   await registerParent(parent, `${prefix}@example.com`);
   const { body: g } = await parent("/groups", { method: "POST", body: { name: "Klasse 4B" } });
-  assert.equal((await parent("/children", { method: "POST", body: { username: `${prefix}-ola`, password: "ola12345", displayName: "Ola", avatar: "🐸" } })).status, 201);
+  assert.equal((await parent("/children", { method: "POST", body: { username: `${prefix}-ola`, password: "ola12345", displayName: "Ola", avatar: "c03" } })).status, 201);
   const { body: { children } } = await parent("/children");
   await parent("/groups/join", { method: "POST", body: { code: g.inviteCode, childId: children[0].id } });
   const kid = client();
@@ -116,7 +116,7 @@ test("barn i samme gruppe ser hverandres innlegg, uten reaksjoner eller tall", a
   const a = await setupFamily("a");
   const b = client();
   await registerParent(b, "b-far@example.com", "Pappa");
-  await b("/children", { method: "POST", body: { username: "b-kari", password: "kari1234", displayName: "Kari", avatar: "🐯" } });
+  await b("/children", { method: "POST", body: { username: "b-kari", password: "kari1234", displayName: "Kari", avatar: "c04" } });
   const { body: { children } } = await b("/children");
   await b("/groups/join", { method: "POST", body: { code: a.code, childId: children[0].id } });
   await a.parent(`/groups/${a.groupId}/members/${children[0].id}`, { method: "POST", body: { action: "approve" } });
@@ -179,7 +179,7 @@ test("ubrukte innlegg fra i går kan brukes i dag, men aldri mer enn dobbelt", a
 
 test("rapportert innlegg skjules og kan gjenopprettes av gruppeeieren", async () => {
   const a = await setupFamily("f");
-  await a.parent("/children", { method: "POST", body: { username: "f-per", password: "per12345", displayName: "Per", avatar: "🐼" } });
+  await a.parent("/children", { method: "POST", body: { username: "f-per", password: "per12345", displayName: "Per", avatar: "c02" } });
   const { body: { children } } = await a.parent("/children");
   const per = children.find((c) => c.displayName === "Per");
   await a.parent("/groups/join", { method: "POST", body: { code: a.code, childId: per.id } });
@@ -242,7 +242,7 @@ test("innloggingen bremses etter mange feil", async () => {
 test("bilde: EXIF/GPS fjernes, og bare gruppa ser det etter godkjenning", async () => {
   const a = await setupFamily("m");
   const outsider = await setupFamily("n");
-  await a.parent("/children", { method: "POST", body: { username: "m-per", password: "per12345", displayName: "Per", avatar: "🐼" } });
+  await a.parent("/children", { method: "POST", body: { username: "m-per", password: "per12345", displayName: "Per", avatar: "c02" } });
   const per = (await a.parent("/children")).body.children.find((c) => c.displayName === "Per");
   await a.parent("/groups/join", { method: "POST", body: { code: a.code, childId: per.id } });
   const perClient = client();
@@ -508,7 +508,7 @@ test("barn må godkjennes av gruppeeieren før de ser noe i gruppa", async () =>
   await post(a.kid, a.groupId, "Hei fra klassen!");
   const b = client();
   await registerParent(b, "g1-far@example.com", "Pappa");
-  await b("/children", { method: "POST", body: { username: "g1-lise", password: "lise1234", displayName: "Lise", avatar: "🐯" } });
+  await b("/children", { method: "POST", body: { username: "g1-lise", password: "lise1234", displayName: "Lise", avatar: "c04" } });
   const { body: { children: [lise] } } = await b("/children");
   outbox.length = 0;
   const join = await b("/groups/join", { method: "POST", body: { code: a.code, childId: lise.id } });
@@ -541,7 +541,7 @@ test("eieren kan avslå en forespørsel", async () => {
   const a = await setupFamily("g2");
   const b = client();
   await registerParent(b, "g2-far@example.com", "Pappa");
-  await b("/children", { method: "POST", body: { username: "g2-tor", password: "tor12345", displayName: "Tor", avatar: "🐯" } });
+  await b("/children", { method: "POST", body: { username: "g2-tor", password: "tor12345", displayName: "Tor", avatar: "c04" } });
   const { body: { children: [tor] } } = await b("/children");
   await b("/groups/join", { method: "POST", body: { code: a.code, childId: tor.id } });
   assert.equal((await a.parent(`/groups/${a.groupId}/members/${tor.id}`, { method: "POST", body: { action: "reject" } })).status, 200);
@@ -585,4 +585,27 @@ test("opprydding sletter gammel skjermtid og fjernede innlegg etter 30 dager", a
   } finally {
     clock = start;
   }
+});
+
+test("barnet kan bytte profilbilde selv, men bare til figurene i settet", async () => {
+  const a = await setupFamily("av");
+  assert.equal((await a.kid("/me/avatar", { method: "POST", body: { avatar: "c17" } })).status, 200);
+  assert.equal((await a.kid("/me")).body.me.avatar, "c17");
+  assert.equal((await a.kid("/me/avatar", { method: "POST", body: { avatar: "<img>" } })).status, 400);
+  assert.equal((await a.parent("/me/avatar", { method: "POST", body: { avatar: "c01" } })).status, 403);
+});
+
+test("gamle emoji-profilbilder blir til figurer", () => {
+  const dir = mkdtempSync(join(tmpdir(), "quipu-"));
+  const path = join(dir, "old.db");
+  // En database fra før figurene kom: versjon 2 med emojier.
+  const old = openDb(path);
+  old.exec(`INSERT INTO users (username, password_hash, role, display_name, avatar, created_at) VALUES
+    ('a', 'x', 'child', 'A', '🐼', 0), ('b', 'x', 'child', 'B', '🙂', 0), ('c', 'x', 'parent', 'C', '🧑', 0);
+    PRAGMA user_version = 2`);
+  old.close();
+  const db2 = openDb(path);
+  assert.deepEqual(db2.prepare("SELECT avatar FROM users ORDER BY username").all().map((r) => r.avatar), ["c02", "c01", "🧑"]);
+  db2.close();
+  rmSync(dir, { recursive: true, force: true });
 });

@@ -145,4 +145,11 @@ function migrate(db) {
   if (db.prepare("PRAGMA user_version").get().user_version < 2) {
     db.exec("UPDATE users SET email_verified = 1 WHERE role = 'parent' AND email IS NOT NULL; PRAGMA user_version = 2");
   }
+  // Versjon 3: barnas emoji-profilbilder ble byttet ut med tegnede figurer (c01–c24). Hver emoji får sin egen figur.
+  if (db.prepare("PRAGMA user_version").get().user_version < 3) {
+    const OLD = ["🦊", "🐼", "🐸", "🐯", "🐧", "🦖", "🐙", "🦉", "⚡", "🎧", "🚀", "🌊", "🔥", "🌙", "🎮", "🎸"];
+    const update = db.prepare("UPDATE users SET avatar = ? WHERE role = 'child' AND avatar = ?");
+    OLD.forEach((emoji, i) => update.run(`c${String(i + 1).padStart(2, "0")}`, emoji));
+    db.exec("UPDATE users SET avatar = 'c01' WHERE role = 'child' AND avatar NOT GLOB 'c[0-9][0-9]'; PRAGMA user_version = 3");
+  }
 }

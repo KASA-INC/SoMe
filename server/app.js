@@ -28,7 +28,9 @@ export const KINDS = {
 // men feltet godtas fortsatt og lagres for eldre innlegg og klienter.
 export const COLORS = ["lilla", "bla", "gronn", "gul", "oransje", "rosa"];
 export const STICKERS = ["", "⚽", "🏀", "🎮", "🎨", "📚", "🎵", "🎬", "🍕", "🚲", "🐶", "☀️"];
-export const AVATARS = ["🦊", "🐼", "🐸", "🐯", "🐧", "🦖", "🐙", "🦉", "⚡", "🎧", "🚀", "🌊", "🔥", "🌙", "🎮", "🎸"];
+// Profilbilder til barna: «Critters» fra DiceBear (CC0), farget med paletten. Filene ligger i public/avatars/
+// og lages med scripts/avatars.mjs. Foresatte har fortsatt en emoji.
+export const AVATARS = Array.from({ length: 24 }, (_, i) => `c${String(i + 1).padStart(2, "0")}`);
 
 // Grenser for opplasting. Kan endres med miljøvariabler.
 export const DEFAULT_MEDIA_LIMITS = {
@@ -257,6 +259,13 @@ export function createApp({
         WHERE m.user_id = ? ORDER BY g.name`).all(req.user.id);
     }
     res.json({ me, kinds: KINDS, colors: COLORS, stickers: STICKERS, avatars: AVATARS, media: mediaLimits });
+  });
+
+  // Barnet bytter profilbilde selv.
+  app.post("/api/me/avatar", needUser("child"), (req, res) => {
+    if (!AVATARS.includes(req.body.avatar)) fail(400, "Ugyldig profilbilde");
+    q("UPDATE users SET avatar = ? WHERE id = ?").run(req.body.avatar, req.user.id);
+    res.json({ ok: true });
   });
 
   // Barnet har lest introduksjonen og vet at voksne kan lese det som deles.

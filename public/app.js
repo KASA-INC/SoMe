@@ -196,7 +196,21 @@ const show = (nodes, footer) => {
 const render = (...nodes) => show(nodes, config?.me.role !== "child");
 render.feed = (...nodes) => show(nodes, false);
 
-const avatar = (emoji, size = "") => h("span", { class: `avatar ${size}`, "aria-hidden": "true" }, emoji);
+// Barnas profilbilder er tegnede figurer (c01–c24 i /avatars). Foresatte har en emoji.
+const isFigure = (value) => /^c\d{2}$/.test(value);
+const figure = (id) => h("img", { src: `/avatars/${id}.svg`, alt: "", draggable: "false" });
+const avatar = (value, size = "") => isFigure(value)
+  ? h("span", { class: `avatar figure ${size}`, "aria-hidden": "true" }, figure(value))
+  : h("span", { class: `avatar ${size}`, "aria-hidden": "true" }, value);
+
+// Rutenett med alle profilbildene. Brukes når foresatte lager en barnekonto og når barnet bytter selv.
+const avatarPicker = (selected) => {
+  const row = choiceRow(config.avatars, (b, a) => {
+    b.append(figure(a));
+    b.setAttribute("aria-label", `Profilbilde ${config.avatars.indexOf(a) + 1}`);
+  }, selected, "avatar-pick");
+  return row;
+};
 const field = (label, input) => h("label", { class: "field" }, label, input);
 
 // Passordfelt med knapp for å vise passordet (nyttig når mobilen har laget et langt passord).
@@ -271,7 +285,34 @@ function setHeader(status) {
     right.append(h("span", { class: `pill${status.minutesLeft <= 5 ? " low" : ""}`, id: "timeLeft", title: "Tid igjen i dag" },
       icon("clock"), h("span", {}, `${status.minutesLeft} min`)));
   }
-  right.append(avatar(me.avatar, "sm"), iconBtn("logout", "Logg ut", logout));
+  // Barnet trykker på profilbildet sitt for å bytte det.
+  const mine = me.role === "child"
+    ? h("button", { type: "button", class: "avatar-btn", "aria-label": "Bytt profilbilde", title: "Bytt profilbilde", onclick: openAvatarSheet }, avatar(me.avatar, "sm"))
+    : avatar(me.avatar, "sm");
+  right.append(mine, iconBtn("logout", "Logg ut", logout));
+}
+
+function openAvatarSheet() {
+  openSheet("Velg profilbilde", (close) => {
+    const picker = avatarPicker(config.me.avatar);
+    const warning = warningBox();
+    return h("div", {},
+      h("p", { class: "muted small" }, "De andre i gruppa ser bildet ved innleggene dine."),
+      picker,
+      h("button", {
+        class: "btn block", type: "button",
+        onclick: async () => {
+          try {
+            await api("/me/avatar", { method: "POST", body: { avatar: picker.value } });
+            config.me.avatar = picker.value;
+            close();
+            toast("Profilbildet er byttet");
+            start();
+          } catch (err) { showWarning(warning, err.message); }
+        },
+      }, "Bruk dette"),
+      warning);
+  });
 }
 
 function updateTimeLeft(minutesLeft) {
@@ -607,7 +648,10 @@ async function showChild() {
       h("h3", {}, data.posts.length ? "Du er oppdatert" : "Ingenting nytt ennå"),
       h("p", {}, data.posts.length ? "Det var alt fra de siste tre dagene." : "Ingen har delt noe de siste tre dagene."),
       btn("Se etter nytt", showChild, "secondary small", "refresh"),
-      h("p", {}, h("button", { type: "button", class: "link small", onclick: () => showIntro({ again: true }) }, `Slik fungerer ${APP_NAME}`))));
+      h("p", {},
+        h("button", { type: "button", class: "link small", onclick: () => showIntro({ again: true }) }, `Slik fungerer ${APP_NAME}`),
+        " · ",
+        h("button", { type: "button", class: "link small", onclick: openAvatarSheet }, "Bytt profilbilde"))));
 }
 
 function composePrompt(groups, status) {
@@ -1001,7 +1045,7 @@ function childCard(c) {
 
 function openAddChild() {
   openSheet("Ny barnekonto", (close) => {
-    const avatars = choiceRow(config.avatars, (b, a) => (b.textContent = a), config.avatars[0], "avatar-pick");
+    const avatars = avatarPicker(config.avatars[0]);
     const warning = warningBox();
     const form = h("form", {},
       field("Kallenavn (ikke fullt navn)", h("input", { name: "displayName", required: true, maxlength: 20 })),
