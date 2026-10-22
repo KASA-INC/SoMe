@@ -9,6 +9,8 @@ En ekte, men rolig sosial kanal for barn (laget for mellomtrinnet), og det motsa
 - **Laget for lite bruk.** Feeden viser bare de siste tre dagene og tar slutt («Du har sett alt som er nytt!»). Det er ingen uendelig scrolling og ingen varsler. Foresatte bestemmer daglig tidsgrense (standard 20 min), åpningstider (standard 07–20) og antall innlegg per dag (standard 5, 0–10). Ubrukte innlegg fra i går kan brukes dagen etter, men aldri mer enn dobbelt så mange som dagsgrensen på én dag. Alt dette håndheves på serveren.
 - **Bilder og video.** Hver video kan være maks 30 sekunder og 50 MB. Grensene kan endres, se under. GPS-posisjon og annen metadata fjernes fra både bilder og video. Som standard må gruppeeieren godkjenne bilder og video før de andre barna ser dem. Videoer spiller aldri av automatisk.
 - **Lukkede grupper.** Barn ser bare innlegg fra gruppene sine, for eksempel klassen eller en vennegjeng. Det finnes ingen søk, ingen profiler å bla i og ingen direktemeldinger.
+- **Godkjente medlemmer.** Med invitasjonskoden ber en foresatt om at barnet får bli med. Eieren av gruppa får en e-post, ser barnets navn og navnet og e-posten til den foresatte, og godkjenner eller avslår under **Grupper**. Barnet ser ingenting i gruppa før det er godkjent. Eierens egne barn slipper rett inn.
+- **Bekreftet e-post.** Nye foresatte får en lenke på e-post (gyldig i 48 timer) og må åpne den før de kan lage barnekontoer eller grupper. Ny e-postadresse på en bekreftet konto tas først i bruk når lenken til den nye adressen er åpnet.
 
 **Informasjonsside:** [`/om`](public/om.html) forklarer valgene som gjør quipu trygt for barn, og historien bak navnet. Siden er åpen uten innlogging, så den kan deles med foresatte og skolen. Den lenkes fra innloggingssiden og Konto-fanen. [`/hvem`](public/hvem.html) viser hvem som står bak quipu, slik at appen har en ekte avsender. Den lenkes diskret fra Kontakt-delen på `/om`.
 
@@ -56,7 +58,7 @@ Legg inn disse miljøvariablene (i Render: tjenesten → **Environment**):
 
 Sjekk oppsettet ved å åpne **Shell** i Render og kjøre `npm run test-mail -- din@epost.no`.
 
-Uten `SMTP_HOST` sendes ingen e-post. Lenken skrives i stedet til serverloggen (Render → **Logs**). Lenkene peker til `APP_URL`, eller til `RENDER_EXTERNAL_URL`, som Render setter automatisk.
+Uten `SMTP_HOST` sendes ingen e-post. Lenken skrives i stedet til serverloggen (Render → **Logs**). Det gjelder også bekreftelseslenker til nye foresatte, så e-post bør være satt opp før appen åpnes for flere. Kom lenken ikke fram, kan den som drifter tjenesten bekrefte adressen i Shell med `npm run verify-email -- foresatt@epost.no`. Lenkene peker til `APP_URL`, eller til `RENDER_EXTERNAL_URL`, som Render setter automatisk.
 
 ### Lage lenke for nytt passord på serveren
 

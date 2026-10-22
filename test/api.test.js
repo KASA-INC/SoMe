@@ -49,9 +49,21 @@ function client() {
   return call;
 }
 
+// Åpner den siste bekreftelseslenken som ble «sendt» til adressen.
+async function verifyEmail(email) {
+  const mail = outbox.findLast((m) => m.to === email && /#verify=/.test(m.text));
+  const token = mail.text.match(/#verify=([0-9a-f]{64})/)[1];
+  assert.equal((await client()("/email/verify", { method: "POST", body: { token } })).status, 200);
+}
+
+async function registerParent(c, email, displayName = "Mamma") {
+  assert.equal((await c("/register", { method: "POST", body: { password: "hemmelig123", displayName, email } })).status, 201);
+  await verifyEmail(email);
+}
+
 async function setupFamily(prefix) {
   const parent = client();
-  assert.equal((await parent("/register", { method: "POST", body: { username: `${prefix}-mor`, password: "hemmelig123", displayName: "Mamma", email: `${prefix}@example.com` } })).status, 201);
+  await registerParent(parent, `${prefix}@example.com`);
   const { body: g } = await parent("/groups", { method: "POST", body: { name: "Klasse 4B" } });
   assert.equal((await parent("/children", { method: "POST", body: { username: `${prefix}-ola`, password: "ola12345", displayName: "Ola", avatar: "🐸" } })).status, 201);
   const { body: { children } } = await parent("/children");
@@ -101,10 +113,11 @@ test("endringer krever JSON (CSRF-vern)", async () => {
 test("barn i samme gruppe ser hverandres innlegg, uten reaksjoner eller tall", async () => {
   const a = await setupFamily("a");
   const b = client();
-  await b("/register", { method: "POST", body: { username: "b-far", password: "hemmelig123", displayName: "Pappa", email: "b-far@example.com" } });
+  await registerParent(b, "b-far@example.com", "Pappa");
   await b("/children", { method: "POST", body: { username: "b-kari", password: "kari1234", displayName: "Kari", avatar: "🐯" } });
   const { body: { children } } = await b("/children");
   await b("/groups/join", { method: "POST", body: { code: a.code, childId: children[0].id } });
+  await a.parent(`/groups/${a.groupId}/members/${children[0].id}`, { method: "POST", body: { action: "approve" } });
   const kari = client();
   await kari("/login", { method: "POST", body: { username: "b-kari", password: "kari1234" } });
 
@@ -397,6 +410,8 @@ test("foresatte kan bytte passord og e-post når de er logget inn", async () => 
   assert.equal((await a.parent("/me", { method: "PATCH", body: { email: "ikke-en-epost" } })).status, 400);
   assert.equal((await a.parent("/me", { method: "PATCH", body: { email: "p@example.com" } })).status, 409); // tatt
   assert.equal((await a.parent("/me", { method: "PATCH", body: { email: "Ny@Example.com" } })).status, 200);
+  assert.equal((await a.parent("/me")).body.me.email, "r@example.com"); // gammel adresse til den nye er bekreftet
+  await verifyEmail("ny@example.com");
   assert.equal((await a.parent("/me")).body.me.email, "ny@example.com");
   // Barn har verken e-post eller tilgang til dette.
   assert.equal((await a.kid("/me/password", { method: "POST", body: { current: "ola12345", password: "nytt-passord-123" } })).status, 403);
@@ -448,4 +463,85 @@ test("merkelapp er valgfri, og nye merkelapper finnes", async () => {
   assert.equal((await a.kid("/me")).body.kinds.sporsmal, "Spørsmål");
   // Ukjente merkelapper avvises fortsatt, også navn som finnes på alle objekter.
   assert.equal((await a.kid("/posts", { method: "POST", body: { groupId: a.groupId, kind: "toString", text: "Hei hei", color: "gul" } })).status, 400);
+});
+
+test("foresatte må bekrefte e-posten før de kan lage barn og grupper", async () => {
+  const p = client();
+  outbox.length = 0;
+  assert.equal((await p("/register", { method: "POST", body: { password: "hemmelig123", displayName: "Ny", email: "v1@example.com" } })).status, 201);
+  assert.equal(outbox.length, 1);
+  assert.match(outbox[0].text, /#verify=[0-9a-f]{64}/);
+  let { body: { me } } = await p("/me");
+  assert.equal(me.emailVerified, false);
+  const blocked = await p("/groups", { method: "POST", body: { name: "6A" } });
+  assert.equal(blocked.status, 403);
+  assert.equal(blocked.body.code, "EMAIL_UNVERIFIED");
+  assert.equal((await p("/children")).status, 403);
+
+  // Skrivefeil ved registrering: adressen kan rettes før den er bekreftet, og det kommer en ny lenke.
+  assert.equal((await p("/me", { method: "PATCH", body: { email: "v2@example.com" } })).status, 200);
+  ({ body: { me } } = await p("/me"));
+  assert.equal(me.email, "v2@example.com");
+  await verifyEmail("v2@example.com");
+  ({ body: { me } } = await p("/me"));
+  assert.equal(me.emailVerified, true);
+  assert.equal((await p("/groups", { method: "POST", body: { name: "6A" } })).status, 201);
+
+  // Lenken virker bare én gang.
+  const token = outbox.findLast((m) => m.to === "v2@example.com").text.match(/#verify=([0-9a-f]{64})/)[1];
+  assert.equal((await client()("/email/verify", { method: "POST", body: { token } })).status, 400);
+
+  // Ny adresse på en bekreftet konto tas først i bruk når den nye lenken er åpnet.
+  const change = await p("/me", { method: "PATCH", body: { email: "v3@example.com" } });
+  assert.equal(change.body.pendingEmail, "v3@example.com");
+  ({ body: { me } } = await p("/me"));
+  assert.deepEqual([me.email, me.pendingEmail, me.emailVerified], ["v2@example.com", "v3@example.com", true]);
+  await verifyEmail("v3@example.com");
+  ({ body: { me } } = await p("/me"));
+  assert.deepEqual([me.email, me.pendingEmail], ["v3@example.com", ""]);
+});
+
+test("barn må godkjennes av gruppeeieren før de ser noe i gruppa", async () => {
+  const a = await setupFamily("g1");
+  await post(a.kid, a.groupId, "Hei fra klassen!");
+  const b = client();
+  await registerParent(b, "g1-far@example.com", "Pappa");
+  await b("/children", { method: "POST", body: { username: "g1-lise", password: "lise1234", displayName: "Lise", avatar: "🐯" } });
+  const { body: { children: [lise] } } = await b("/children");
+  outbox.length = 0;
+  const join = await b("/groups/join", { method: "POST", body: { code: a.code, childId: lise.id } });
+  assert.equal(join.body.pending, true);
+  // Eieren får beskjed på e-post.
+  assert.equal(outbox.length, 1);
+  assert.equal(outbox[0].to, "g1@example.com");
+
+  const kid = client();
+  await kid("/login", { method: "POST", body: { username: "g1-lise", password: "lise1234" } });
+  assert.equal((await kid("/feed")).body.posts.length, 0);
+  assert.equal((await kid("/me")).body.me.groups.length, 0);
+  assert.equal((await post(kid, a.groupId)).status, 403);
+  assert.equal((await b(`/groups/${a.groupId}/posts`)).status, 404);
+  assert.equal((await b("/children")).body.children[0].groups[0].pending, true);
+
+  // Eieren ser forespørselen, med navn og e-post på den foresatte. Andre kan ikke godkjenne.
+  const { body: { groups } } = await a.parent("/groups");
+  const g = groups.find((x) => x.id === a.groupId);
+  assert.deepEqual(g.pendingMembers.map((m) => [m.displayName, m.parentEmail]), [["Lise", "g1-far@example.com"]]);
+  assert.equal(g.members.length, 1);
+  assert.equal((await b(`/groups/${a.groupId}/members/${lise.id}`, { method: "POST", body: { action: "approve" } })).status, 404);
+
+  assert.equal((await a.parent(`/groups/${a.groupId}/members/${lise.id}`, { method: "POST", body: { action: "approve" } })).status, 200);
+  assert.equal((await kid("/feed")).body.posts.length, 1);
+  assert.equal((await b("/children")).body.children[0].groups[0].pending, false);
+});
+
+test("eieren kan avslå en forespørsel", async () => {
+  const a = await setupFamily("g2");
+  const b = client();
+  await registerParent(b, "g2-far@example.com", "Pappa");
+  await b("/children", { method: "POST", body: { username: "g2-tor", password: "tor12345", displayName: "Tor", avatar: "🐯" } });
+  const { body: { children: [tor] } } = await b("/children");
+  await b("/groups/join", { method: "POST", body: { code: a.code, childId: tor.id } });
+  assert.equal((await a.parent(`/groups/${a.groupId}/members/${tor.id}`, { method: "POST", body: { action: "reject" } })).status, 200);
+  assert.equal((await b("/children")).body.children[0].groups.length, 0);
 });

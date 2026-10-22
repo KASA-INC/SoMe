@@ -2,6 +2,7 @@
 //   npm run reset-link -- <e-post eller brukernavn>   Engangslenke (én time) for å sette nytt passord
 //   npm run reset-all -- SLETT-ALT                     Sletter alle kontoer, grupper, innlegg og filer
 //   npm run test-mail -- <e-postadresse>               Sender en test-e-post for å sjekke SMTP-oppsettet
+//   npm run verify-email -- <e-postadresse>            Bekrefter e-posten til en foresatt manuelt (hvis e-post ikke kom fram)
 import { readdirSync, unlinkSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { openDb } from "./db.js";
@@ -17,9 +18,10 @@ const db = openDb(process.env.DB_PATH || "data/some.db");
 if (command === "reset-link" && arg) resetLink(arg);
 else if (command === "reset-all") resetAll(arg);
 else if (command === "test-mail" && arg) await testMail(arg);
+else if (command === "verify-email" && arg) verifyEmail(arg);
 else {
   console.log("Bruk:\n  npm run reset-link -- <e-post eller brukernavn>\n  npm run reset-all -- " + CONFIRM_WORD
-    + "\n  npm run test-mail -- <e-postadresse>");
+    + "\n  npm run test-mail -- <e-postadresse>\n  npm run verify-email -- <e-postadresse>");
   process.exit(1);
 }
 
@@ -36,6 +38,16 @@ function resetLink(username) {
   }
   const app = createApp({ db, mediaDir, appUrl: appUrl() });
   console.log(`Lenke for å sette nytt passord for ${user.display_name} (gyldig i én time):\n${app.locals.createResetLink(user.id)}`);
+}
+
+function verifyEmail(email) {
+  const { changes } = db.prepare("UPDATE users SET email_verified = 1 WHERE email = ? AND role = 'parent'").run(email.trim().toLowerCase());
+  if (!changes) {
+    console.error(`Fant ingen foresatt med «${email}».`);
+    process.exit(1);
+  }
+  db.prepare("DELETE FROM email_verifications WHERE user_id = (SELECT id FROM users WHERE email = ?)").run(email.trim().toLowerCase());
+  console.log(`E-postadressen ${email} er bekreftet.`);
 }
 
 // Sender en test-e-post med samme oppsett som «Glemt passord» bruker.
@@ -80,7 +92,7 @@ function resetAll(confirm) {
   }
 
   db.exec("BEGIN");
-  for (const table of ["sessions", "password_resets", "usage", "reports", "media", "posts", "memberships", "groups", "users"]) {
+  for (const table of ["sessions", "password_resets", "email_verifications", "usage", "reports", "media", "posts", "memberships", "groups", "users"]) {
     db.exec(`DELETE FROM ${table}`);
   }
   db.exec("COMMIT");

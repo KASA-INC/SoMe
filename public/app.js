@@ -295,6 +295,14 @@ async function route() {
     setHeader();
     return showReset(reset[1]);
   }
+  const verify = location.hash.match(/^#verify=([0-9a-f]{64})$/);
+  if (verify) {
+    history.replaceState(null, "", location.pathname);
+    try {
+      await api("/email/verify", { method: "POST", body: { token: verify[1] } });
+      toast("E-postadressen er bekreftet");
+    } catch (err) { toast(err.message); }
+  }
   try {
     config = await api("/me");
   } catch {
@@ -303,6 +311,7 @@ async function route() {
   setHeader(config?.me.status);
   if (!config) return showLogin();
   if (config.me.role === "child") return showChild();
+  if (!config.me.emailVerified) return showVerifyEmail();
   return showParent();
 }
 
@@ -410,6 +419,42 @@ function showReset(token) {
   render(h("div", { class: "auth" },
     authHero("Velg nytt passord", "Du blir logget ut på alle andre enheter."),
     form));
+}
+
+// Nye foresatte må åpne lenken i e-posten før de kan lage barn og grupper.
+function showVerifyEmail() {
+  const warning = warningBox();
+  const change = h("form", { class: "hidden" },
+    field("Riktig e-postadresse", h("input", { name: "email", type: "email", value: config.me.email, autocomplete: "email", autocapitalize: "none", inputmode: "email", required: true })),
+    h("button", { class: "btn secondary block" }, "Send lenke hit"));
+  change.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/me", { method: "PATCH", body: formData(change) });
+      toast("Ny lenke er sendt");
+      start();
+    } catch (err) { showWarning(warning, err.message); }
+  });
+  render(h("div", { class: "auth" },
+    authHero("Bekreft e-posten din", "Det sikrer at kontoen tilhører en ekte voksen, og at du får lenke hvis du glemmer passordet."),
+    h("div", { class: "card" },
+      h("div", { class: "notice" }, icon("mail"),
+        h("div", {}, h("strong", {}, `Vi har sendt en lenke til ${config.me.email}`),
+          h("p", { class: "muted small" }, "Åpne den for å ta i bruk kontoen. Se også i søppelpost."))),
+      h("div", { class: "card-actions" },
+        btn("Jeg har bekreftet", start),
+        btn("Send på nytt", async () => {
+          try {
+            await api("/email/resend", { method: "POST" });
+            toast("Ny lenke er sendt");
+          } catch (err) { showWarning(warning, err.message); }
+        }, "secondary")),
+      change,
+      warning),
+    h("p", { class: "auth-switch" },
+      h("button", { class: "link", type: "button", onclick: (e) => { e.currentTarget.remove(); change.classList.remove("hidden"); } }, "Feil adresse?"),
+      " · ",
+      h("button", { class: "link", type: "button", onclick: logout }, "Logg ut"))));
 }
 
 // ---------- Barn ----------
@@ -789,7 +834,7 @@ function videoDuration(file) {
 // ---------- Foresatte ----------
 async function showParent() {
   const [{ children }, { groups }] = await Promise.all([api("/children"), api("/groups")]);
-  const todo = groups.reduce((n, g) => n + (g.openReports || 0) + (g.pendingMedia || 0), 0);
+  const todo = groups.reduce((n, g) => n + (g.openReports || 0) + (g.pendingMedia || 0) + (g.pendingMembers?.length || 0), 0);
 
   const tab = (key, label) => h("button", {
     type: "button", role: "tab", class: parentTab === key ? "selected" : "", "aria-selected": String(parentTab === key),
@@ -873,8 +918,8 @@ function childCard(c) {
   join.addEventListener("submit", async (e) => {
     e.preventDefault();
     try {
-      await api("/groups/join", { method: "POST", body: { code: formData(join).code, childId: c.id } });
-      toast(`${c.displayName} er lagt til i gruppa`);
+      const { pending } = await api("/groups/join", { method: "POST", body: { code: formData(join).code, childId: c.id } });
+      toast(pending ? "Forespørselen er sendt. Den som eier gruppa, må godkjenne den." : `${c.displayName} er lagt til i gruppa`);
       showParent();
     } catch (err) { toast(err.message); }
   });
@@ -895,9 +940,10 @@ function childCard(c) {
       meter("Innlegg i dag", c.status.postsToday, c.status.postAllowance, "")),
     h("div", { class: "subhead" }, "Grupper"),
     h("div", { class: "chips" },
-      c.groups.length ? c.groups.map((g) => h("span", { class: "chip" }, g.name,
-        iconBtn("x", `Ta ut av ${g.name}`, async () => {
-          if (!confirm(`Ta ${c.displayName} ut av ${g.name}?`)) return;
+      c.groups.length ? c.groups.map((g) => h("span", { class: `chip${g.pending ? " pending" : ""}` }, g.name,
+        g.pending && h("small", {}, "venter"),
+        iconBtn("x", g.pending ? `Trekk forespørselen til ${g.name}` : `Ta ut av ${g.name}`, async () => {
+          if (!g.pending && !confirm(`Ta ${c.displayName} ut av ${g.name}?`)) return;
           await api(`/groups/${g.id}/leave`, { method: "POST", body: { childId: c.id } });
           showParent();
         }))) : null,
@@ -957,6 +1003,7 @@ function groupCard(g) {
           g.openReports ? h("span", { class: "badge" }, `${g.openReports} rapportert`) : null,
           g.pendingMedia ? h("span", { class: "badge warn" }, `${g.pendingMedia} venter på godkjenning`) : null) : null),
       g.members.length ? h("div", { class: "avatars-stack", "aria-hidden": "true" }, g.members.slice(0, 4).map((m) => avatar(m.avatar, "sm"))) : null),
+    g.pendingMembers?.length ? pendingMembers(g) : null,
     g.isOwner && h("div", { class: "code-box" },
       h("div", {}, h("div", { class: "label" }, "Invitasjonskode"), h("code", {}, g.inviteCode)),
       btn("Kopier", () => copyText(g.inviteCode), "secondary small", "copy")),
@@ -968,6 +1015,27 @@ function groupCard(g) {
         await api(`/groups/${g.id}`, { method: "DELETE" });
         showParent();
       }, "danger", "trash")));
+}
+
+// Barn som har bedt om å bli med. Eieren ser hvilken foresatt som spør, og godkjenner eller avslår.
+function pendingMembers(g) {
+  const answer = (m, action) => async () => {
+    try {
+      await api(`/groups/${g.id}/members/${m.id}`, { method: "POST", body: { action } });
+      toast(action === "approve" ? `${m.displayName} er med i ${g.name}` : "Forespørselen er avslått");
+      showParent();
+    } catch (err) { toast(err.message); }
+  };
+  return h("div", { class: "pending-members" },
+    h("div", { class: "subhead" }, "Vil bli med"),
+    g.pendingMembers.map((m) => h("div", { class: "list-row" },
+      avatar(m.avatar),
+      h("div", { class: "grow" },
+        h("strong", {}, m.displayName),
+        h("div", { class: "muted small" }, `Foresatt: ${m.parentName} · ${m.parentEmail}`)),
+      h("div", { class: "row-actions" },
+        btn("Avslå", answer(m, "reject"), "ghost small"),
+        btn("Godta", answer(m, "approve"), "small")))));
 }
 
 async function copyText(text) {
@@ -1046,16 +1114,21 @@ function emailCard() {
     h("p", { class: "muted small" }, config.me.email
       ? "Du logger inn med denne, og får lenke hit hvis du glemmer passordet."
       : "Legg inn e-post, så kan du få en lenke hvis du glemmer passordet."),
+    config.me.pendingEmail && h("p", { class: "status-note" }, icon("mail"),
+      `Venter på bekreftelse: ${config.me.pendingEmail}. Åpne lenken vi sendte dit.`),
     field("E-postadresse", h("input", { name: "email", type: "email", value: config.me.email, autocomplete: "email", autocapitalize: "none", inputmode: "email", required: true })),
     h("button", { class: "btn secondary" }, "Lagre e-post"),
     warning);
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     try {
-      await api("/me", { method: "PATCH", body: formData(form) });
-      config.me.email = formData(form).email.trim().toLowerCase();
-      toast("E-post lagret");
+      const { pendingEmail } = await api("/me", { method: "PATCH", body: formData(form) });
       warning.classList.add("hidden");
+      if (pendingEmail) {
+        config.me.pendingEmail = pendingEmail;
+        toast("Vi har sendt en lenke til den nye adressen");
+        showParent();
+      } else toast("E-post lagret");
     } catch (err) { showWarning(warning, err.message); }
   });
   return form;
@@ -1130,6 +1203,6 @@ function hideSplash() {
 }
 
 // En lenke for nytt passord kan åpnes i en fane der appen allerede er åpen.
-window.addEventListener("hashchange", () => location.hash.startsWith("#reset=") && start());
+window.addEventListener("hashchange", () => /^#(reset|verify)=/.test(location.hash) && start());
 
 start();

@@ -9,7 +9,9 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('parent', 'child')),
   display_name TEXT NOT NULL,
-  email TEXT, -- bare for foresatte, brukes til «Glemt passord»
+  email TEXT, -- bare for foresatte, brukes til innlogging og «Glemt passord»
+  -- 1 når foresatte har åpnet bekreftelseslenken. Uten bekreftet e-post kan man ikke lage barn eller grupper.
+  email_verified INTEGER NOT NULL DEFAULT 0,
   avatar TEXT NOT NULL DEFAULT '🙂',
   parent_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   -- Grenser som foresatte styrer (gjelder bare barn)
@@ -25,6 +27,14 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at INTEGER NOT NULL
+);
+
+-- Engangslenker for å bekrefte en e-postadresse (ny konto eller ny adresse). Bare en hash av koden lagres.
+CREATE TABLE IF NOT EXISTS email_verifications (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
   expires_at INTEGER NOT NULL
 );
 
@@ -48,6 +58,8 @@ CREATE TABLE IF NOT EXISTS groups (
 CREATE TABLE IF NOT EXISTS memberships (
   group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  -- 0: venter på at gruppeeieren godkjenner barnet. Barnet ser ingenting i gruppa før det er godkjent.
+  approved INTEGER NOT NULL DEFAULT 1,
   PRIMARY KEY (group_id, user_id)
 );
 
@@ -118,9 +130,19 @@ function migrate(db) {
   if (!columns("users").includes("email")) {
     db.exec("ALTER TABLE users ADD COLUMN email TEXT");
   }
+  if (!columns("users").includes("email_verified")) {
+    db.exec("ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!columns("memberships").includes("approved")) {
+    db.exec("ALTER TABLE memberships ADD COLUMN approved INTEGER NOT NULL DEFAULT 1");
+  }
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS users_email ON users (email) WHERE email IS NOT NULL");
   // Versjon 1: standard innlegg per dag gikk fra 2 til 5. Barn som sto på den gamle standarden, flyttes én gang.
   if (db.prepare("PRAGMA user_version").get().user_version < 1) {
     db.exec("UPDATE users SET posts_per_day = 5 WHERE role = 'child' AND posts_per_day = 2; PRAGMA user_version = 1");
+  }
+  // Versjon 2: e-postbekreftelse kom. Foresatte som allerede hadde e-post, regnes som bekreftet.
+  if (db.prepare("PRAGMA user_version").get().user_version < 2) {
+    db.exec("UPDATE users SET email_verified = 1 WHERE role = 'parent' AND email IS NOT NULL; PRAGMA user_version = 2");
   }
 }

@@ -13,7 +13,8 @@
     "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
     "reset-link": "node --disable-warning=ExperimentalWarning server/cli.js reset-link",
     "reset-all": "node --disable-warning=ExperimentalWarning server/cli.js reset-all",
-    "test-mail": "node --disable-warning=ExperimentalWarning server/cli.js test-mail"
+    "test-mail": "node --disable-warning=ExperimentalWarning server/cli.js test-mail",
+    "verify-email": "node --disable-warning=ExperimentalWarning server/cli.js verify-email"
   },
   "dependencies": {
     "express": "^5.1.0",

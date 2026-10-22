@@ -579,6 +579,12 @@ progress::-moz-progress-bar { background: var(--accent); }
 .join { margin-top: 10px; }
 body.auth-page .topbar { display: none; }
 .chip .icon-btn svg.icon { width: 15px; height: 15px; }
+.chip.pending { border-style: dashed; background: transparent; }
+.chip.pending small { margin-left: 6px; font-size: 0.75rem; font-weight: 600; color: var(--text-2); }
+.pending-members { margin-top: 14px; }
+.pending-members .list-row { flex-wrap: wrap; }
+.pending-members .list-row .grow { min-width: 140px; }
+.pending-members .row-actions { display: flex; gap: 6px; margin-left: auto; }
 
 .settings { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
 

@@ -23,5 +23,5 @@ setInterval(app.locals.sweepMedia, 15 * 60 * 1000).unref();
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`${APP_NAME} kjører på ${appUrl()}`);
-  if (!process.env.SMTP_HOST) console.log("E-post er ikke satt opp (SMTP_HOST). Lenker for nytt passord skrives til loggen.");
+  if (!process.env.SMTP_HOST) console.log("E-post er ikke satt opp (SMTP_HOST). Lenker for nytt passord og bekreftelse av e-post skrives til loggen.");
 });

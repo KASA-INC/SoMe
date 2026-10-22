@@ -46,6 +46,7 @@ const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const USERNAME = /^[a-z0-9._-]{3,24}$/i;
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
 const RESET_MINUTES = 60;
+const VERIFY_HOURS = 48;
 
 class HttpError extends Error {
   constructor(status, message, code) {
@@ -147,7 +148,14 @@ export function createApp({
     next();
   };
   const child = [needUser("child"), childGate];
-  const parent = needUser("parent");
+  // Foresatte må ha bekreftet e-posten før de kan lage barn, grupper eller lese innlegg.
+  // parentAny brukes der man må slippe til uten: konto, passord, ny bekreftelseslenke og sletting.
+  const parentAny = needUser("parent");
+  const verifiedGate = (req, res, next) => {
+    if (!req.user.email_verified) fail(403, "Bekreft e-postadressen din først. Vi har sendt deg en lenke.", "EMAIL_UNVERIFIED");
+    next();
+  };
+  const parent = [parentAny, verifiedGate];
 
   const publicUser = (u) => ({
     id: u.id, username: u.username, role: u.role, displayName: u.display_name, avatar: u.avatar,
@@ -183,7 +191,7 @@ export function createApp({
 
   // Foresatte logger inn med e-post. Brukernavnet lages automatisk og vises ikke,
   // men databasen krever et unikt brukernavn på alle kontoer (barna bruker sitt).
-  app.post("/api/register", (req, res) => {
+  app.post("/api/register", async (req, res) => {
     const { password } = req.body;
     if (registrationCode && !safeEqual(String(req.body.code || "").trim(), registrationCode)) {
       fail(403, "Feil registreringskode. Spør den som inviterte deg.");
@@ -197,6 +205,7 @@ export function createApp({
     const { lastInsertRowid } = q(`INSERT INTO users (username, password_hash, role, display_name, email, avatar, created_at)
       VALUES (?, ?, 'parent', ?, ?, '🧑', ?)`).run(username, hashPassword(password), displayName, email, now());
     const token = createSession(db, lastInsertRowid);
+    await sendVerification({ id: lastInsertRowid, display_name: displayName }, email);
     res.set("Set-Cookie", sessionCookie(token, secureCookies)).status(201).json({ ok: true });
   });
 
@@ -227,11 +236,16 @@ export function createApp({
 
   app.get("/api/me", needUser(), (req, res) => {
     const me = publicUser(req.user);
-    if (req.user.role === "parent") me.email = req.user.email || "";
+    if (req.user.role === "parent") {
+      me.email = req.user.email || "";
+      me.emailVerified = !!req.user.email_verified;
+      me.pendingEmail = q(`SELECT email FROM email_verifications WHERE user_id = ? AND expires_at > ? AND email != ?
+        ORDER BY expires_at DESC LIMIT 1`).get(req.user.id, now(), me.email)?.email || "";
+    }
     if (req.user.role === "child") {
       me.status = childStatus(req.user);
       me.onboarded = !!req.user.onboarded;
-      me.groups = q(`SELECT g.id, g.name FROM groups g JOIN memberships m ON m.group_id = g.id
+      me.groups = q(`SELECT g.id, g.name FROM groups g JOIN memberships m ON m.group_id = g.id AND m.approved = 1
         WHERE m.user_id = ? ORDER BY g.name`).all(req.user.id);
     }
     res.json({ me, kinds: KINDS, colors: COLORS, stickers: STICKERS, avatars: AVATARS, media: mediaLimits });
@@ -267,18 +281,73 @@ export function createApp({
   }
   app.locals.createResetLink = createResetLink;
 
-  app.patch("/api/me", parent, (req, res) => {
+  // Sender en lenke som bekrefter at adressen tilhører den foresatte. Brukes ved registrering og ny adresse.
+  async function sendVerification(user, email) {
+    const token = randomBytes(32).toString("hex");
+    q("DELETE FROM email_verifications WHERE user_id = ? OR expires_at < ?").run(user.id, now());
+    q("INSERT INTO email_verifications (token_hash, user_id, email, expires_at) VALUES (?, ?, ?, ?)")
+      .run(sha256(token), user.id, email, now() + VERIFY_HOURS * 3600e3);
+    const link = `${appUrl.replace(/\/$/, "")}/#verify=${token}`;
+    try {
+      await mailer.send({
+        to: email,
+        subject: `Bekreft e-postadressen din i ${APP_NAME}`,
+        text: `Hei ${user.display_name}!\n\nÅpne denne lenken for å bekrefte at ${email} er din adresse i ${APP_NAME}. `
+          + `Den virker i ${VERIFY_HOURS} timer:\n${link}\n\n`
+          + "Hvis du ikke har laget en konto eller byttet e-post, kan du se bort fra denne e-posten.\n\n"
+          + `Spørsmål? Skriv til ${CONTACT_EMAIL}.`,
+      });
+    } catch (err) {
+      console.error("Klarte ikke å sende e-post:", err.message);
+    }
+  }
+
+  // Lenken kan åpnes på en annen enhet enn den man er logget inn på, så den krever ikke innlogging.
+  app.post("/api/email/verify", (req, res) => {
+    const token = typeof req.body.token === "string" ? req.body.token : "";
+    const row = /^[0-9a-f]{64}$/.test(token) &&
+      q("SELECT * FROM email_verifications WHERE token_hash = ? AND expires_at > ?").get(sha256(token), now());
+    if (!row) fail(400, "Lenken er utløpt eller allerede brukt. Logg inn og be om en ny.", "VERIFY_INVALID");
+    if (q("SELECT 1 FROM users WHERE email = ? AND id != ?").get(row.email, row.user_id)) fail(409, "E-postadressen er allerede i bruk");
+    q("UPDATE users SET email = ?, email_verified = 1 WHERE id = ?").run(row.email, row.user_id);
+    q("DELETE FROM email_verifications WHERE user_id = ?").run(row.user_id);
+    res.json({ ok: true });
+  });
+
+  // Send bekreftelseslenken på nytt (til ny adresse som venter, ellers til adressen som ikke er bekreftet).
+  app.post("/api/email/resend", parentAny, async (req, res) => {
+    const key = `verify|${req.user.id}`;
+    if (tooManyAttempts(key)) fail(429, "Du har bedt om mange lenker. Vent litt og prøv igjen.");
+    recordFailure(key);
+    const pending = q("SELECT email FROM email_verifications WHERE user_id = ? AND expires_at > ? ORDER BY expires_at DESC LIMIT 1")
+      .get(req.user.id, now())?.email;
+    const email = pending || (!req.user.email_verified && req.user.email);
+    if (email) await sendVerification(req.user, email);
+    res.json({ ok: true });
+  });
+
+  // Ny e-post tas først i bruk når lenken til den nye adressen er åpnet. Er den gamle ikke bekreftet ennå
+  // (for eksempel en skrivefeil ved registrering), byttes den med en gang, så man kan logge inn med den nye.
+  app.patch("/api/me", parentAny, async (req, res) => {
+    let pendingEmail = "";
     if (req.body.email !== undefined) {
-      q("UPDATE users SET email = ? WHERE id = ?").run(validateEmail(req.body.email, req.user.id), req.user.id);
+      const email = validateEmail(req.body.email, req.user.id);
+      if (!req.user.email_verified) {
+        q("UPDATE users SET email = ? WHERE id = ?").run(email, req.user.id);
+        await sendVerification(req.user, email);
+      } else if (email !== req.user.email) {
+        await sendVerification(req.user, email);
+        pendingEmail = email;
+      }
     }
     if (req.body.displayName !== undefined) {
       q("UPDATE users SET display_name = ? WHERE id = ?").run(validateDisplayName(req.body.displayName), req.user.id);
     }
-    res.json({ ok: true });
+    res.json({ ok: true, pendingEmail });
   });
 
   // Bytt passord når man er logget inn. Krever det gamle passordet.
-  app.post("/api/me/password", parent, (req, res) => {
+  app.post("/api/me/password", parentAny, (req, res) => {
     const key = `pw|${req.user.id}`;
     if (tooManyAttempts(key)) fail(429, "For mange forsøk. Vent litt og prøv igjen.");
     if (typeof req.body.current !== "string" || !verifyPassword(req.body.current, req.user.password_hash)) {
@@ -323,7 +392,8 @@ export function createApp({
       q("SELECT * FROM password_resets WHERE token_hash = ? AND expires_at > ?").get(sha256(token), now());
     if (!row) fail(400, "Lenken er utløpt eller allerede brukt. Be om en ny.", "RESET_INVALID");
     validateNewPassword(req.body.password);
-    q("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(req.body.password), row.user_id);
+    // Lenken kom til e-postadressen, så den er bekreftet også.
+    q("UPDATE users SET password_hash = ?, email_verified = 1 WHERE id = ?").run(hashPassword(req.body.password), row.user_id);
     q("DELETE FROM password_resets WHERE user_id = ?").run(row.user_id);
     q("DELETE FROM sessions WHERE user_id = ?").run(row.user_id);
     const user = q("SELECT username, email FROM users WHERE id = ?").get(row.user_id);
@@ -333,7 +403,7 @@ export function createApp({
   });
 
   // Foresatte kan slette sin egen konto. Barnekontoene og alt innholdet slettes også.
-  app.delete("/api/me", parent, (req, res) => {
+  app.delete("/api/me", parentAny, (req, res) => {
     q("DELETE FROM users WHERE id = ?").run(req.user.id);
     sweepMedia();
     res.set("Set-Cookie", sessionCookie(null, secureCookies)).json({ ok: true });
@@ -364,7 +434,7 @@ export function createApp({
   app.get("/api/feed", child, (req, res) => {
     const posts = q(`SELECT ${POST_FIELDS}, (p.author_id = ?) AS mine ${POST_JOINS}
       WHERE p.status = 'visible' AND p.created_at >= ?
-        AND p.group_id IN (SELECT group_id FROM memberships WHERE user_id = ?)
+        AND p.group_id IN (SELECT group_id FROM memberships WHERE user_id = ? AND approved = 1)
         AND (md.id IS NULL OR md.approved = 1 OR p.author_id = ?)
       ORDER BY p.created_at DESC LIMIT ?`).all(req.user.id, now() - FEED_DAYS * 864e5, req.user.id, req.user.id, FEED_MAX);
     res.json({ posts: posts.map(({ status, ...p }) => withMedia({ ...p, mine: !!p.mine })), status: req.limits });
@@ -418,7 +488,7 @@ export function createApp({
     if (me.role === "child") childGate(req, res, () => {});
     const allowed = m.owner_id === me.id || (m.groupId && m.status !== "removed" && (
       me.role === "child"
-        ? m.approved && m.status === "visible" && q("SELECT 1 FROM memberships WHERE group_id = ? AND user_id = ?").get(m.groupId, me.id)
+        ? m.approved && m.status === "visible" && q("SELECT 1 FROM memberships WHERE group_id = ? AND user_id = ? AND approved = 1").get(m.groupId, me.id)
         : visibleGroup(me.id, m.groupId)));
     if (!allowed) fail(404, "Finnes ikke");
     res.type(m.mime).set({ "Cache-Control": "private, max-age=86400", "Content-Disposition": "inline" });
@@ -442,7 +512,7 @@ export function createApp({
     const { groupId, kind, sticker = "", color = COLORS[0], mediaId } = req.body;
     const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
     if (req.limits.postsLeft <= 0) fail(429, "Du har delt det du kan i dag. Du kan dele mer i morgen.", "POST_LIMIT");
-    if (!q("SELECT 1 FROM memberships WHERE group_id = ? AND user_id = ?").get(groupId, req.user.id)) fail(403, "Du er ikke med i den gruppa");
+    if (!q("SELECT 1 FROM memberships WHERE group_id = ? AND user_id = ? AND approved = 1").get(groupId, req.user.id)) fail(403, "Du er ikke med i den gruppa");
     const kindKey = kind ?? "";
     if (kindKey !== "" && !Object.hasOwn(KINDS, kindKey)) fail(400, "Ugyldig merkelapp");
     if (!COLORS.includes(color)) fail(400, "Ugyldig farge");
@@ -478,7 +548,7 @@ export function createApp({
 
   // Si fra: innlegget skjules med en gang og venter på at gruppas voksne ser på det.
   app.post("/api/posts/:id/report", needUser("child"), (req, res) => {
-    const post = q(`SELECT p.* FROM posts p JOIN memberships m ON m.group_id = p.group_id AND m.user_id = ?
+    const post = q(`SELECT p.* FROM posts p JOIN memberships m ON m.group_id = p.group_id AND m.user_id = ? AND m.approved = 1
       WHERE p.id = ?`).get(req.user.id, req.params.id);
     if (!post) fail(404, "Fant ikke innlegget");
     if (!q("SELECT 1 FROM reports WHERE post_id = ? AND reporter_id = ?").get(post.id, req.user.id)) {
@@ -501,7 +571,8 @@ export function createApp({
       children: children.map((c) => ({
         ...childSettings(c),
         status: childStatus(c),
-        groups: q(`SELECT g.id, g.name FROM groups g JOIN memberships m ON m.group_id = g.id WHERE m.user_id = ?`).all(c.id),
+        groups: q(`SELECT g.id, g.name, (m.approved = 0) AS pending FROM groups g JOIN memberships m ON m.group_id = g.id
+          WHERE m.user_id = ? ORDER BY g.name`).all(c.id).map((g) => ({ ...g, pending: !!g.pending })),
       })),
     });
   });
@@ -551,11 +622,11 @@ export function createApp({
   // En foresatt kan se en gruppe hvis hen eier den, eller har et barn som er med.
   const visibleGroup = (userId, groupId) => q(`SELECT g.*, (g.owner_id = ?) AS isOwner FROM groups g
     WHERE g.id = ? AND (g.owner_id = ? OR EXISTS (
-      SELECT 1 FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.group_id = g.id AND u.parent_id = ?))`)
+      SELECT 1 FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.group_id = g.id AND m.approved = 1 AND u.parent_id = ?))`)
     .get(userId, groupId, userId, userId);
 
   app.get("/api/groups", parent, (req, res) => {
-    const groups = q(`SELECT DISTINCT g.* FROM groups g LEFT JOIN memberships m ON m.group_id = g.id
+    const groups = q(`SELECT DISTINCT g.* FROM groups g LEFT JOIN memberships m ON m.group_id = g.id AND m.approved = 1
       LEFT JOIN users u ON u.id = m.user_id
       WHERE g.owner_id = ? OR u.parent_id = ? ORDER BY g.name`).all(req.user.id, req.user.id);
     res.json({
@@ -570,7 +641,12 @@ export function createApp({
           pendingMedia: isOwner ? q(`SELECT COUNT(*) AS n FROM media md JOIN posts p ON p.id = md.post_id
             WHERE p.group_id = ? AND md.approved = 0 AND p.status = 'visible'`).get(g.id).n : undefined,
           members: q(`SELECT u.display_name AS displayName, u.avatar FROM memberships m JOIN users u ON u.id = m.user_id
-            WHERE m.group_id = ? ORDER BY u.display_name`).all(g.id),
+            WHERE m.group_id = ? AND m.approved = 1 ORDER BY u.display_name`).all(g.id),
+          // Eieren ser hvem som vil inn, og hvilken foresatt som spør, så hen kan sjekke at det er en fra klassen.
+          pendingMembers: isOwner ? q(`SELECT u.id, u.display_name AS displayName, u.avatar,
+              p.display_name AS parentName, p.email AS parentEmail
+            FROM memberships m JOIN users u ON u.id = m.user_id JOIN users p ON p.id = u.parent_id
+            WHERE m.group_id = ? AND m.approved = 0 ORDER BY u.display_name`).all(g.id) : undefined,
           openReports: isOwner ? q(`SELECT COUNT(DISTINCT r.post_id) AS n FROM reports r JOIN posts p ON p.id = r.post_id
             WHERE p.group_id = ? AND r.resolved = 0`).get(g.id).n : undefined,
         };
@@ -586,11 +662,45 @@ export function createApp({
     res.status(201).json({ inviteCode: code });
   });
 
-  app.post("/api/groups/join", parent, (req, res) => {
+  // Med invitasjonskoden ber man om å bli med. Eieren av gruppa må godkjenne barnet før det ser noe.
+  // Eierens egne barn slipper rett inn.
+  app.post("/api/groups/join", parent, async (req, res) => {
     const c = ownChild(req);
-    const g = q("SELECT id FROM groups WHERE invite_code = ?").get(String(req.body.code || "").trim().toUpperCase());
+    const g = q("SELECT * FROM groups WHERE invite_code = ?").get(String(req.body.code || "").trim().toUpperCase());
     if (!g) fail(404, "Fant ingen gruppe med den koden");
-    q("INSERT OR IGNORE INTO memberships (group_id, user_id) VALUES (?, ?)").run(g.id, c.id);
+    const existing = q("SELECT approved FROM memberships WHERE group_id = ? AND user_id = ?").get(g.id, c.id);
+    if (existing) return res.json({ ok: true, pending: !existing.approved });
+    const approved = g.owner_id === req.user.id ? 1 : 0;
+    q("INSERT INTO memberships (group_id, user_id, approved) VALUES (?, ?, ?)").run(g.id, c.id, approved);
+    if (!approved) {
+      const owner = q("SELECT display_name, email FROM users WHERE id = ?").get(g.owner_id);
+      if (owner?.email) {
+        try {
+          await mailer.send({
+            to: owner.email,
+            subject: `${c.display_name} vil bli med i ${g.name}`,
+            text: `Hei ${owner.display_name}!\n\n${req.user.display_name} (${req.user.email}) har bedt om at barnet ${c.display_name} `
+              + `får bli med i gruppa ${g.name} i ${APP_NAME}.\n\nLogg inn og velg Grupper for å godkjenne eller avslå:\n${appUrl}\n\n`
+              + `Barnet ser ingenting i gruppa før du har godkjent det.`,
+          });
+        } catch (err) {
+          console.error("Klarte ikke å sende e-post:", err.message);
+        }
+      }
+    }
+    res.json({ ok: true, pending: !approved });
+  });
+
+  // Eieren godkjenner eller avslår et barn som venter på å bli med.
+  app.post("/api/groups/:groupId/members/:userId", parent, (req, res) => {
+    const g = q("SELECT id FROM groups WHERE id = ? AND owner_id = ?").get(req.params.groupId, req.user.id);
+    if (!g) fail(404, "Fant ikke gruppa");
+    const action = req.body.action;
+    if (action !== "approve" && action !== "reject") fail(400, "Ugyldig handling");
+    const { changes } = action === "approve"
+      ? q("UPDATE memberships SET approved = 1 WHERE group_id = ? AND user_id = ? AND approved = 0").run(g.id, req.params.userId)
+      : q("DELETE FROM memberships WHERE group_id = ? AND user_id = ? AND approved = 0").run(g.id, req.params.userId);
+    if (!changes) fail(404, "Fant ingen forespørsel");
     res.json({ ok: true });
   });
 
