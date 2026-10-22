@@ -563,28 +563,19 @@ function composer(groups, close) {
     kindRow.append(b);
   }
   const count = h("span", { class: "count" }, "0/200");
-  const editor = h("div", { class: `editor t-${config.colors[0]}` }, text);
+  const editor = h("div", { class: "editor" }, text);
   const warning = warningBox();
 
-  // Emoji og bakgrunn velges i små paneler under skrivefeltet.
+  // Emoji velges i et lite panel under skrivefeltet.
   const emojiBtn = iconBtn("smile", "Emoji");
-  const colorBtn = iconBtn("droplet", "Bakgrunn");
   const stickerRow = choiceRow(config.stickers, (b, s) => (s ? (b.textContent = s) : b.append(icon("x"))), "", "stickers", (s) => {
     emojiBtn.replaceChildren(s ? h("span", { class: "chosen" }, s) : icon("smile"));
   });
   stickerRow.setAttribute("aria-label", "Emoji");
-  const colorRow = choiceRow(config.colors, (b, c) => { b.className = `swatch t-${c}`; b.setAttribute("aria-label", `Bakgrunn ${config.colors.indexOf(c) + 1}`); },
-    config.colors[0], "colors", (c) => (editor.className = `editor t-${c}`));
   const emojiPanel = h("div", { class: "picker hidden" }, stickerRow);
-  const colorPanel = h("div", { class: "picker hidden" }, colorRow);
-  const toggle = (panel, button) => {
-    const show = panel.classList.contains("hidden");
-    [emojiPanel, colorPanel].forEach((p) => p.classList.add("hidden"));
-    [emojiBtn, colorBtn].forEach((b) => b.classList.remove("active"));
-    if (show) { panel.classList.remove("hidden"); button.classList.add("active"); }
-  };
-  emojiBtn.addEventListener("click", () => toggle(emojiPanel, emojiBtn));
-  colorBtn.addEventListener("click", () => toggle(colorPanel, colorBtn));
+  emojiBtn.addEventListener("click", () => {
+    emojiBtn.classList.toggle("active", emojiPanel.classList.toggle("hidden") === false);
+  });
 
   // ---- Bilde eller video ----
   const limits = config.media;
@@ -667,7 +658,7 @@ function composer(groups, close) {
         method: "POST",
         body: {
           groupId: Number(groupSelect.value), kind: kindRow.value, text: text.value,
-          sticker: stickerRow.value, color: colorRow.value, mediaId: attachment?.id,
+          sticker: stickerRow.value, mediaId: attachment?.id,
         },
       });
       close();
@@ -680,7 +671,7 @@ function composer(groups, close) {
     }
   });
 
-  editor.append(h("div", { class: "toolbar" }, attachBtn, emojiBtn, colorBtn, count));
+  editor.append(h("div", { class: "toolbar" }, attachBtn, emojiBtn, count));
   setTimeout(() => text.focus(), 300);
 
   return h("div", { class: "composer" },
@@ -689,7 +680,6 @@ function composer(groups, close) {
     editor,
     fileInput,
     emojiPanel,
-    colorPanel,
     preview,
     warning,
     h("div", { class: "composer-foot" },
@@ -706,7 +696,8 @@ function postCard(p, { actions } = {}) {
         h("div", { class: "name" }, p.author),
         h("div", { class: "meta" }, `${p.groupName} · ${timeAgo(p.createdAt)}`)),
       config.kinds[p.kind] && h("span", { class: "kind-tag" }, icon(KIND_ICONS[p.kind] || "sparkles"), config.kinds[p.kind])),
-    h("div", { class: `body t-${p.color}` }, p.text, p.sticker && h("span", { class: "sticker" }, p.sticker)),
+    // Snakkeboble med logoens form: halen til venstre for andre, til høyre for egne innlegg.
+    h("div", { class: `body bubble${p.mine ? " mine" : ""}` }, p.text, p.sticker && h("span", { class: "sticker" }, p.sticker)),
     p.media && mediaView(p),
     h("div", { class: "actions" }, actions ? actions(p) : childActions(p)));
 }

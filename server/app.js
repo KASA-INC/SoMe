@@ -23,6 +23,8 @@ export const KINDS = {
   gleder: "Gleder meg til",
   opplevd: "Har opplevd",
 };
+// Bakgrunnsfarge per innlegg velges ikke lenger i appen (alle meldinger er like bobler),
+// men feltet godtas fortsatt og lagres for eldre innlegg og klienter.
 export const COLORS = ["lilla", "bla", "gronn", "gul", "oransje", "rosa"];
 export const STICKERS = ["", "⚽", "🏀", "🎮", "🎨", "📚", "🎵", "🎬", "🍕", "🚲", "🐶", "☀️"];
 export const AVATARS = ["🦊", "🐼", "🐸", "🐯", "🐧", "🦖", "🐙", "🦉", "⚡", "🎧", "🚀", "🌊", "🔥", "🌙", "🎮", "🎸"];
@@ -437,7 +439,7 @@ export function createApp({
   app.locals.sweepMedia = sweepMedia;
 
   app.post("/api/posts", child, (req, res) => {
-    const { groupId, kind, sticker = "", color, mediaId } = req.body;
+    const { groupId, kind, sticker = "", color = COLORS[0], mediaId } = req.body;
     const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
     if (req.limits.postsLeft <= 0) fail(429, "Du har delt det du kan i dag. Du kan dele mer i morgen.", "POST_LIMIT");
     if (!q("SELECT 1 FROM memberships WHERE group_id = ? AND user_id = ?").get(groupId, req.user.id)) fail(403, "Du er ikke med i den gruppa");

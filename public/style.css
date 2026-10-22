@@ -32,13 +32,6 @@
   --header-bg: rgba(243, 120, 91, 0.9);
   --backdrop: rgba(22, 22, 25, 0.45);
 
-  /* Bakgrunner for innlegg (nøklene er lagret i databasen, fargene følger paletten) */
-  --t-lilla: #f7a98e;
-  --t-bla: #94a5a8;
-  --t-gronn: #b6b3b2;
-  --t-gul: #f8f8f4;
-  --t-oransje: #f9dccc;
-  --t-rosa: #6c888b;
 
   /* quipu-merket */
   --brand: #161619;
@@ -51,6 +44,13 @@
   --on-bg-2: #1f3437;
   --icon-tile: #145b5e;
   --icon-mark: #f8f8f4;
+  /* Meldingsbobler: andres er korall, egne er petrol */
+  --bubble: #f3785b;
+  --bubble-ink: #161619;
+  --bubble-mine: #145b5e;
+  --bubble-mine-ink: #f8f8f4;
+  /* Halen fra logoen (nederste høyre kvadrant av Q-sirkelen) */
+  --bubble-tail: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='584.5 888.5 554.5 554.5' preserveAspectRatio='none'%3E%3Cpath d='M861 1368C940 1415 1050 1442 1138 1442C1070 1415 990 1360 953 1302L584.5 888.5Z'/%3E%3C/svg%3E");
 
   --radius: 16px;
   --radius-sm: 12px;
@@ -95,13 +95,8 @@
     --on-bg-2: #f9dccc;
     --icon-tile: #f8f8f4;
     --icon-mark: #145b5e;
+    --bubble-mine: #145b5e;
 
-    --t-lilla: #1f3437;
-    --t-bla: #5e3d39;
-    --t-gronn: #383638;
-    --t-gul: #5a5758;
-    --t-oransje: #145b5e;
-    --t-rosa: #1f4144;
     color-scheme: dark;
   }
 }
@@ -389,25 +384,37 @@ select {
   white-space: nowrap;
 }
 .kind-tag svg.icon { width: 14px; height: 14px; }
+/* Snakkeboble: logoformen (Q-sirkelen) trukket ut i bredden. Hjørnene er kvartsirkler med radius --bubble-r,
+   og halen er logoens hale skalert til samme radius, så en linje tekst gir nøyaktig logoformen strukket ut. */
 .post .body {
-  border-radius: var(--radius-sm);
-  padding: 14px 16px;
+  --bubble-r: 26px;
+  position: relative;
+  min-height: calc(2 * var(--bubble-r));
+  border-radius: var(--bubble-r);
+  padding: 14px 22px;
+  background: var(--bubble);
+  color: var(--bubble-ink);
   font-size: 1.05rem;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
+.post .body::after {
+  content: "";
+  position: absolute; left: 0; bottom: 0;
+  width: var(--bubble-r); height: var(--bubble-r);
+  background: inherit;
+  transform: scaleX(-1); /* halen i logoen peker mot høyre; andres meldinger har den til venstre */
+  -webkit-mask: var(--bubble-tail) no-repeat 0 0 / 100% 100%;
+  mask: var(--bubble-tail) no-repeat 0 0 / 100% 100%;
+}
+.post .body.mine { background: var(--bubble-mine); color: var(--bubble-mine-ink); }
+.post .body.mine::after { left: auto; right: 0; transform: none; }
 .post .body .sticker { margin-left: 6px; font-size: 1.3em; vertical-align: -0.1em; }
 .post .actions { display: flex; gap: 2px; margin-top: 4px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
 .post .actions .btn.ghost { min-height: 40px; padding: 8px 10px; font-size: 0.85rem; font-weight: 600; color: var(--text-3); }
 .post .actions .btn.ghost svg.icon { width: 16px; height: 16px; }
 .post.flagged { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
 
-.t-gul { background: var(--t-gul); }
-.t-gronn { background: var(--t-gronn); }
-.t-bla { background: var(--t-bla); }
-.t-rosa { background: var(--t-rosa); }
-.t-oransje { background: var(--t-oransje); }
-.t-lilla { background: var(--t-lilla); }
 
 .media { margin-top: 10px; }
 .media img, .media video, .preview img, .preview video {
@@ -505,7 +512,7 @@ select {
 .kinds button svg.icon { width: 16px; height: 16px; }
 .kinds button.selected { background: var(--accent-soft); color: var(--accent-soft-ink); border-color: var(--accent); }
 
-.editor { border-radius: var(--radius-sm); border: 1px solid var(--border); overflow: hidden; transition: background 0.2s; }
+.editor { border-radius: var(--radius-sm); border: 1px solid var(--border); overflow: hidden; background: var(--surface-2); }
 .editor textarea {
   border: none; border-radius: 0; background: transparent; margin: 0;
   min-height: 120px; resize: none; font-size: 17px; padding: 14px 16px;
@@ -522,8 +529,6 @@ select {
 .stickers button.selected { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
 .stickers button .icon { color: var(--text-3); }
 .colors { display: flex; gap: 10px; flex-wrap: wrap; }
-.swatch { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border); cursor: pointer; padding: 0; }
-.swatch.selected { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--accent); }
 
 .preview { margin-top: 12px; }
 .upload-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 0.85rem; color: var(--text-2); }
