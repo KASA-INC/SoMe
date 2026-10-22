@@ -279,6 +279,14 @@ async function logout() {
 
 // ---------- Start ----------
 async function start() {
+  try {
+    await route();
+  } finally {
+    hideSplash();
+  }
+}
+
+async function route() {
   const reset = location.hash.match(/^#reset=([0-9a-f]{64})$/);
   if (reset) {
     // Fjern koden fra adresselinja, så den ikke blir liggende i historikken.
@@ -1109,6 +1117,24 @@ async function showGroupPosts(g) {
       if (n) card.querySelector(".actions").before(n);
       return card;
     }));
+}
+
+// ---------- Load-skjerm ----------
+// Skjermen ligger i index.html. Den vises minst så lenge inn-animasjonen og smilet varer,
+// og forsvinner med en ut-animasjon når første visning er tegnet.
+const splash = document.getElementById("splash");
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const SPLASH_MIN_MS = reducedMotion ? 300 : 1600;
+
+function hideSplash() {
+  if (!splash || splash.dataset.hiding) return;
+  splash.dataset.hiding = "1";
+  setTimeout(() => {
+    splash.classList.add("out");
+    const remove = () => splash.remove();
+    splash.addEventListener("animationend", (e) => e.target === splash && remove());
+    setTimeout(remove, 1000); // i tilfelle animationend ikke kommer
+  }, Math.max(0, SPLASH_MIN_MS - performance.now())); // performance.now() måles fra sidelasting
 }
 
 // En lenke for nytt passord kan åpnes i en fane der appen allerede er åpen.

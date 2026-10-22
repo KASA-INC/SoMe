@@ -727,3 +727,42 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .mark.alive .eye, .mark.alive .face, .mark.alive.wink .eye-right, .mark.alive.wink .mouth { animation: none; }
 }
+
+/* ---------- Load-skjerm ---------- */
+/* Inn: Q-en spretter frem og øynene åpnes. Smil: munnen går fra strek til smil, så et blunk.
+   Ut: .out legges til fra app.js. Fallback: skjermen tones ut av seg selv etter 6 s. */
+.splash {
+  position: fixed; inset: 0; z-index: 1000;
+  display: grid; place-items: center;
+  background: var(--bg); color: var(--brand);
+  animation: splash-fade .4s ease-in 6s forwards;
+}
+.splash-inner { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+.splash-mark { width: 128px; height: 128px; overflow: visible; animation: splash-in .7s cubic-bezier(.34, 1.56, .64, 1) both; }
+.splash-eye, .splash-mouth { transform-box: fill-box; transform-origin: center; }
+.splash-eye { animation: splash-eyes 1.6s ease-in-out both; }
+.splash-mouth { animation: splash-smile .7s cubic-bezier(.34, 1.56, .64, 1) .65s both; }
+.splash-word { width: 116px; height: auto; animation: splash-word .5s ease-out .45s both; }
+.splash.out { animation: splash-fade .45s ease-in forwards; }
+.splash.out .splash-inner { animation: splash-grow .45s ease-in forwards; }
+
+@keyframes splash-in { from { transform: scale(.3) rotate(-12deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes splash-eyes {
+  0%, 25% { transform: scaleY(.1); }
+  38%, 80% { transform: none; }
+  86% { transform: scaleY(.1); }
+  92%, 100% { transform: none; }
+}
+@keyframes splash-smile {
+  from { transform: scale(.75, .12); }
+  60% { transform: scale(1.12, 1.3); }
+  to { transform: none; }
+}
+@keyframes splash-word { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes splash-grow { to { transform: scale(1.25); } }
+@keyframes splash-fade { to { opacity: 0; visibility: hidden; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-mark, .splash-eye, .splash-mouth, .splash-word, .splash.out .splash-inner { animation: none; }
+  .splash.out { animation-duration: .25s; }
+}
