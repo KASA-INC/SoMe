@@ -32,7 +32,7 @@ En ekte, men rolig sosial kanal for barn (laget for mellomtrinnet), og det motsa
 
 **Innlogging:** Én side for alle, med feltet «E-post eller brukernavn». Foresatte bruker e-post. Barn bruker brukernavnet de har fått. Foresatte som registrerte seg før e-post kom, kan også bruke det gamle brukernavnet.
 
-Barn kan ikke registrere seg selv. Det er alltid en foresatt som lager kontoen, slik at det er samtykke fra foresatte (GDPR-kravet for barn under 13 år i Norge).
+Barnekontoer kan bare lages fra en foresatt-konto, slik at det er samtykke fra foresatte (GDPR-kravet for barn under 13 år i Norge). Den som lager en foresatt-konto, bekrefter e-posten og krysser av for å være over 18 år og foresatt. Alder kontrolleres ikke (det krever f.eks. BankID/Vipps), så godkjenning fra gruppeeieren er det som holder gruppene lukket.
 
 ## Glemt passord
 
