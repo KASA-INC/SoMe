@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
   daily_minutes INTEGER NOT NULL DEFAULT 20,
   open_from TEXT NOT NULL DEFAULT '07:00',
   open_to TEXT NOT NULL DEFAULT '20:00',
-  posts_per_day INTEGER NOT NULL DEFAULT 2,
+  posts_per_day INTEGER NOT NULL DEFAULT 5,
   -- 1 når barnet har sett introduksjonen (bl.a. at voksne kan lese det som deles)
   onboarded INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL
@@ -119,4 +119,8 @@ function migrate(db) {
     db.exec("ALTER TABLE users ADD COLUMN email TEXT");
   }
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS users_email ON users (email) WHERE email IS NOT NULL");
+  // Versjon 1: standard innlegg per dag gikk fra 2 til 5. Barn som sto på den gamle standarden, flyttes én gang.
+  if (db.prepare("PRAGMA user_version").get().user_version < 1) {
+    db.exec("UPDATE users SET posts_per_day = 5 WHERE role = 'child' AND posts_per_day = 2; PRAGMA user_version = 1");
+  }
 }

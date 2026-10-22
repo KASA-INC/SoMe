@@ -766,3 +766,9 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
   .splash-mark, .splash-eye, .splash-mouth, .splash-word, .splash.out .splash-inner { animation: none; }
   .splash.out { animation-duration: .25s; }
 }
+
+/* ---------- Hvem står bak (hvem.html) ---------- */
+.person-photo {
+  display: block; width: min(240px, 64vw); height: auto; aspect-ratio: 4 / 5; object-fit: cover;
+  margin: 8px auto 0; border-radius: 28px; box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .45);
+}

@@ -69,8 +69,8 @@ export function createApp({
   app.disable("x-powered-by");
   mkdirSync(mediaDir, { recursive: true });
 
-  const clock = () => {
-    const s = new Date(now()).toLocaleString("sv-SE", { timeZone: TZ });
+  const clock = (ts = now()) => {
+    const s = new Date(ts).toLocaleString("sv-SE", { timeZone: TZ });
     return { day: s.slice(0, 10), hm: s.slice(11, 16) };
   };
 
@@ -116,14 +116,24 @@ export function createApp({
   function childStatus(user) {
     const { day, hm } = clock();
     const used = q("SELECT minutes FROM usage WHERE user_id = ? AND day = ?").get(user.id, day)?.minutes || 0;
-    const postedToday = q("SELECT COUNT(*) AS n FROM posts WHERE author_id = ? AND day = ?").get(user.id, day).n;
+    const posted = (d) => q("SELECT COUNT(*) AS n FROM posts WHERE author_id = ? AND day = ?").get(user.id, d).n;
+    const postedToday = posted(day);
+    // Ubrukte innlegg fra i går kan tas med til i dag, så det aldri blir «bruk dem eller mist dem».
+    // Det gir høyst dobbelt så mange som dagsgrensen på én dag.
+    const yesterday = new Date(Date.parse(`${day}T12:00:00Z`) - 864e5).toISOString().slice(0, 10);
+    // Kontoer som ble laget i dag, har ingen gårsdag å spare fra.
+    const carried = clock(user.created_at).day < day ? Math.max(0, user.posts_per_day - posted(yesterday)) : 0;
+    const postAllowance = user.posts_per_day + carried;
     const open = hm >= user.open_from && hm < user.open_to;
     return {
       open,
       openFrom: user.open_from,
       openTo: user.open_to,
       minutesLeft: Math.max(0, user.daily_minutes - used),
-      postsLeft: Math.max(0, user.posts_per_day - postedToday),
+      postsLeft: Math.max(0, postAllowance - postedToday),
+      postsToday: postedToday,
+      postAllowance,
+      postsCarried: carried,
     };
   }
 
@@ -499,8 +509,8 @@ export function createApp({
     validateCredentials(username, password);
     const displayName = validateDisplayName(req.body.displayName);
     if (!AVATARS.includes(avatar)) fail(400, "Velg et profilbilde");
-    q(`INSERT INTO users (username, password_hash, role, display_name, avatar, parent_id, created_at)
-      VALUES (?, ?, 'child', ?, ?, ?, ?)`).run(username, hashPassword(password), displayName, avatar, req.user.id, now());
+    q(`INSERT INTO users (username, password_hash, role, display_name, avatar, parent_id, posts_per_day, created_at)
+      VALUES (?, ?, 'child', ?, ?, ?, 5, ?)`).run(username, hashPassword(password), displayName, avatar, req.user.id, now());
     res.status(201).json({ ok: true });
   });
 

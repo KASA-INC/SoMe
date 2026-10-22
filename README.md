@@ -6,11 +6,11 @@ En ekte, men rolig sosial kanal for barn (laget for mellomtrinnet), og det motsa
 
 - **Ingen likes, hjerter, stjerner, følgere eller tall.** Ingenting å konkurrere om.
 - **Vennlige innlegg.** Barna kan skrive fritt, stille spørsmål og dele tips. De kan sette en valgfri merkelapp på innlegget: *Glad for*, *Lærte noe*, *Takk til*, *Har laget*, *Spørsmål*, *Tips*, *Gleder meg til* eller *Har opplevd*. Et snillfilter på serveren stopper stygge ord, telefonnumre, e-post, adresser, lenker og brukernavn fra andre apper.
-- **Laget for lite bruk.** Feeden viser bare de siste tre dagene og tar slutt («Du har sett alt som er nytt!»). Det er ingen uendelig scrolling og ingen varsler. Foresatte bestemmer daglig tidsgrense (standard 20 min), åpningstider (standard 07–20) og antall innlegg per dag (standard 2). Alt dette håndheves på serveren.
+- **Laget for lite bruk.** Feeden viser bare de siste tre dagene og tar slutt («Du har sett alt som er nytt!»). Det er ingen uendelig scrolling og ingen varsler. Foresatte bestemmer daglig tidsgrense (standard 20 min), åpningstider (standard 07–20) og antall innlegg per dag (standard 5, 0–10). Ubrukte innlegg fra i går kan brukes dagen etter, men aldri mer enn dobbelt så mange som dagsgrensen på én dag. Alt dette håndheves på serveren.
 - **Bilder og video.** Hver video kan være maks 30 sekunder og 50 MB. Grensene kan endres, se under. GPS-posisjon og annen metadata fjernes fra både bilder og video. Som standard må gruppeeieren godkjenne bilder og video før de andre barna ser dem. Videoer spiller aldri av automatisk.
 - **Lukkede grupper.** Barn ser bare innlegg fra gruppene sine, for eksempel klassen eller en vennegjeng. Det finnes ingen søk, ingen profiler å bla i og ingen direktemeldinger.
 
-**Informasjonsside:** [`/om`](public/om.html) forklarer valgene som gjør quipu trygt for barn, og historien bak navnet. Siden er åpen uten innlogging, så den kan deles med foresatte og skolen. Den lenkes fra innloggingssiden, bunnteksten og Konto-fanen.
+**Informasjonsside:** [`/om`](public/om.html) forklarer valgene som gjør quipu trygt for barn, og historien bak navnet. Siden er åpen uten innlogging, så den kan deles med foresatte og skolen. Den lenkes fra innloggingssiden, bunnteksten og Konto-fanen. [`/hvem`](public/hvem.html) viser hvem som står bak quipu, slik at appen har en ekte avsender.
 
 ## Roller
 

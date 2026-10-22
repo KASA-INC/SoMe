@@ -131,11 +131,35 @@ test("innlegg blir stoppet av filteret og av grensen per dag", async () => {
   assert.equal(bad.status, 400);
   assert.equal(bad.body.code, "FILTER");
   assert.equal((await a.kid("/posts", { method: "POST", body: { groupId: a.groupId, kind: "sint", text: "Hei hei", color: "gul" } })).status, 400);
+  await a.parent(`/children/${a.childId}`, { method: "PATCH", body: { postsPerDay: 2 } });
   assert.equal((await post(a.kid, a.groupId)).status, 201);
   assert.equal((await post(a.kid, a.groupId)).status, 201);
   const third = await post(a.kid, a.groupId);
   assert.equal(third.status, 429);
   assert.equal(third.body.code, "POST_LIMIT");
+});
+
+test("ubrukte innlegg fra i går kan brukes i dag, men aldri mer enn dobbelt", async () => {
+  const a = await setupFamily("e2");
+  const start = clock;
+  try {
+    // Dag 1: kontoen er ny, så ingenting er spart.
+    assert.equal((await a.kid("/me")).body.me.status.postsLeft, 5);
+    for (let i = 0; i < 5; i++) assert.equal((await post(a.kid, a.groupId)).status, 201);
+    assert.equal((await post(a.kid, a.groupId)).status, 429);
+    // Dag 2: alt ble brukt i går, så det er bare dagens 5. Ingen innlegg denne dagen.
+    clock = start + 864e5;
+    let s = (await a.kid("/me")).body.me.status;
+    assert.deepEqual([s.postsLeft, s.postsCarried], [5, 0]);
+    // Dag 3: 5 spart fra i går gir 10, og ikke mer.
+    clock = start + 2 * 864e5;
+    s = (await a.kid("/me")).body.me.status;
+    assert.deepEqual([s.postsLeft, s.postsCarried, s.postAllowance], [10, 5, 10]);
+    for (let i = 0; i < 10; i++) assert.equal((await post(a.kid, a.groupId)).status, 201);
+    assert.equal((await post(a.kid, a.groupId)).status, 429);
+  } finally {
+    clock = start;
+  }
 });
 
 test("rapportert innlegg skjules og kan gjenopprettes av gruppeeieren", async () => {

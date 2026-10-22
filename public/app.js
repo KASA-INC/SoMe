@@ -541,7 +541,8 @@ function composePrompt(groups, status) {
       h("span", { class: "icon-btn", "aria-hidden": "true" }, icon("plus"))),
     h("div", { class: "compose-meta" },
       h("span", { class: "audience" }, icon("eye"), h("span", {}, `${groupName} og foreldrene i gruppa ser det du deler`)),
-      h("span", {}, status.postsLeft === 1 ? "1 innlegg igjen i dag" : `${status.postsLeft} innlegg igjen i dag`)),
+      h("span", {}, (status.postsLeft === 1 ? "1 innlegg igjen i dag" : `${status.postsLeft} innlegg igjen i dag`)
+        + (status.postsCarried > 0 ? ` (${status.postsCarried} spart fra i går)` : ""))),
   ];
 }
 
@@ -848,6 +849,7 @@ function childCard(c) {
     h("div", { class: "grid" },
       field("Minutter per dag", num("dailyMinutes", c.dailyMinutes, 0, 120)),
       field("Innlegg per dag", num("postsPerDay", c.postsPerDay, 0, 10)),
+      h("p", { class: "muted small" }, "Ubrukte innlegg fra i går kan brukes i dag, men aldri mer enn dobbelt så mange som dagsgrensen."),
       field("Åpen fra", time("openFrom", c.openFrom)),
       field("Åpen til", time("openTo", c.openTo)),
       h("div", { class: "full" }, field("Nytt passord (valgfritt)", passwordInput({ name: "password", autocomplete: "new-password", minlength: 8 })))),
@@ -887,7 +889,6 @@ function childCard(c) {
   });
 
   const used = c.dailyMinutes - c.status.minutesLeft;
-  const posted = c.postsPerDay - c.status.postsLeft;
   const settingsBtn = iconBtn("sliders", "Grenser og passord", () => {
     settings.classList.toggle("hidden");
     settingsBtn.classList.toggle("active");
@@ -900,7 +901,7 @@ function childCard(c) {
       settingsBtn),
     h("div", { class: "meters" },
       meter("Skjermtid i dag", used, c.dailyMinutes, "min"),
-      meter("Innlegg i dag", posted, c.postsPerDay, "")),
+      meter("Innlegg i dag", c.status.postsToday, c.status.postAllowance, "")),
     h("div", { class: "subhead" }, "Grupper"),
     h("div", { class: "chips" },
       c.groups.length ? c.groups.map((g) => h("span", { class: "chip" }, g.name,
