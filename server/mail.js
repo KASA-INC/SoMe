@@ -8,6 +8,7 @@ export function createMailer(env = process.env) {
     return {
       configured: false,
       async send({ to, subject, text }) {
+        // Bare tekstversjonen skrives til loggen (HTML og logo hoppes over).
         console.warn(`[e-post ikke satt opp] Til: ${to}\nEmne: ${subject}\n${text}`);
       },
     };
@@ -22,8 +23,8 @@ export function createMailer(env = process.env) {
   const from = env.MAIL_FROM || env.SMTP_USER;
   return {
     configured: true,
-    async send({ to, subject, text }) {
-      await transport.sendMail({ from, to, subject, text });
+    async send({ to, subject, text, html, attachments }) {
+      await transport.sendMail({ from, to, subject, text, html, attachments });
     },
   };
 }

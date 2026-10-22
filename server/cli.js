@@ -9,6 +9,7 @@ import { openDb } from "./db.js";
 import { createApp } from "./app.js";
 import { appUrl, APP_NAME } from "./config.js";
 import { createMailer } from "./mail.js";
+import { renderEmail } from "./email.js";
 
 const CONFIRM_WORD = "SLETT-ALT";
 const [command, arg] = process.argv.slice(2);
@@ -63,7 +64,12 @@ async function testMail(to) {
     await mailer.send({
       to,
       subject: `Test fra ${APP_NAME}`,
-      text: `Hei!\n\nDette er en test. Kommer denne fram, virker e-posten fra ${APP_NAME}, også «Glemt passord».`,
+      ...renderEmail({
+        preheader: "E-posten virker.",
+        heading: "Hei!",
+        paragraphs: [`Dette er en test. Kommer denne fram, virker e-posten fra ${APP_NAME}: bekreftelse av e-post, «Glemt passord» og beskjeder om nye medlemmer.`],
+        button: { label: `Åpne ${APP_NAME}`, url: appUrl() },
+      }),
     });
     console.log("Sendt! Sjekk innboksen (og søppelpost).");
   } catch (err) {

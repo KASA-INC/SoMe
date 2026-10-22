@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 import { checkText } from "./filter.js";
 import { isJpeg, stripJpegMetadata, inspectVideo, MediaError } from "./media.js";
 import { createMailer } from "./mail.js";
-import { APP_NAME, CONTACT_EMAIL } from "./config.js";
+import { renderEmail } from "./email.js";
+import { APP_NAME } from "./config.js";
 import {
   COOKIE, hashPassword, verifyPassword, createSession, destroySession, userFromToken,
   readCookie, sessionCookie, tooManyAttempts, recordFailure, clearFailures, sha256,
@@ -292,10 +293,13 @@ export function createApp({
       await mailer.send({
         to: email,
         subject: `Bekreft e-postadressen din i ${APP_NAME}`,
-        text: `Hei ${user.display_name}!\n\nÅpne denne lenken for å bekrefte at ${email} er din adresse i ${APP_NAME}. `
-          + `Den virker i ${VERIFY_HOURS} timer:\n${link}\n\n`
-          + "Hvis du ikke har laget en konto eller byttet e-post, kan du se bort fra denne e-posten.\n\n"
-          + `Spørsmål? Skriv til ${CONTACT_EMAIL}.`,
+        ...renderEmail({
+          preheader: "Ett trykk, så er kontoen klar.",
+          heading: `Hei ${user.display_name}!`,
+          paragraphs: [`Trykk på knappen for å bekrefte at ${email} er din adresse i ${APP_NAME}. Da kan du lage kontoer til barna og bli med i klassens gruppe.`],
+          button: { label: "Bekreft e-postadressen", url: link },
+          note: `Lenken virker i ${VERIFY_HOURS} timer. Har du ikke laget en konto eller byttet e-post, kan du se bort fra denne e-posten.`,
+        }),
       });
     } catch (err) {
       console.error("Klarte ikke å sende e-post:", err.message);
@@ -374,10 +378,13 @@ export function createApp({
         await mailer.send({
           to: email,
           subject: `Nytt passord til ${APP_NAME}`,
-          text: `Hei ${user.display_name}!\n\nNoen (forhåpentligvis du) har bedt om å sette nytt passord for ${APP_NAME}-kontoen din (${email}).\n\n`
-            + `Åpne denne lenken for å velge et nytt passord. Den virker i ${RESET_MINUTES} minutter og kan bare brukes én gang:\n${link}\n\n`
-            + "Hvis det ikke var du, kan du se bort fra denne e-posten. Passordet ditt er ikke endret.\n\n"
-            + `Spørsmål? Skriv til ${CONTACT_EMAIL}.`,
+          ...renderEmail({
+            preheader: "Lenken virker i én time.",
+            heading: `Hei ${user.display_name}!`,
+            paragraphs: [`Noen, forhåpentligvis du, har bedt om å sette nytt passord for ${APP_NAME}-kontoen din (${email}).`],
+            button: { label: "Velg nytt passord", url: link },
+            note: `Lenken virker i ${RESET_MINUTES} minutter og kan bare brukes én gang. Var det ikke du, kan du se bort fra denne e-posten. Passordet ditt er ikke endret.`,
+          }),
         });
       } catch (err) {
         console.error("Klarte ikke å sende e-post:", err.message);
@@ -679,9 +686,15 @@ export function createApp({
           await mailer.send({
             to: owner.email,
             subject: `${c.display_name} vil bli med i ${g.name}`,
-            text: `Hei ${owner.display_name}!\n\n${req.user.display_name} (${req.user.email}) har bedt om at barnet ${c.display_name} `
-              + `får bli med i gruppa ${g.name} i ${APP_NAME}.\n\nLogg inn og velg Grupper for å godkjenne eller avslå:\n${appUrl}\n\n`
-              + `Barnet ser ingenting i gruppa før du har godkjent det.`,
+            ...renderEmail({
+              preheader: "Godkjenn eller avslå under Grupper.",
+              heading: `${c.display_name} vil bli med i ${g.name}`,
+              paragraphs: [
+                `Hei ${owner.display_name}! ${req.user.display_name} (${req.user.email}) har bedt om at barnet ${c.display_name} får bli med i gruppa ${g.name}.`,
+                "Sjekk at det er noen fra klassen før du godkjenner. Barnet ser ingenting i gruppa før du har sagt ja.",
+              ],
+              button: { label: "Åpne Grupper", url: appUrl },
+            }),
           });
         } catch (err) {
           console.error("Klarte ikke å sende e-post:", err.message);

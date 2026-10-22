@@ -545,3 +545,16 @@ test("eieren kan avslå en forespørsel", async () => {
   assert.equal((await a.parent(`/groups/${a.groupId}/members/${tor.id}`, { method: "POST", body: { action: "reject" } })).status, 200);
   assert.equal((await b("/children")).body.children[0].groups.length, 0);
 });
+
+test("e-poster har HTML med logo, og navn fra brukere blir escapet", async () => {
+  outbox.length = 0;
+  const c = client();
+  await c("/register", { method: "POST", body: { password: "hemmelig123", displayName: "Ida <b>", email: "html@example.com" } });
+  const mail = outbox[0];
+  assert.match(mail.html, /<img src="cid:logo@quipu"/);
+  assert.match(mail.html, /Hei Ida &lt;b&gt;!/);
+  assert.doesNotMatch(mail.html, /Ida <b>/);
+  assert.match(mail.html, /href="https:\/\/some\.example\/#verify=[0-9a-f]{64}"/);
+  assert.equal(mail.attachments[0].cid, "logo@quipu");
+  assert.match(mail.text, /Bekreft e-postadressen: https:\/\/some\.example\/#verify=/);
+});

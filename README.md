@@ -58,6 +58,8 @@ Legg inn disse miljøvariablene (i Render: tjenesten → **Environment**):
 
 Sjekk oppsettet ved å åpne **Shell** i Render og kjøre `npm run test-mail -- din@epost.no`.
 
+E-postene sendes som HTML med logo, farger fra paletten og en knapp, og med en ren tekstversjon for e-postprogrammer uten HTML. Malen ligger i `server/email.js`, og logoen (`server/assets/email-logo.png`) legges ved inni e-posten, så den vises selv om bilder fra nettet er blokkert.
+
 Uten `SMTP_HOST` sendes ingen e-post. Lenken skrives i stedet til serverloggen (Render → **Logs**). Det gjelder også bekreftelseslenker til nye foresatte, så e-post bør være satt opp før appen åpnes for flere. Kom lenken ikke fram, kan den som drifter tjenesten bekrefte adressen i Shell med `npm run verify-email -- foresatt@epost.no`. Lenkene peker til `APP_URL`, eller til `RENDER_EXTERNAL_URL`, som Render setter automatisk.
 
 ### Lage lenke for nytt passord på serveren
