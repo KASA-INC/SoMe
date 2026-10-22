@@ -43,7 +43,7 @@
   /* Tekst og lenker som ligger rett på bakgrunnsfargen (ikke på kort) */
   --on-bg: #161619;
   --on-bg-2: #383638;
-  --icon-tile: #f7a98e; /* app-ikonet inne i appen: ett hakk mørkere enn bakgrunnen, logo i petrol */
+  --icon-tile: #f3785b; /* app-ikonet inne i appen: petrol logo på korall, som ikonet på hjemskjermen */
   --icon-mark: #145b5e;
   /* Meldingsbobler: andres i motsatt farge av bakgrunnen (mest synlig), egne i vanlig valør av bakgrunnsfargen */
   --bubble: #145b5e;
@@ -94,7 +94,7 @@
     --brand-petrol: #94a5a8;
     --on-bg: #f8f8f4;
     --on-bg-2: #b6b3b2;
-    --icon-tile: #1f4144; /* ett hakk lysere enn bakgrunnen, logo i korall */
+    --icon-tile: #145b5e; /* korall logo på petrol */
     --icon-mark: #f3785b;
     --bubble: #f3785b;
     --bubble-ink: #161619;
