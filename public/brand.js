@@ -3,7 +3,12 @@ export const APP_NAME = "quipu";
 
 // Q-formet snakkeboble med ansikt (øyne og smil). Tegnes med fill-rule="evenodd".
 // Koordinatene er fra logofila; selve merket ligger i utsnittet MARK_TIGHT_VIEWBOX.
-export const MARK_PATH = "M953 1302A554.5 554.5 0 1 0 861 1368C940 1415 1050 1442 1138 1442C1070 1415 990 1360 953 1302ZM155.0 888.5a429.5 429.5 0 1 0 859.0 0a429.5 429.5 0 1 0 -859.0 0ZM284 838a25 25 0 0 1 50 0v100a25 25 0 0 1-50 0ZM835 838a25 25 0 0 1 50 0v100a25 25 0 0 1-50 0ZM477.5 993.1Q584.5 1080.9 691.5 993.1A25.5 25.5 0 0 1 723.5 1032.9Q584.5 1143.1 445.5 1032.9A25.5 25.5 0 0 1 477.5 993.1Z";
+// Delene hver for seg, så ansiktet kan animeres (blunke, se seg rundt, smile).
+export const MARK_RING = "M953 1302A554.5 554.5 0 1 0 861 1368C940 1415 1050 1442 1138 1442C1070 1415 990 1360 953 1302ZM155.0 888.5a429.5 429.5 0 1 0 859.0 0a429.5 429.5 0 1 0 -859.0 0Z";
+export const MARK_EYE_LEFT = "M284 838a25 25 0 0 1 50 0v100a25 25 0 0 1-50 0Z";
+export const MARK_EYE_RIGHT = "M835 838a25 25 0 0 1 50 0v100a25 25 0 0 1-50 0Z";
+export const MARK_MOUTH = "M477.5 993.1Q584.5 1080.9 691.5 993.1A25.5 25.5 0 0 1 723.5 1032.9Q584.5 1143.1 445.5 1032.9A25.5 25.5 0 0 1 477.5 993.1Z";
+export const MARK_PATH = MARK_RING + MARK_EYE_LEFT + MARK_EYE_RIGHT + MARK_MOUTH;
 export const MARK_TIGHT_VIEWBOX = "30 334 1109 1109";
 // Kvadrat med luft rundt merket (samme forhold som i den kvadratiske logoversjonen), for appikoner.
 export const MARK_VIEWBOX = "-256 48 1675 1675";

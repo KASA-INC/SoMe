@@ -1,5 +1,8 @@
 // quipu — klient. All brukertekst settes med textContent, aldri som HTML.
-import { APP_NAME, MARK_VIEWBOX, MARK_PATH, MARK_TIGHT_VIEWBOX, WORDMARK_VIEWBOX, WORDMARK_PATH } from "./brand.js";
+import {
+  APP_NAME, MARK_VIEWBOX, MARK_TIGHT_VIEWBOX, MARK_RING, MARK_EYE_LEFT, MARK_EYE_RIGHT, MARK_MOUTH,
+  WORDMARK_VIEWBOX, WORDMARK_PATH,
+} from "./brand.js";
 
 const view = document.getElementById("view");
 let config = null; // { me, kinds, colors, stickers, avatars, media }
@@ -107,12 +110,36 @@ function brandSvg(viewBox, d, cls) {
   svg.append(path);
   return svg;
 }
-const markSvg = (cls = "mark") => brandSvg(MARK_TIGHT_VIEWBOX, MARK_PATH, cls);
+
+// Q-boblen med et levende ansikt: øynene og munnen er egne deler som CSS animerer
+// (blunk og et blikk til siden av og til). Trykk på logoen gir et blunk med ett øye.
+function markSvg(cls = "mark", viewBox = MARK_TIGHT_VIEWBOX) {
+  const svg = brandSvg(viewBox, MARK_RING, `${cls} alive`);
+  const part = (d, c) => {
+    const p = document.createElementNS(SVG_NS, "path");
+    p.setAttribute("d", d);
+    p.setAttribute("fill", "currentColor");
+    p.setAttribute("class", c);
+    return p;
+  };
+  const face = document.createElementNS(SVG_NS, "g");
+  face.setAttribute("class", "face");
+  face.append(part(MARK_EYE_LEFT, "eye eye-left"), part(MARK_EYE_RIGHT, "eye eye-right"), part(MARK_MOUTH, "mouth"));
+  svg.append(face);
+  svg.addEventListener("click", () => {
+    svg.classList.remove("wink");
+    void svg.getBoundingClientRect(); // start animasjonen på nytt ved gjentatte trykk
+    svg.classList.add("wink");
+  });
+  // Smilet er den lengste delen av trykk-animasjonen, så den avgjør når den er ferdig.
+  svg.addEventListener("animationend", (e) => e.animationName === "q-smile" && svg.classList.remove("wink"));
+  return svg;
+}
 const wordmarkSvg = (cls = "wordmark") => brandSvg(WORDMARK_VIEWBOX, WORDMARK_PATH, cls);
 
 // Appikonet: kremhvit Q på petrol.
 function logo() {
-  return h("span", { class: "app-icon", "aria-hidden": "true" }, brandSvg(MARK_VIEWBOX, MARK_PATH, "mark"));
+  return h("span", { class: "app-icon", "aria-hidden": "true" }, markSvg("mark", MARK_VIEWBOX));
 }
 
 // Merke + ordbilde, med navnet som tekst for skjermlesere.
