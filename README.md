@@ -81,7 +81,7 @@ Dette kan ikke angres i appen. Render tar daglige øyeblikksbilder av disken, s�
 
 ## Design
 
-Rolig og moderne uttrykk med strekikoner og quipu-paletten: petrol `#0E5B5E` som hovedfarge, korall `#F4795B` som aksent, nesten svart `#17171B` og kremhvit `#F7F5F1`. Logoen (en Q formet som en snakkeboble) og ordbildet ligger som vektorer i `public/brand.js`. I mørk modus er logoen korall. Lys og mørk modus følger telefonens innstilling. Nye innlegg skrives i et ark som glir opp nedenfra, og foresatte har faner for barn, grupper og konto.
+Rolig og moderne uttrykk med strekikoner og quipu-paletten: petrol `#0E5B5E`, korall `#F4795B`, nesten svart `#17171B` og kremhvit `#F7F5F1`. **Lys modus** har korall bakgrunn med hvite kort og petrol knapper. **Mørk modus** har petrol bakgrunn med mørke petrolkort og korall knapper. Tekst som ligger rett på bakgrunnen, har egne farger (`--on-bg`), og all tekst er sjekket mot WCAG AA (minst 4,5 : 1). Logoen er Q-boblen med ansikt (øyne og smil), tegnet som eksakte vektorformer i `public/brand.js`. Den er nesten svart i lys modus og kremhvit i mørk modus, og appikonet er kremhvit på petrol. Nye innlegg skrives i et ark som glir opp nedenfra, og foresatte har faner for barn, grupper og konto.
 
 ## Mobil: iPhone, iPad og Android
 

@@ -1,11 +1,12 @@
 // Merkevaren: navn, Q-boblen og ordbildet. Bytt her for å teste et annet navn eller en annen logo.
 export const APP_NAME = "quipu";
 
-// Q-formet snakkeboble (ring med hale), i et 680×680-koordinatsystem. Tegnes med fill-rule="evenodd".
-export const MARK_VIEWBOX = "0 0 680 680";
-export const MARK_PATH = "M453 536A225 225 0 1 1 505 494Q522 540 566 566Q505 566 453 536ZM228.5 341a112.5 112.5 0 1 0 225 0a112.5 112.5 0 1 0-225 0Z";
-// Utsnitt som bare viser selve merket (uten luft rundt), for bruk ved siden av tekst.
-export const MARK_TIGHT_VIEWBOX = "114 114 454 454";
+// Q-formet snakkeboble med ansikt (øyne og smil). Tegnes med fill-rule="evenodd".
+// Koordinatene er fra logofila; selve merket ligger i utsnittet MARK_TIGHT_VIEWBOX.
+export const MARK_PATH = "M953 1302A554.5 554.5 0 1 0 861 1368C940 1415 1050 1442 1138 1442C1070 1415 990 1360 953 1302ZM155.0 888.5a429.5 429.5 0 1 0 859.0 0a429.5 429.5 0 1 0 -859.0 0ZM284 838a25 25 0 0 1 50 0v100a25 25 0 0 1-50 0ZM835 838a25 25 0 0 1 50 0v100a25 25 0 0 1-50 0ZM477.5 993.1Q584.5 1080.9 691.5 993.1A25.5 25.5 0 0 1 723.5 1032.9Q584.5 1143.1 445.5 1032.9A25.5 25.5 0 0 1 477.5 993.1Z";
+export const MARK_TIGHT_VIEWBOX = "30 334 1109 1109";
+// Kvadrat med luft rundt merket (samme forhold som i den kvadratiske logoversjonen), for appikoner.
+export const MARK_VIEWBOX = "-256 48 1675 1675";
 
 // Ordbildet «quipu», vektorisert fra logofila.
 export const WORDMARK_VIEWBOX = "7 9.5 449.5 155.75";

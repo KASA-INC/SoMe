@@ -1,28 +1,28 @@
 /* SoMe — rolig, moderne design. Mobil først, lys og mørk modus. */
 
 :root {
-  --bg: #f7f5f1;
+  --bg: #f4795b;
   --surface: #ffffff;
   --surface-2: #f1eee8;
   --surface-3: #e6e2da;
   --border: #e7e3db;
   --text: #17171b;
   --text-2: #5b5a58;
-  --text-3: #8b8883;
+  --text-3: #6b6864;
   --accent: #0e5b5e;
   --accent-hover: #0a4b4e;
   --accent-ink: #ffffff;
   --accent-soft: #e2efee;
   --accent-soft-ink: #0e5b5e;
   --link: #0e5b5e;
-  --danger: #d4294a;
+  --danger: #bd213f;
   --danger-soft: #fdecef;
   --warn: #a96500;
   --warn-soft: #fff4e0;
   --ok: #0c8f62;
   --shadow: 0 1px 2px rgba(20, 22, 40, 0.04), 0 4px 16px rgba(20, 22, 40, 0.05);
   --shadow-lg: 0 -8px 40px rgba(20, 22, 40, 0.18);
-  --header-bg: rgba(247, 245, 241, 0.85);
+  --header-bg: rgba(244, 121, 91, 0.9);
 
   /* Bakgrunner for innlegg (nøklene er lagret i databasen) */
   --t-gul: #fdf3d7;
@@ -33,10 +33,15 @@
   --t-lilla: #ebe7ff;
 
   /* quipu: petrol, korall, nesten svart og kremhvit */
-  --brand: #0e5b5e;
+  --brand: #17171b;
   --coral: #f4795b;
   --coral-ink: #17171b;
   --cream: #f7f5f1;
+  /* Tekst og lenker som ligger rett på bakgrunnsfargen (ikke på kort) */
+  --on-bg: #17171b;
+  --on-bg-2: rgba(23, 23, 27, 0.82);
+  --icon-tile: #0e5b5e;
+  --icon-mark: #f7f5f1;
 
   --radius: 16px;
   --radius-sm: 12px;
@@ -50,18 +55,18 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1415;
-    --surface: #171d1e;
-    --surface-2: #1e2627;
-    --surface-3: #2a3334;
-    --border: #253031;
+    --bg: #0e5b5e;
+    --surface: #0f2b2d;
+    --surface-2: #163739;
+    --surface-3: #21474a;
+    --border: #1f4245;
     --text: #f3f1ed;
-    --text-2: #a9b1b0;
-    --text-3: #77807f;
-    --accent: #1f7a7b;
-    --accent-hover: #268889;
-    --accent-ink: #ffffff;
-    --accent-soft: #173233;
+    --text-2: #c2cccb;
+    --text-3: #a3b4b3;
+    --accent: #f4795b;
+    --accent-hover: #f68c72;
+    --accent-ink: #17171b;
+    --accent-soft: #183d3f;
     --accent-soft-ink: #8fd3cd;
     --link: #7cc9c2;
     --danger: #ff5c78;
@@ -71,9 +76,13 @@
     --ok: #3ccf95;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 -8px 40px rgba(0, 0, 0, 0.6);
-    --header-bg: rgba(15, 20, 21, 0.85);
+    --header-bg: rgba(14, 91, 94, 0.9);
 
-    --brand: #f4795b; /* petrol blir for mørk mot mørk bakgrunn, så logoen er korall */
+    --brand: #f7f5f1;
+    --on-bg: #f7f5f1;
+    --on-bg-2: rgba(247, 245, 241, 0.82);
+    --icon-tile: #f7f5f1;
+    --icon-mark: #0e5b5e; /* petrol blir for mørk mot mørk bakgrunn, så logoen er korall */
 
     --t-gul: #3a3220;
     --t-gronn: #1d3328;
@@ -154,7 +163,7 @@ h3 { margin: 0; font-size: 1.05rem; font-weight: 650; }
 .hero-lockup { font-size: 64px; flex-direction: column; }
 .hero-lockup .mark { height: 1.3em; width: 1.3em; }
 .hero-lockup .wordmark { margin: 0.3em 0 0; height: 0.62em; }
-.app-icon { display: inline-grid; place-items: center; width: 64px; height: 64px; border-radius: 16px; background: var(--brand); color: var(--cream); overflow: hidden; }
+.app-icon { display: inline-grid; place-items: center; width: 64px; height: 64px; border-radius: 16px; background: var(--icon-tile); color: var(--icon-mark); overflow: hidden; }
 .app-icon .mark { width: 100%; height: 100%; }
 .me { display: flex; gap: 6px; align-items: center; min-width: 0; }
 
@@ -671,3 +680,16 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) { --brand-petrol: #2b9c9a; }
 }
+
+/* ---------- Tekst rett på bakgrunnsfargen ---------- */
+/* Korall (lys) og petrol (mørk) er sterke farger, så tekst utenfor kortene bruker egne farger med god kontrast. */
+.topbar .icon-btn, .back-head .icon-btn { color: var(--on-bg); }
+.compose-meta, .feed-end, .feed-end p, .footer, .auth-hero p, .auth-switch,
+#view > p.muted, .section-title + p.muted, .back-head,
+.info-section > p, .info-list, .info-hero .lead, .info-section > p.muted { color: var(--on-bg-2); }
+.info-section > p strong, .feed-end h3, .section-title h2, .info-section h2, .info-hero h1 { color: var(--on-bg); }
+.auth-switch .link, .footer .link, .feed-end .link, .info-back, .info-list .link, .info-section > p .link {
+  color: var(--on-bg); text-decoration: underline; text-underline-offset: 3px;
+}
+.feed-end .end-icon { background: var(--surface); color: var(--accent-soft-ink); }
+.topbar { border-bottom-color: rgba(0, 0, 0, 0.08); }
