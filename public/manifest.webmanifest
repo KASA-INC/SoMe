@@ -1,7 +1,7 @@
 {
   "name": "quipu",
   "short_name": "quipu",
-  "description": "Det rolige stedet for klassen din",
+  "description": "Sosial app for klassen, laget for barn",
   "lang": "no",
   "start_url": "/",
   "scope": "/",

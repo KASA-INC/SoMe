@@ -372,7 +372,7 @@ function authHero(title, text) {
   // Uten tittel vises logoen med ordbildet (innloggingssiden), ellers appikonet og tittelen.
   return title
     ? h("div", { class: "auth-hero" }, logo(), h("h1", {}, title), h("p", {}, text))
-    : h("div", { class: "auth-hero" }, h("h1", { class: "brand-title" }, lockup("hero-lockup")), h("p", {}, text));
+    : h("div", { class: "auth-hero" }, h("h1", { class: "brand-title" }, lockup("hero-lockup")), text && h("p", {}, text));
 }
 
 function showLogin() {
@@ -392,7 +392,7 @@ function showLogin() {
     } catch (err) { showWarning(warning, err.message); }
   });
   render(h("div", { class: "auth" },
-    authHero(null, "Det rolige stedet for klassen din."),
+    authHero(null),
     form,
     h("p", { class: "auth-switch" }, "Forelder eller foresatt? ",
       h("button", { class: "link", type: "button", onclick: showRegister }, "Lag konto")),

@@ -108,8 +108,7 @@ export function renderEmail({ preheader, heading, paragraphs, button, note }) {
         <tr><td>${keepText(`<h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;font-weight:700;color:${C.text}">${escape(heading)}</h1>
           ${paragraphs.map((s) => p(s)).join("\n          ")}`)}</td></tr>${buttonHtml}
         ${note ? `<tr><td>${keepText(p(note, 14))}</td></tr>` : ""}
-        <tr><td style="padding:24px 0 0">${keepText(`<p style="margin:0;font-size:13px;line-height:1.5;color:${C.text}">${escape(APP_NAME)} – det rolige stedet for klassen.<br>
-          Spørsmål? Skriv til <a href="mailto:${CONTACT_EMAIL}" style="color:${C.text};text-decoration:underline">${CONTACT_EMAIL}</a>.</p>`)}</td></tr>
+        <tr><td style="padding:24px 0 0">${keepText(`<p style="margin:0;font-size:13px;line-height:1.5;color:${C.text}">Spørsmål? Skriv til <a href="mailto:${CONTACT_EMAIL}" style="color:${C.text};text-decoration:underline">${CONTACT_EMAIL}</a>.</p>`)}</td></tr>
       </table>
     </td></tr>
   </table>
