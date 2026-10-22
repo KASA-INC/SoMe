@@ -17,8 +17,10 @@ const mediaLimits = { videoSeconds: 30, videoMb: 1, imageMb: 1 };
 const outbox = []; // e-poster som appen «sender» i testene
 const mailer = { send: async (mail) => { outbox.push(mail); } };
 
+let app, db;
 before(async () => {
-  const app = createApp({ db: openDb(), mediaDir, mediaLimits, now: () => clock, mailer, appUrl: "https://some.example" });
+  db = openDb();
+  app = createApp({ db, mediaDir, mediaLimits, now: () => clock, mailer, appUrl: "https://some.example" });
   server = app.listen(0);
   await new Promise((r) => server.once("listening", r));
   base = `http://localhost:${server.address().port}/api`;
@@ -566,4 +568,21 @@ test("sikkerhetsheadere: ingen mellomlagring av API-svar, og nettsiden får ikke
   assert.match(res.headers.get("content-security-policy"), /default-src 'self'/);
   const page = await fetch(base.replace(/\/api$/, "") + "/sikkerhet");
   assert.equal(page.status, 200);
+});
+
+test("opprydding sletter gammel skjermtid og fjernede innlegg etter 30 dager", async () => {
+  const a = await setupFamily("rydd");
+  await post(a.kid, a.groupId, "Dette fjernes");
+  await a.kid("/heartbeat", { method: "POST" });
+  const { body: { posts } } = await a.parent(`/groups/${a.groupId}/posts`);
+  await a.parent(`/posts/${posts[0].id}/moderate`, { method: "POST", body: { action: "remove" } });
+  const start = clock;
+  try {
+    clock = start + 31 * 864e5;
+    app.locals.cleanup();
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM posts WHERE status = 'removed' AND text = 'Dette fjernes'").get().n, 0);
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM usage WHERE day = '2026-10-20'").get().n, 0);
+  } finally {
+    clock = start;
+  }
 });

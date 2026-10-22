@@ -48,6 +48,7 @@ const USERNAME = /^[a-z0-9._-]{3,24}$/i;
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
 const RESET_MINUTES = 60;
 const VERIFY_HOURS = 48;
+const CLEANUP_DAYS = 30;
 
 class HttpError extends Error {
   constructor(status, message, code) {
@@ -520,6 +521,20 @@ export function createApp({
     }
   }
   app.locals.sweepMedia = sweepMedia;
+
+  // Sletter det vi ikke trenger lenger (se lagringstidene på /personvern):
+  // utløpte innlogginger og lenker, skjermtid eldre enn 30 dager, og innlegg som en voksen fjernet for over 30 dager siden.
+  function cleanup() {
+    const t = now();
+    q("DELETE FROM sessions WHERE expires_at < ?").run(t);
+    q("DELETE FROM password_resets WHERE expires_at < ?").run(t);
+    q("DELETE FROM email_verifications WHERE expires_at < ?").run(t);
+    const cutoff = clock(t - CLEANUP_DAYS * 864e5).day;
+    q("DELETE FROM usage WHERE day < ?").run(cutoff);
+    q("DELETE FROM posts WHERE status = 'removed' AND created_at < ?").run(t - CLEANUP_DAYS * 864e5);
+    sweepMedia();
+  }
+  app.locals.cleanup = cleanup;
 
   app.post("/api/posts", child, (req, res) => {
     const { groupId, kind, sticker = "", color = COLORS[0], mediaId } = req.body;

@@ -20,6 +20,9 @@ if (process.env.TRUST_PROXY) app.set("trust proxy", 1);
 // Rydd bort filer fra slettede innlegg og opplastinger som aldri ble delt.
 app.locals.sweepMedia();
 setInterval(app.locals.sweepMedia, 15 * 60 * 1000).unref();
+// Slett gamle tekniske data én gang i døgnet (og ved oppstart).
+app.locals.cleanup();
+setInterval(app.locals.cleanup, 24 * 60 * 60 * 1000).unref();
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`${APP_NAME} kjører på ${appUrl()}`);

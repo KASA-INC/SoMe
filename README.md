@@ -14,6 +14,10 @@ En ekte, men rolig sosial kanal for barn (laget for mellomtrinnet), og det motsa
 
 **Informasjonsside:** [`/om`](public/om.html) forklarer valgene som gjør quipu trygt for barn, og historien bak navnet. Siden er åpen uten innlogging, så den kan deles med foresatte og skolen. Den lenkes fra innloggingssiden og Konto-fanen. [`/hvem`](public/hvem.html) viser hvem som står bak quipu, slik at appen har en ekte avsender. Den lenkes diskret fra Kontakt-delen på `/om`. [`/sikkerhet`](public/sikkerhet.html) er en teknisk gjennomgang av sikkerheten (innlogging, kryptering, tilgang, vern i nettleseren, bilder og video, og det som gjenstår), lenket fra `/om`.
 
+[`/personvern`](public/personvern.html) er personvernerklæringen: hvilke opplysninger som behandles, hvorfor, hvor lenge, hvem som ser hva, databehandlere og rettigheter. Den forklarer også at quipu bare bruker én nødvendig informasjonskapsel (innloggingen) og derfor ikke trenger cookie-banner. Utløpte innlogginger og lenker, skjermtid eldre enn 30 dager og innlegg som en voksen fjernet for over 30 dager siden, slettes automatisk én gang i døgnet.
+
+**Bunntekst:** Alle sider unntatt feeder og det barn ser, har en bunntekst (`public/footer.js`) med lenker til Om quipu, Hvem står bak, Kontakt, Slik gjør vi det trygt, Teknisk sikkerhet, Personvern, Logg inn og Lag konto (`/#registrer`).
+
 **Hjemskjermen:** Registreringssiden og Konto-fanen viser en steg-for-steg-veiledning for å legge quipu på hjemskjermen på iPhone/iPad og Android. Veiledningen for telefonen man bruker, er åpen fra start, og den skjules når appen allerede er åpnet fra hjemskjermen.
 
 ## Roller

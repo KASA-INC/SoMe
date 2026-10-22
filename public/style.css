@@ -835,3 +835,18 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 .install-guide .steps strong { color: var(--text); }
 .install-guide .ui { display: inline-flex; align-items: center; gap: 4px; vertical-align: -0.25em; font-weight: 650; color: var(--text); }
 .install-guide .ui svg.icon { width: 18px; height: 18px; padding: 2px; border-radius: 5px; background: var(--surface-2); box-sizing: content-box; }
+
+/* ---------- Bunntekst med lenker (footer.js) ---------- */
+.site-footer {
+  max-width: 720px; margin: 8px auto 0;
+  padding: 24px calc(20px + var(--safe-right)) calc(28px + var(--safe-bottom)) calc(20px + var(--safe-left));
+  border-top: 1px solid var(--surface); color: var(--on-bg-2); font-size: 0.9rem;
+}
+.site-footer-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 16px; }
+.site-footer-col h2 { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--on-bg); }
+.site-footer-col a { display: block; padding: 6px 0; color: var(--on-bg-2); text-decoration: none; }
+.site-footer-col a:hover { color: var(--on-bg); text-decoration: underline; text-underline-offset: 3px; }
+.site-footer-cookie { margin: 22px 0 0; line-height: 1.5; }
+.site-footer-cookie a { color: var(--on-bg); text-decoration: underline; text-underline-offset: 3px; }
+.site-footer-copy { margin: 12px 0 0; font-size: 0.8rem; }
+@media (min-width: 560px) { .site-footer-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

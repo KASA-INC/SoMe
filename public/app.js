@@ -3,6 +3,7 @@ import {
   APP_NAME, MARK_VIEWBOX, MARK_TIGHT_VIEWBOX, MARK_RING, MARK_EYE_LEFT, MARK_EYE_RIGHT, MARK_MOUTH,
   WORDMARK_VIEWBOX, WORDMARK_PATH,
 } from "./brand.js";
+import { fillFooter } from "./footer.js";
 
 const view = document.getElementById("view");
 let config = null; // { me, kinds, colors, stickers, avatars, media }
@@ -184,10 +185,16 @@ function timeAgo(t) {
 }
 
 // Fyller hovedvisningen. Lister flates ut og tomme verdier hoppes over.
-const render = (...nodes) => {
+// Bunnteksten med lenker vises overalt unntatt i feeder og for barn.
+const siteFooter = document.getElementById("site-footer");
+fillFooter(siteFooter);
+const show = (nodes, footer) => {
   document.body.classList.toggle("auth-page", !config);
+  siteFooter.classList.toggle("hidden", !footer);
   view.replaceChildren(...nodes.flat(Infinity).filter(Boolean));
 };
+const render = (...nodes) => show(nodes, config?.me.role !== "child");
+render.feed = (...nodes) => show(nodes, false);
 
 const avatar = (emoji, size = "") => h("span", { class: `avatar ${size}`, "aria-hidden": "true" }, emoji);
 const field = (label, input) => h("label", { class: "field" }, label, input);
@@ -313,7 +320,7 @@ async function route() {
     config = null;
   }
   setHeader(config?.me.status);
-  if (!config) return showLogin();
+  if (!config) return location.hash === "#registrer" ? showRegister() : showLogin();
   if (config.me.role === "child") return showChild();
   if (!config.me.emailVerified) return showVerifyEmail();
   return showParent();
@@ -361,6 +368,7 @@ async function showRegister() {
     codeRequired && field("Registreringskode", h("input", { name: "code", required: true, autocomplete: "off", autocapitalize: "none" })),
     h("label", { class: "check" }, h("input", { type: "checkbox", required: true }),
       h("span", {}, "Jeg er over 18 år og er foresatt for barna jeg lager kontoer til.")),
+    h("p", { class: "muted small" }, "Les hvordan vi behandler opplysninger i ", h("a", { class: "link", href: "/personvern" }, "personvernerklæringen"), "."),
     h("button", { class: "btn block" }, "Lag konto"),
     warning);
   form.addEventListener("submit", async (e) => {
@@ -1209,7 +1217,7 @@ async function showGroupPosts(g) {
     ? h("p", { class: "status-note danger" }, icon("flag"), `Rapportert ${p.reports} ${p.reports === 1 ? "gang" : "ganger"} – skjult for barna`)
     : p.media?.pending ? h("p", { class: "status-note" }, icon("clock"), "Venter på godkjenning – bare forfatteren ser det") : null;
 
-  render(
+  render.feed(
     h("div", { class: "back-head" }, iconBtn("back", "Tilbake", showParent), h("h2", {}, g.name)),
     posts.length ? null : h("div", { class: "card empty" },
       h("div", { class: "end-icon" }, icon("sparkles")), h("p", {}, "Ingen innlegg ennå.")),
@@ -1240,6 +1248,6 @@ function hideSplash() {
 }
 
 // En lenke for nytt passord kan åpnes i en fane der appen allerede er åpen.
-window.addEventListener("hashchange", () => /^#(reset|verify)=/.test(location.hash) && start());
+window.addEventListener("hashchange", () => /^#(reset=|verify=|registrer$)/.test(location.hash) && start());
 
 start();
