@@ -689,7 +689,7 @@ function composer(groups, close) {
 }
 
 function postCard(p, { actions } = {}) {
-  return h("article", { class: `card post${p.status === "hidden" ? " flagged" : ""}` },
+  return h("article", { class: `post${p.status === "hidden" ? " flagged" : ""}` },
     h("div", { class: "head" },
       avatar(p.avatar),
       h("div", { class: "who" },

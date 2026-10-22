@@ -4,51 +4,52 @@
    Petrol  900 #1f3437  800 #1f4144  600 #145b5e  400 #6c888b  300 #94a5a8
    Korall  900 #5e3d39  800 #b86351  600 #f3785b  400 #f7a98e  200 #f9dccc
    Nøytral 500 #848081  300 #b6b3b2  kremhvit #f8f8f4  nesten svart #161619  800 #383638  700 #5a5758
-   Lys modus: korall bakgrunn, korallvalører på bokser, petrol knapper med kremhvit tekst.
-   Mørk modus: petrol bakgrunn, petrolvalører på bokser, korall knapper med nesten svart tekst. */
+   Lys og mørk modus speiler hverandre: lys bruker korallskalaen (lyseste som bakgrunn, ett hakk mørkere på bokser)
+   der mørk bruker petrolskalaen (mørkeste som bakgrunn, ett hakk lysere på bokser). Hovedknapper har motsatt farge:
+   petrol med kremhvit tekst i lys modus, korall med nesten svart tekst i mørk modus. */
 :root {
-  --bg: #f3785b;
-  --surface: #f9dccc;
-  --surface-2: #f8f8f4;
-  --surface-3: #f7a98e;
-  --border: #f7a98e;
+  --bg: #f9dccc;
+  --surface: #f7a98e;
+  --surface-2: #f9dccc;
+  --surface-3: #f3785b;
+  --border: #f9dccc;
   --text: #161619;
   --text-2: #383638;
-  --text-3: #5a5758;
+  --text-3: #383638;
   --accent: #145b5e;
   --accent-hover: #1f4144;
   --accent-ink: #f8f8f4;
-  --accent-soft: #94a5a8;
-  --accent-soft-ink: #1f3437;
-  --link: #145b5e;
+  --accent-soft: #f3785b;
+  --accent-soft-ink: #161619;
+  --link: #1f4144;
   --danger: #5e3d39;
   --danger-ink: #f8f8f4;
-  --danger-soft: #f7a98e;
+  --danger-soft: #f9dccc;
   --warn: #5e3d39;
-  --warn-soft: #f8f8f4;
-  --ok: #145b5e;
+  --warn-soft: #f9dccc;
+  --ok: #1f4144;
   --shadow: 0 1px 2px rgba(22, 22, 25, 0.05), 0 4px 16px rgba(22, 22, 25, 0.06);
   --shadow-lg: 0 -8px 40px rgba(22, 22, 25, 0.18);
-  --header-bg: rgba(243, 120, 91, 0.9);
-  --backdrop: rgba(22, 22, 25, 0.45);
+  --header-bg: rgba(249, 220, 204, 0.9);
+  --backdrop: rgba(248, 248, 244, 0.6); /* speiler mørk modus: lyser opp i stedet for å mørkne */
 
 
   /* quipu-merket */
-  --brand: #161619;
+  --brand: #145b5e;
   --brand-petrol: #145b5e;
   --coral: #f3785b;
   --coral-ink: #161619;
   --cream: #f8f8f4;
   /* Tekst og lenker som ligger rett på bakgrunnsfargen (ikke på kort) */
   --on-bg: #161619;
-  --on-bg-2: #1f3437;
+  --on-bg-2: #383638;
   --icon-tile: #145b5e;
   --icon-mark: #f8f8f4;
-  /* Meldingsbobler: andres er korall, egne er petrol */
-  --bubble: #f3785b;
-  --bubble-ink: #161619;
-  --bubble-mine: #145b5e;
-  --bubble-mine-ink: #f8f8f4;
+  /* Meldingsbobler: andres i motsatt farge av bakgrunnen (mest synlig), egne i vanlig valør av bakgrunnsfargen */
+  --bubble: #145b5e;
+  --bubble-ink: #f8f8f4;
+  --bubble-mine: #f3785b;
+  --bubble-mine-ink: #161619;
   /* Halen fra logoen (nederste høyre kvadrant av Q-sirkelen) */
   --bubble-tail: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='584.5 888.5 554.5 554.5' preserveAspectRatio='none'%3E%3Cpath d='M861 1368C940 1415 1050 1442 1138 1442C1070 1415 990 1360 953 1302L584.5 888.5Z'/%3E%3C/svg%3E");
 
@@ -64,7 +65,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #145b5e;
+    --bg: #1f3437;
     --surface: #1f4144;
     --surface-2: #1f3437;
     --surface-3: #145b5e;
@@ -75,27 +76,30 @@
     --accent: #f3785b;
     --accent-hover: #f7a98e;
     --accent-ink: #161619;
-    --accent-soft: #1f3437;
-    --accent-soft-ink: #f7a98e;
+    --accent-soft: #145b5e;
+    --accent-soft-ink: #f8f8f4;
     --link: #f7a98e;
     --danger: #f7a98e;
     --danger-ink: #161619;
-    --danger-soft: #5e3d39;
+    --danger-soft: #1f3437;
     --warn: #f9dccc;
-    --warn-soft: #383638;
+    --warn-soft: #1f3437;
     --ok: #b6b3b2;
     --shadow: 0 1px 2px rgba(22, 22, 25, 0.3);
     --shadow-lg: 0 -8px 40px rgba(22, 22, 25, 0.6);
-    --header-bg: rgba(20, 91, 94, 0.9);
+    --header-bg: rgba(31, 52, 55, 0.9);
     --backdrop: rgba(22, 22, 25, 0.6);
 
-    --brand: #f8f8f4;
+    --brand: #f3785b;
     --brand-petrol: #94a5a8;
     --on-bg: #f8f8f4;
-    --on-bg-2: #f9dccc;
+    --on-bg-2: #b6b3b2;
     --icon-tile: #f8f8f4;
     --icon-mark: #145b5e;
+    --bubble: #f3785b;
+    --bubble-ink: #161619;
     --bubble-mine: #145b5e;
+    --bubble-mine-ink: #f8f8f4;
 
     color-scheme: dark;
   }
@@ -264,7 +268,7 @@ select {
 }
 .btn.block { width: 100%; }
 .btn.small { min-height: 40px; font-size: 0.9rem; padding: 8px 14px; border-radius: 10px; }
-.btn.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+.btn.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--surface-3); }
 .btn.soft { background: var(--accent-soft); color: var(--accent-soft-ink); }
 .btn.danger { background: var(--danger-soft); color: var(--danger); }
 .btn.ghost { background: transparent; color: var(--text-2); }
@@ -365,11 +369,13 @@ select {
 .notice svg.icon { color: var(--accent); margin-top: 2px; }
 .notice p { margin: 2px 0 0; }
 
-.post { padding: 14px 14px 6px; }
-.post .head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+/* Innlegg ligger rett på bakgrunnen: navn og profilbilde over, så selve snakkeboblen. */
+.post { margin: 0 0 11px; color: var(--on-bg); }
+.post .head { display: flex; align-items: center; gap: 8px; margin: 0 4px 8px; }
+.post .avatar { width: auto; height: auto; background: none; border: none; font-size: 1.6rem; }
 .post .who { flex: 1; min-width: 0; }
 .post .name { font-weight: 650; }
-.post .meta { color: var(--text-3); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.post .meta { color: var(--on-bg-2); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kind-tag {
   display: inline-flex;
   align-items: center;
@@ -377,12 +383,13 @@ select {
   height: 26px;
   padding: 0 10px;
   border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent-soft-ink);
+  border: 1.5px solid currentColor; /* bare strek, samme farge som tekst og ikon */
+  color: var(--text-2);
   font-size: 0.8rem;
   font-weight: 650;
   white-space: nowrap;
 }
+.post .kind-tag { color: var(--on-bg); }
 .kind-tag svg.icon { width: 14px; height: 14px; }
 /* Snakkeboble: logoformen (Q-sirkelen) trukket ut i bredden. Hjørnene er kvartsirkler med radius --bubble-r,
    og halen er logoens hale skalert til samme radius, så en linje tekst gir nøyaktig logoformen strukket ut. */
@@ -411,9 +418,9 @@ select {
 .post .body.mine::after { left: auto; right: 0; transform: none; }
 .post .body .sticker { margin-left: 6px; font-size: 1.3em; vertical-align: -0.1em; }
 .post .actions { display: flex; gap: 2px; margin-top: 4px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
-.post .actions .btn.ghost { min-height: 40px; padding: 8px 10px; font-size: 0.85rem; font-weight: 600; color: var(--text-3); }
+.post .actions .btn.ghost { min-height: 40px; padding: 8px 10px; font-size: 0.85rem; font-weight: 600; color: var(--on-bg-2); }
 .post .actions .btn.ghost svg.icon { width: 16px; height: 16px; }
-.post.flagged { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
+.post.flagged .body { box-shadow: 0 0 0 3px var(--danger); }
 
 
 .media { margin-top: 10px; }
