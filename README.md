@@ -42,7 +42,19 @@ Legg inn disse miljøvariablene (i Render: tjenesten → **Environment**):
 | `SMTP_PORT` | `587` (eller `465`) |
 | `SMTP_USER` | brukernavnet hos e-postleverandøren |
 | `SMTP_PASS` | passordet, for Gmail et [app-passord](https://myaccount.google.com/apppasswords) |
-| `MAIL_FROM` | `SoMe <noreply@dittdomene.no>` (standard: `SMTP_USER`) |
+| `MAIL_FROM` | `quipu <hei@quipu.no>` (standard: `SMTP_USER`) |
+
+**quipu bruker `hei@quipu.no`** (e-postkonto på webhotellet hos Domene.no, cPanel). Innstillingene står i cPanel under **Email Accounts → Connect Devices** for kontoen. Bruk de sikre SSL/TLS-innstillingene for utgående server (SMTP) der, som regel port `465`:
+
+| Variabel | Verdi |
+|---|---|
+| `SMTP_HOST` | utgående server fra «Connect Devices» |
+| `SMTP_PORT` | `465` |
+| `SMTP_USER` | `hei@quipu.no` |
+| `SMTP_PASS` | passordet til e-postkontoen |
+| `MAIL_FROM` | `quipu <hei@quipu.no>` |
+
+Sjekk oppsettet ved å åpne **Shell** i Render og kjøre `npm run test-mail -- din@epost.no`.
 
 Uten `SMTP_HOST` sendes ingen e-post. Lenken skrives i stedet til serverloggen (Render → **Logs**). Lenkene peker til `APP_URL`, eller til `RENDER_EXTERNAL_URL`, som Render setter automatisk.
 

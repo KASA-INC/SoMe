@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { checkText } from "./filter.js";
 import { isJpeg, stripJpegMetadata, inspectVideo, MediaError } from "./media.js";
 import { createMailer } from "./mail.js";
-import { APP_NAME } from "./config.js";
+import { APP_NAME, CONTACT_EMAIL } from "./config.js";
 import {
   COOKIE, hashPassword, verifyPassword, createSession, destroySession, userFromToken,
   readCookie, sessionCookie, tooManyAttempts, recordFailure, clearFailures, sha256,
@@ -291,7 +291,8 @@ export function createApp({
           subject: `Nytt passord til ${APP_NAME}`,
           text: `Hei ${user.display_name}!\n\nNoen (forhåpentligvis du) har bedt om å sette nytt passord for ${APP_NAME}-kontoen din (${email}).\n\n`
             + `Åpne denne lenken for å velge et nytt passord. Den virker i ${RESET_MINUTES} minutter og kan bare brukes én gang:\n${link}\n\n`
-            + "Hvis det ikke var du, kan du se bort fra denne e-posten. Passordet ditt er ikke endret.",
+            + "Hvis det ikke var du, kan du se bort fra denne e-posten. Passordet ditt er ikke endret.\n\n"
+            + `Spørsmål? Skriv til ${CONTACT_EMAIL}.`,
         });
       } catch (err) {
         console.error("Klarte ikke å sende e-post:", err.message);
