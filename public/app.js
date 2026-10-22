@@ -573,7 +573,7 @@ function composer(groups, close) {
     emojiBtn.replaceChildren(s ? h("span", { class: "chosen" }, s) : icon("smile"));
   });
   stickerRow.setAttribute("aria-label", "Emoji");
-  const colorRow = choiceRow(config.colors, (b, c) => { b.className = `swatch t-${c}`; b.setAttribute("aria-label", `Bakgrunn ${c}`); },
+  const colorRow = choiceRow(config.colors, (b, c) => { b.className = `swatch t-${c}`; b.setAttribute("aria-label", `Bakgrunn ${config.colors.indexOf(c) + 1}`); },
     config.colors[0], "colors", (c) => (editor.className = `editor t-${c}`));
   const emojiPanel = h("div", { class: "picker hidden" }, stickerRow);
   const colorPanel = h("div", { class: "picker hidden" }, colorRow);
