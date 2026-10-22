@@ -477,18 +477,20 @@ select {
 .sheet-head h2 { margin: 0; }
 
 /* ---------- Skriv innlegg ---------- */
-.kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.kinds-label { font-size: 0.85rem; font-weight: 600; color: var(--text-2); margin-bottom: 8px; }
+.kinds { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .kinds button {
-  display: flex; align-items: center; gap: 8px;
-  min-height: 46px; padding: 8px 12px;
-  border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 40px; padding: 6px 12px;
+  border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text-2);
-  font-weight: 600; font-size: 0.95rem;
+  font-weight: 600; font-size: 0.9rem;
   cursor: pointer; text-align: left;
   min-width: 0;
 }
+.kinds button svg.icon { width: 16px; height: 16px; }
 .kinds button.selected { background: var(--accent-soft); color: var(--accent-soft-ink); border-color: var(--accent); }
 
 .editor { border-radius: var(--radius-sm); border: 1px solid var(--border); overflow: hidden; transition: background 0.2s; }
@@ -617,7 +619,7 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
   main { padding-left: 12px; padding-right: 12px; }
   .meters { grid-template-columns: 1fr; }
   .avatar-pick { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .kinds button { font-size: 0.875rem; padding: 8px 10px; }
+  .kinds button { font-size: 0.85rem; padding: 6px 10px; }
 }
 
 /* Større skjermer: arket blir en dialog midt på skjermen. */

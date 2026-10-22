@@ -411,3 +411,17 @@ test("foresatte fra før e-post kom kan fortsatt logge inn med brukernavn", asyn
     srv.close();
   }
 });
+
+test("merkelapp er valgfri, og nye merkelapper finnes", async () => {
+  const a = await setupFamily("t");
+  await a.parent(`/children/${a.childId}`, { method: "PATCH", body: { postsPerDay: 5 } });
+  const none = await a.kid("/posts", { method: "POST", body: { groupId: a.groupId, text: "Er det noen som vil spille fotball i friminuttet?", color: "bla" } });
+  assert.equal(none.status, 201);
+  const q = await a.kid("/posts", { method: "POST", body: { groupId: a.groupId, kind: "sporsmal", text: "Hva er leksene til fredag?", color: "gul" } });
+  assert.equal(q.status, 201);
+  const kinds = (await a.kid("/feed")).body.posts.map((p) => p.kind).sort();
+  assert.deepEqual(kinds, ["", "sporsmal"]);
+  assert.equal((await a.kid("/me")).body.kinds.sporsmal, "Spørsmål");
+  // Ukjente merkelapper avvises fortsatt, også navn som finnes på alle objekter.
+  assert.equal((await a.kid("/posts", { method: "POST", body: { groupId: a.groupId, kind: "toString", text: "Hei hei", color: "gul" } })).status, 400);
+});

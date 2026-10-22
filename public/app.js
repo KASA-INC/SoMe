@@ -59,6 +59,10 @@ const ICONS = {
   sliders: ["M4 21v-7", "M4 10V3", "M12 21v-9", "M12 8V3", "M20 21v-5", "M20 12V3", "M1 14h6", "M9 8h6", "M17 16h6"],
   shield: ["M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10", "m9 12 2 2 4-4"],
   eye: ["M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z", "circle:12,12,3"],
+  help: ["circle:12,12,10", "M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3", "M12 17h.01"],
+  calendar: ["rect:3,4,18,18,2", "M16 2v4", "M8 2v4", "M3 10h18"],
+  compass: ["circle:12,12,10", "m16.2 7.8-2.1 6.3-6.3 2.1 2.1-6.3z"],
+  book: ["M4 19.5A2.5 2.5 0 0 1 6.5 17H20", "M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"],
   eyeOff: ["M9.9 9.9a3 3 0 1 0 4.2 4.2", "M10.7 5.1A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13.2 13.2 0 0 1-1.7 2.7", "M6.6 6.6A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.4-1.6", "M2 2l20 20"],
   mail: ["rect:2,4,20,16,2", "m22 7-10 6L2 7"],
   alert: ["circle:12,12,10", "M12 8v4", "M12 16h.01"],
@@ -114,12 +118,20 @@ function logo() {
 // Merke + ordbilde, med navnet som tekst for skjermlesere.
 const lockup = (cls) => h("span", { class: `lockup ${cls}`, role: "img", "aria-label": APP_NAME }, markSvg(), wordmarkSvg());
 
-const KIND_ICONS = { glad: "sun", laerte: "bulb", takk: "sparkles", laget: "pencil" };
+const KIND_ICONS = {
+  glad: "sun", laerte: "book", takk: "sparkles", laget: "pencil",
+  sporsmal: "help", tips: "bulb", gleder: "calendar", opplevd: "compass",
+};
+const DEFAULT_PROMPT = "Skriv noe til klassen …";
 const KIND_PROMPTS = {
   glad: "Hva er du glad for i dag?",
   laerte: "Hva lærte du?",
   takk: "Hvem vil du takke, og for hva?",
   laget: "Hva har du laget?",
+  sporsmal: "Hva lurer du på?",
+  tips: "Hvilket tips vil du dele?",
+  gleder: "Hva gleder du deg til?",
+  opplevd: "Hva har du opplevd?",
 };
 
 function toast(msg) {
@@ -410,7 +422,7 @@ const INTRO = [
   {
     icon: "pencil",
     title: "Del noe fint",
-    text: ["Hvert innlegg er noe du er glad for, noe du har lært, en takk til noen eller noe du har laget.",
+    text: ["Du kan skrive om hva du vil, stille spørsmål eller dele tips. Vil du, kan du sette en merkelapp på innlegget, for eksempel «Glad for», «Spørsmål» eller «Har laget».",
       "Et godt spørsmål før du deler: Ville jeg sagt dette ansikt til ansikt?",
       "Del aldri adresse, telefonnummer eller passord."],
   },
@@ -499,10 +511,21 @@ function composePrompt(groups, status) {
 }
 
 function composer(groups, close) {
-  const kinds = Object.keys(config.kinds);
-  const text = h("textarea", { maxlength: 200, placeholder: KIND_PROMPTS[kinds[0]], "aria-label": "Innlegg", rows: 4 });
-  const kindRow = choiceRow(kinds, (b, k) => b.append(icon(KIND_ICONS[k]), h("span", {}, config.kinds[k])), kinds[0], "kinds",
-    (k) => (text.placeholder = KIND_PROMPTS[k]));
+  const text = h("textarea", { maxlength: 200, placeholder: DEFAULT_PROMPT, "aria-label": "Innlegg", rows: 4 });
+  // Merkelapp er valgfri: trykk for å velge, trykk igjen for å fjerne.
+  const kindRow = h("div", { class: "kinds", role: "group", "aria-label": "Merkelapp (valgfritt)" });
+  kindRow.value = "";
+  for (const k of Object.keys(config.kinds)) {
+    const b = h("button", { type: "button", "aria-pressed": "false" }, icon(KIND_ICONS[k] || "sparkles"), h("span", {}, config.kinds[k]));
+    b.addEventListener("click", () => {
+      const selecting = kindRow.value !== k;
+      kindRow.querySelectorAll("button").forEach((x) => { x.classList.remove("selected"); x.setAttribute("aria-pressed", "false"); });
+      if (selecting) { b.classList.add("selected"); b.setAttribute("aria-pressed", "true"); }
+      kindRow.value = selecting ? k : "";
+      text.placeholder = selecting ? KIND_PROMPTS[k] || DEFAULT_PROMPT : DEFAULT_PROMPT;
+    });
+    kindRow.append(b);
+  }
   const count = h("span", { class: "count" }, "0/200");
   const editor = h("div", { class: `editor t-${config.colors[0]}` }, text);
   const warning = warningBox();
@@ -625,6 +648,7 @@ function composer(groups, close) {
   setTimeout(() => text.focus(), 300);
 
   return h("div", { class: "composer" },
+    h("div", { class: "kinds-label" }, "Merkelapp ", h("span", { class: "faint" }, "(valgfritt)")),
     kindRow,
     editor,
     fileInput,

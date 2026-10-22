@@ -5,7 +5,7 @@
 En ekte, men rolig sosial kanal for barn (laget for mellomtrinnet), og det motsatte av X og Facebook:
 
 - **Ingen likes, hjerter, stjerner, følgere eller tall.** Ingenting å konkurrere om.
-- **Bare positive innlegg.** Hvert innlegg må være én av fire typer: *Glad for*, *Lærte noe*, *Takk til* eller *Har laget*. Et snillfilter på serveren stopper stygge ord, telefonnumre, e-post, adresser, lenker og brukernavn fra andre apper.
+- **Vennlige innlegg.** Barna kan skrive fritt, stille spørsmål og dele tips. De kan sette en valgfri merkelapp på innlegget: *Glad for*, *Lærte noe*, *Takk til*, *Har laget*, *Spørsmål*, *Tips*, *Gleder meg til* eller *Har opplevd*. Et snillfilter på serveren stopper stygge ord, telefonnumre, e-post, adresser, lenker og brukernavn fra andre apper.
 - **Laget for lite bruk.** Feeden viser bare de siste tre dagene og tar slutt («Du har sett alt som er nytt!»). Det er ingen uendelig scrolling og ingen varsler. Foresatte bestemmer daglig tidsgrense (standard 20 min), åpningstider (standard 07–20) og antall innlegg per dag (standard 2). Alt dette håndheves på serveren.
 - **Bilder og video.** Hver video kan være maks 30 sekunder og 50 MB. Grensene kan endres, se under. GPS-posisjon og annen metadata fjernes fra både bilder og video. Som standard må gruppeeieren godkjenne bilder og video før de andre barna ser dem. Videoer spiller aldri av automatisk.
 - **Lukkede grupper.** Barn ser bare innlegg fra gruppene sine, for eksempel klassen eller en vennegjeng. Det finnes ingen søk, ingen profiler å bla i og ingen direktemeldinger.

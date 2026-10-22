@@ -12,12 +12,16 @@ import {
   readCookie, sessionCookie, tooManyAttempts, recordFailure, clearFailures, sha256,
 } from "./auth.js";
 
-// Innleggstyper: alle innlegg må ha en positiv ramme.
+// Merkelapper barnet kan sette på et innlegg. De er valgfrie: et innlegg uten merkelapp lagres med kind "".
 export const KINDS = {
   glad: "Glad for",
   laerte: "Lærte noe",
   takk: "Takk til",
   laget: "Har laget",
+  sporsmal: "Spørsmål",
+  tips: "Tips",
+  gleder: "Gleder meg til",
+  opplevd: "Har opplevd",
 };
 export const COLORS = ["lilla", "bla", "gronn", "gul", "oransje", "rosa"];
 export const STICKERS = ["", "⚽", "🏀", "🎮", "🎨", "📚", "🎵", "🎬", "🍕", "🚲", "🐶", "☀️"];
@@ -427,7 +431,8 @@ export function createApp({
     const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
     if (req.limits.postsLeft <= 0) fail(429, "Du har delt det du kan i dag. Du kan dele mer i morgen.", "POST_LIMIT");
     if (!q("SELECT 1 FROM memberships WHERE group_id = ? AND user_id = ?").get(groupId, req.user.id)) fail(403, "Du er ikke med i den gruppa");
-    if (!KINDS[kind]) fail(400, "Velg hva slags innlegg det er");
+    const kindKey = kind ?? "";
+    if (kindKey !== "" && !Object.hasOwn(KINDS, kindKey)) fail(400, "Ugyldig merkelapp");
     if (!COLORS.includes(color)) fail(400, "Ugyldig farge");
     if (!STICKERS.includes(sticker)) fail(400, "Ugyldig klistremerke");
     if (text.length < 2 || text.length > 200) fail(400, "Innlegget må ha 2–200 tegn");
@@ -438,7 +443,7 @@ export function createApp({
       fail(400, "Fant ikke bildet eller videoen. Prøv å legge det til på nytt.");
     }
     const { lastInsertRowid } = q(`INSERT INTO posts (group_id, author_id, kind, text, sticker, color, day, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(groupId, req.user.id, kind, text, sticker, color, clock().day, now());
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(groupId, req.user.id, kindKey, text, sticker, color, clock().day, now());
     let pending = false;
     if (mediaId) {
       pending = !!q("SELECT media_review FROM groups WHERE id = ?").get(groupId).media_review;
