@@ -696,6 +696,15 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
   content: ""; position: absolute; left: 14px; top: 15px; width: 18px; height: 18px; border-radius: 50%;
   background: var(--coral) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23161619' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M7 7l10 10M17 7 7 17'/%3E%3C/svg%3E") center / 10px no-repeat;
 }
+/* Liste over ting vi har gjort (sikkerhet.html): hake i stedet for kryss. */
+.info-grid.checks li::before {
+  background: #145b5e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f8f8f4' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 11px no-repeat;
+}
+@media (prefers-color-scheme: dark) {
+  .info-grid.checks li::before {
+    background: #f3785b url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23161619' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 11px no-repeat;
+  }
+}
 .info-cards { display: grid; gap: 12px; }
 .info-cards .card { margin: 0; }
 .info-cards h3 { margin-bottom: 6px; color: var(--accent-soft-ink); }
@@ -796,3 +805,33 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 
 /* ---------- Hvem står bak (hvem.html) ---------- */
 .person-frame { display: block; width: min(260px, 70vw); height: auto; margin: 8px auto 0; }
+
+/* ---------- Teknisk sikkerhet (sikkerhet.html) ---------- */
+.info-table-wrap { overflow-x: auto; margin: 16px 0 0; border-radius: var(--radius); background: var(--surface); }
+.info-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; color: var(--text); }
+.info-table th, .info-table td { padding: 10px 12px; text-align: left; vertical-align: top; border-top: 1px solid var(--border); }
+.info-table thead th { border-top: none; font-weight: 700; }
+.info-table tbody th { font-weight: 650; }
+.info-table td:last-child { font-weight: 600; }
+/* Smal skjerm: hver rad blir et lite kort med etikett foran hver verdi. */
+@media (max-width: 560px) {
+  .info-table thead { display: none; }
+  .info-table tr { display: block; padding: 12px 14px; border-top: 1px solid var(--border); }
+  .info-table tbody tr:first-child { border-top: none; }
+  .info-table th, .info-table td { display: block; padding: 2px 0; border: none; }
+  .info-table tbody th { margin-bottom: 4px; }
+  .info-table td::before { content: attr(data-label) ": "; font-weight: 500; color: var(--text-2); }
+}
+.info-section code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.9em; }
+
+/* ---------- Legg på hjemskjermen ---------- */
+.install-guide .install-os { border-top: 1px solid var(--surface-2); margin-top: 12px; padding-top: 4px; }
+.install-guide summary { cursor: pointer; font-weight: 650; padding: 10px 0; min-height: var(--tap); display: flex; align-items: center; list-style: none; }
+.install-guide summary::-webkit-details-marker { display: none; }
+.install-guide summary::after { content: "+"; margin-left: auto; font-size: 1.3rem; font-weight: 500; color: var(--text-2); }
+.install-guide details[open] summary::after { content: "−"; }
+.install-guide .steps { margin: 0 0 8px; padding-left: 22px; color: var(--text-2); }
+.install-guide .steps li { margin-bottom: 10px; padding-left: 4px; line-height: 1.5; }
+.install-guide .steps strong { color: var(--text); }
+.install-guide .ui { display: inline-flex; align-items: center; gap: 4px; vertical-align: -0.25em; font-weight: 650; color: var(--text); }
+.install-guide .ui svg.icon { width: 18px; height: 18px; padding: 2px; border-radius: 5px; background: var(--surface-2); box-sizing: content-box; }

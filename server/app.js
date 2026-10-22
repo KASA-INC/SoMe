@@ -87,7 +87,11 @@ export function createApp({
       "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "no-referrer",
       "X-Frame-Options": "DENY",
+      // Nettsiden får ikke bruke posisjon, kamera eller mikrofon (bilder velges med telefonens egen velger).
+      "Permissions-Policy": "geolocation=(), camera=(), microphone=(), payment=(), usb=()",
     });
+    // I drift: nettleseren skal alltid bruke HTTPS mot quipu i ett år framover.
+    if (secureCookies) res.set("Strict-Transport-Security", "max-age=31536000"); // uten includeSubDomains, så e-post- og cPanel-adresser hos Domene.no ikke påvirkes
     next();
   });
   app.use(express.json({ limit: "10kb" }));
@@ -102,6 +106,8 @@ export function createApp({
       return res.status(415).json({ error: "Forventet JSON" });
     }
     req.body ??= {};
+    // Svar med personlige data skal ikke lagres i mellomlagre underveis (bilder og video setter sin egen).
+    res.set("Cache-Control", "no-store");
     next();
   });
 

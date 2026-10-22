@@ -70,6 +70,10 @@ const ICONS = {
   mail: ["rect:2,4,20,16,2", "m22 7-10 6L2 7"],
   alert: ["circle:12,12,10", "M12 8v4", "M12 16h.01"],
   lock: ["rect:3,11,18,11,2", "M7 11V7a5 5 0 0 1 10 0v4"],
+  share: ["M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8", "m16 6-4-4-4 4", "M12 2v13"],
+  plusSquare: ["rect:3,3,18,18,2", "M12 8v8", "M8 12h8"],
+  dots: ["circle:12,5,1", "circle:12,12,1", "circle:12,19,1"],
+  phone: ["rect:5,2,14,20,2", "M12 18h.01"],
 };
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -370,7 +374,39 @@ async function showRegister() {
     authHero("Ny foresatt-konto", "Du lager kontoer til barna dine og bestemmer hvilke grupper de er med i."),
     form,
     h("p", { class: "auth-switch" }, "Har du allerede konto? ",
-      h("button", { class: "link", type: "button", onclick: showLogin }, "Logg inn"))));
+      h("button", { class: "link", type: "button", onclick: showLogin }, "Logg inn")),
+    installGuide()));
+}
+
+// Steg for steg: legg quipu på hjemskjermen. Vises ikke når appen allerede er åpnet fra hjemskjermen.
+// Veiledningen for telefonen man bruker, er åpen fra start.
+function installGuide() {
+  if (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone) return null;
+  const ua = navigator.userAgent;
+  const isIos = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/.test(ua);
+  const step = (...parts) => h("li", {}, ...parts);
+  const ui = (name, text) => h("span", { class: "ui" }, icon(name), text);
+  const guide = (title, open, steps, tip) => h("details", { class: "install-os", open: open || null },
+    h("summary", {}, title),
+    h("ol", { class: "steps" }, steps),
+    tip && h("p", { class: "muted small" }, tip));
+  return h("section", { class: "card install-guide" },
+    h("div", { class: "notice" }, icon("phone"),
+      h("div", {}, h("strong", {}, `Legg ${APP_NAME} på hjemskjermen`),
+        h("p", { class: "muted small" }, "Da åpnes quipu som en vanlig app, uten adresselinje. Gjør det på telefonen til barnet også."))),
+    guide("iPhone og iPad", isIos, [
+      step("Åpne ", h("strong", {}, "www.quipu.no"), " i Safari."),
+      step("Trykk på Del-knappen ", ui("share", ""), " nederst på skjermen (øverst til høyre på iPad). Ser du den ikke, trykk først på ", ui("dots", ""), "."),
+      step("Bla ned og trykk ", ui("plusSquare", "Legg til på Hjem-skjerm"), "."),
+      step("Trykk ", h("strong", {}, "Legg til"), " øverst til høyre. Nå ligger quipu på hjemskjermen."),
+    ], "Bruker du Chrome eller en annen nettleser på iPhone, finner du det samme under Del-knappen."),
+    guide("Android", isAndroid, [
+      step("Åpne ", h("strong", {}, "www.quipu.no"), " i Chrome."),
+      step("Trykk på menyen ", ui("dots", ""), " øverst til høyre."),
+      step("Trykk ", h("strong", {}, "Legg til på startsiden"), " eller ", h("strong", {}, "Installer app"), "."),
+      step("Trykk ", h("strong", {}, "Installer"), " eller ", h("strong", {}, "Legg til"), ". Nå ligger quipu på startskjermen."),
+    ], "Bruker du Samsung Internet: trykk på menyen ☰ nederst, velg «Legg til side på» og så «Startskjerm»."));
 }
 
 function showForgot() {
@@ -1094,6 +1130,7 @@ function accountTab() {
     h("a", { class: "card notice info-link", href: "/om" }, icon("shield"),
       h("div", {}, h("strong", {}, `Slik gjør vi ${APP_NAME} trygt`),
         h("p", { class: "muted small" }, "Valgene vi har tatt, og historien bak navnet. Fin å dele med andre foresatte."))),
+    installGuide(),
     emailCard(),
     passwordCard(),
     h("section", { class: "card" },

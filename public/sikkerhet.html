@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Teknisk sikkerhet i quipu</title>
+  <meta name="description" content="Hvordan quipu er bygget for å være sikkert: innlogging, kryptering, tilgangskontroll, bilder og video, og hvorfor færre dører inn gir færre veier inn.">
+  <meta name="theme-color" content="#f9dccc" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1f3437" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="info-page">
+  <main class="info">
+    <a class="info-back link" href="/om">← Om quipu</a>
+
+    <header class="info-hero">
+      <h1>Teknisk sikkerhet</h1>
+      <p class="lead">For deg som vil vite hva som skjer under panseret. Kort fortalt: quipu gjør få ting, og hver av dem er låst ned.</p>
+    </header>
+
+    <section class="info-section">
+      <h2>Færre dører gir færre veier inn</h2>
+      <p>De store sosiale mediene er enorme systemer. De har reklamenettverk, sporingsskript, kode fra hundrevis av andre selskaper inne i appen, innlogging via andre tjenester, åpne grensesnitt for utviklere, søk, offentlige profiler, direktemeldinger og algoritmer som anbefaler innhold fra fremmede. Hver av disse delene er en mulig vei inn, både for angrep og for folk som vil komme i kontakt med barn.</p>
+      <p>quipu har ingen av dem. På viktige punkter er quipu derfor sikrere enn de store appene. Det er ikke fordi vi er flinkere enn dem, men fordi det finnes langt færre steder å bryte seg inn eller snike seg inn.</p>
+      <div class="info-table-wrap">
+        <table class="info-table">
+          <thead><tr><th scope="col"></th><th scope="col">Store SoMe-apper</th><th scope="col">quipu</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Hvem kan kontakte barnet</th><td data-label="Store SoMe-apper">Ofte fremmede, via søk, forslag og meldinger</td><td data-label="quipu">Bare godkjente barn i samme gruppe</td></tr>
+            <tr><th scope="row">Direktemeldinger</th><td data-label="Store SoMe-apper">Ja, ofte med meldinger som forsvinner</td><td data-label="quipu">Nei. Alt som deles, kan voksne i gruppa lese</td></tr>
+            <tr><th scope="row">Offentlige profiler og søk</th><td data-label="Store SoMe-apper">Ja</td><td data-label="quipu">Nei</td></tr>
+            <tr><th scope="row">Reklame og sporing</th><td data-label="Store SoMe-apper">Ja, det er forretningsmodellen</td><td data-label="quipu">Nei. Ingen analyseverktøy eller sporingspiksler</td></tr>
+            <tr><th scope="row">Kode fra andre selskaper</th><td data-label="Store SoMe-apper">Mange tredjeparts-SDK-er i appen</td><td data-label="quipu">To kodepakker på serveren, ingen i nettleseren</td></tr>
+            <tr><th scope="row">Innlogging via andre tjenester</th><td data-label="Store SoMe-apper">Ja (Google, Apple, Facebook …)</td><td data-label="quipu">Nei. Ingen bakdører via andre kontoer</td></tr>
+            <tr><th scope="row">Åpne grensesnitt (API) for andre</th><td data-label="Store SoMe-apper">Ja</td><td data-label="quipu">Nei</td></tr>
+            <tr><th scope="row">Data delt med andre</th><td data-label="Store SoMe-apper">Annonsører og partnere</td><td data-label="quipu">Ingen</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="info-section">
+      <h2>Lite kode fra andre</h2>
+      <p>Mange sikkerhetshull kommer ikke fra appen selv, men fra kodepakker den bygger på. quipu bruker bare to: <strong>Express</strong> (webserveren) og <strong>Nodemailer</strong> (e-post). Versjonene er låst og sjekket mot kjente sårbarheter. Alt annet, som kryptering, database og behandling av bilder og video, bruker det som er innebygd i Node.js eller er skrevet for quipu. Nettleseren laster ikke ett eneste skript fra andre nettsteder.</p>
+    </section>
+
+    <section class="info-section">
+      <h2>Kontoer og innlogging</h2>
+      <ul class="info-grid checks">
+        <li><strong>Passord lagres aldri.</strong> Vi lagrer bare et «fingeravtrykk» laget med scrypt og et unikt tilfeldig salt per konto. Scrypt er laget for å være tregt og dyrt å gjette mot, så selv en stjålet database avslører ikke passordene. Sammenligningen tar like lang tid uansett svar, så tiden ikke røper noe.</li>
+        <li><strong>Innloggingen er en tilfeldig nøkkel på 256 bit</strong> i en informasjonskapsel. Serveren lagrer bare en SHA-256-hash av den, så en lekket database gir ingen innlogginger. Nøkkelen varer i 30 dager.</li>
+        <li><strong>Informasjonskapselen er låst ned:</strong> <code>HttpOnly</code> (skript kan ikke lese den), <code>Secure</code> (sendes bare over HTTPS) og <code>SameSite=Strict</code> (følger ikke med forespørsler fra andre nettsider).</li>
+        <li><strong>Bremse mot gjetting.</strong> Etter fem feil passord for samme konto fra samme sted må man vente et kvarter.</li>
+        <li><strong>Bekreftet e-post.</strong> Nye foresatte må åpne en lenke i e-posten før de kan lage barnekontoer. Ny e-postadresse tas først i bruk når lenken til den nye adressen er åpnet.</li>
+        <li><strong>Trygg «Glemt passord».</strong> Lenken virker i én time og bare én gang, og bare en hash av den lagres. Koden ligger etter <code>#</code> i adressen, så den aldri havner i serverlogger. Svaret er det samme uansett om e-posten finnes, så ingen kan sjekke hvem som har konto. Når passordet byttes, blir alle andre enheter logget ut.</li>
+        <li><strong>Barn har ikke e-post</strong> og kan ikke lage konto selv. Det gjør alltid en foresatt.</li>
+      </ul>
+    </section>
+
+    <section class="info-section">
+      <h2>Tilgang avgjøres på serveren</h2>
+      <p>Appen på telefonen bestemmer ingenting selv. Hver eneste forespørsel sjekkes på serveren: Er du logget inn? Er du med i denne gruppa, og er du godkjent? Eier du denne gruppa? Er det barnet ditt? Er appen åpen nå, og har barnet tid og innlegg igjen i dag? Et barn som er flink med teknikk, kommer ikke rundt grensene ved å endre på appen.</p>
+      <ul class="info-list">
+        <li>Et barn ser ingenting i en gruppe før den voksne som eier gruppa har godkjent det. Eieren ser navn og e-post på den foresatte som spør.</li>
+        <li>Bilder og videoer har tilfeldige navn, ligger utenfor den offentlige delen av serveren og sendes bare til den som har tilgang.</li>
+        <li>Innloggede sider kan ikke mellomlagres av andre enn din egen enhet.</li>
+      </ul>
+    </section>
+
+    <section class="info-section">
+      <h2>Vern i nettleseren</h2>
+      <ul class="info-grid checks">
+        <li><strong>Streng Content-Security-Policy.</strong> Nettleseren får bare kjøre kode fra quipu sin egen server. Skript, stiler og rammer fra andre steder blokkeres, og det gjelder også kode som noen prøver å snike inn i et innlegg.</li>
+        <li><strong>Tekst er alltid tekst.</strong> Det barna skriver, settes inn som ren tekst og blir aldri tolket som kode (vern mot XSS).</li>
+        <li><strong>Vern mot falske forespørsler (CSRF).</strong> I tillegg til <code>SameSite=Strict</code> godtar serveren bare endringer sendt som JSON. Opplastinger må ha en egen header. Begge deler kan andre nettsider ikke lage.</li>
+        <li><strong>Ingen innramming.</strong> quipu kan ikke vises inne i en annen nettside, så ingen kan lure noen til å trykke på noe skjult (clickjacking).</li>
+        <li><strong>Alltid HTTPS.</strong> All trafikk er kryptert, og nettleseren blir bedt om å aldri bruke ukryptert forbindelse (HSTS).</li>
+        <li><strong>Ingen tilgang til posisjon, kamera eller mikrofon</strong> for nettsiden. Bilder velges med telefonens egen velger.</li>
+        <li><strong>Ingen lekkasje av adresser.</strong> Når man trykker på en lenke ut, får ikke den andre siden vite hvor man kom fra.</li>
+      </ul>
+    </section>
+
+    <section class="info-section">
+      <h2>Bilder og video</h2>
+      <ul class="info-grid checks">
+        <li><strong>Posisjonen fjernes to ganger.</strong> Bilder tegnes på nytt på telefonen før opplasting. Det fjerner EXIF-data og GPS og gjør HEIC-bilder fra iPhone om til JPEG. Serveren fjerner i tillegg alle metadata-segmenter.</li>
+        <li><strong>Video sjekkes på serveren.</strong> MP4- og MOV-filer leses av egen kode uten eksterne verktøy. Metadata-boksene, der GPS ligger, nulles ut, og lengden kontrolleres på nytt, så grensen på 30 sekunder ikke kan omgås.</li>
+        <li><strong>Bare kjente filtyper</strong> godtas, og alle filer har en øvre størrelsesgrense.</li>
+        <li><strong>Voksne godkjenner</strong> bilder og video før de andre barna ser dem, og video spilles aldri av automatisk.</li>
+      </ul>
+    </section>
+
+    <section class="info-section">
+      <h2>Data og personvern</h2>
+      <ul class="info-list">
+        <li>quipu kjører hos Render i Frankfurt, innenfor EU.</li>
+        <li>Vi samler bare inn det appen trenger: navn, e-post til foresatte, brukernavn til barn, innlegg og hvor mange minutter barnet har brukt i dag.</li>
+        <li>Ingen data selges, deles eller brukes til reklame.</li>
+        <li>Sletter en foresatt kontoen sin, slettes også barnas kontoer, innlegg, bilder og videoer.</li>
+      </ul>
+    </section>
+
+    <section class="info-section">
+      <h2>Det vi jobber videre med</h2>
+      <p>Ingen tjeneste er helt sikker, og vi vil heller være ærlige om det som gjenstår:</p>
+      <ul class="info-list">
+        <li>quipu har ennå ikke hatt en uavhengig sikkerhetstest (pentest). Det står høyt på lista.</li>
+        <li>Tjenesten kjører på én server. Sikkerhetskopiering og varsling ved nedetid skal bli bedre.</li>
+        <li>Bremsen mot passordgjetting nullstilles hvis serveren starter på nytt.</li>
+        <li>Filteret er en ordliste og fanger ikke alt, og bilder skannes ikke automatisk. Derfor er voksne som følger med og godkjenner, en viktig del av sikkerheten.</li>
+      </ul>
+      <p>Har du funnet en svakhet? Skriv til <a class="link" href="mailto:hei@quipu.no">hei@quipu.no</a>, så ser vi på det med en gang.</p>
+    </section>
+
+    <p class="info-cta"><a class="btn" href="/">Til quipu</a></p>
+  </main>
+</body>
+</html>

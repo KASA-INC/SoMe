@@ -558,3 +558,12 @@ test("e-poster har HTML med logo, og navn fra brukere blir escapet", async () =>
   assert.equal(mail.attachments[0].cid, "logo@quipu");
   assert.match(mail.text, /Bekreft e-postadressen: https:\/\/some\.example\/#verify=/);
 });
+
+test("sikkerhetsheadere: ingen mellomlagring av API-svar, og nettsiden får ikke posisjon, kamera eller mikrofon", async () => {
+  const res = await fetch(base + "/signup-info");
+  assert.equal(res.headers.get("cache-control"), "no-store");
+  assert.match(res.headers.get("permissions-policy"), /geolocation=\(\), camera=\(\), microphone=\(\)/);
+  assert.match(res.headers.get("content-security-policy"), /default-src 'self'/);
+  const page = await fetch(base.replace(/\/api$/, "") + "/sikkerhet");
+  assert.equal(page.status, 200);
+});

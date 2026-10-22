@@ -12,7 +12,9 @@ En ekte, men rolig sosial kanal for barn (laget for mellomtrinnet), og det motsa
 - **Godkjente medlemmer.** Med invitasjonskoden ber en foresatt om at barnet får bli med. Eieren av gruppa får en e-post, ser barnets navn og navnet og e-posten til den foresatte, og godkjenner eller avslår under **Grupper**. Barnet ser ingenting i gruppa før det er godkjent. Eierens egne barn slipper rett inn.
 - **Bekreftet e-post.** Nye foresatte får en lenke på e-post (gyldig i 48 timer) og må åpne den før de kan lage barnekontoer eller grupper. Ny e-postadresse på en bekreftet konto tas først i bruk når lenken til den nye adressen er åpnet.
 
-**Informasjonsside:** [`/om`](public/om.html) forklarer valgene som gjør quipu trygt for barn, og historien bak navnet. Siden er åpen uten innlogging, så den kan deles med foresatte og skolen. Den lenkes fra innloggingssiden og Konto-fanen. [`/hvem`](public/hvem.html) viser hvem som står bak quipu, slik at appen har en ekte avsender. Den lenkes diskret fra Kontakt-delen på `/om`.
+**Informasjonsside:** [`/om`](public/om.html) forklarer valgene som gjør quipu trygt for barn, og historien bak navnet. Siden er åpen uten innlogging, så den kan deles med foresatte og skolen. Den lenkes fra innloggingssiden og Konto-fanen. [`/hvem`](public/hvem.html) viser hvem som står bak quipu, slik at appen har en ekte avsender. Den lenkes diskret fra Kontakt-delen på `/om`. [`/sikkerhet`](public/sikkerhet.html) er en teknisk gjennomgang av sikkerheten (innlogging, kryptering, tilgang, vern i nettleseren, bilder og video, og det som gjenstår), lenket fra `/om`.
+
+**Hjemskjermen:** Registreringssiden og Konto-fanen viser en steg-for-steg-veiledning for å legge quipu på hjemskjermen på iPhone/iPad og Android. Veiledningen for telefonen man bruker, er åpen fra start, og den skjules når appen allerede er åpnet fra hjemskjermen.
 
 ## Roller
 
@@ -156,7 +158,7 @@ Kjør alltid bak HTTPS i produksjon (for eksempel Caddy, nginx eller en plattfor
 
 - Passord hashes med scrypt. Økter ligger i en `HttpOnly`, `SameSite=Strict`-cookie, og bare en hash av øktnøkkelen lagres.
 - Alle endringer krever JSON (CSRF-vern), og innlogging bremses etter 5 feil.
-- Streng Content-Security-Policy. All brukertekst vises med `textContent`, aldri som HTML.
+- Streng Content-Security-Policy, Permissions-Policy (ingen posisjon, kamera eller mikrofon), HSTS i drift og `Cache-Control: no-store` på API-svar. All brukertekst vises med `textContent`, aldri som HTML.
 - Foresatte kan bare se og styre sine egne barn og gruppene de har tilgang til (dekket av tester).
 
 ## Tilpasning
