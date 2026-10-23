@@ -1,0 +1,12 @@
+# GitHub sier fra og lager forslag til oppdatering når en kodepakke eller GitHub Action har en kjent sårbarhet,
+# og ellers én gang i uka.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
