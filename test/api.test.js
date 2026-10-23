@@ -221,6 +221,8 @@ test("åpningstider og daglig tidsgrense håndheves på serveren", async () => {
   const night = await a.kid("/feed");
   assert.equal(night.status, 403);
   assert.equal(night.body.code, "CLOSED");
+  // Barnet kan likevel si fra om noe alvorlig når appen er stengt.
+  assert.equal((await a.kid("/safety", { method: "POST", body: { category: "trussel", text: "Noen truer meg i kveld" } })).status, 201);
   clock = Date.parse("2026-10-20T10:00:00Z");
 });
 

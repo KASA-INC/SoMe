@@ -625,7 +625,12 @@ function showBlocked(err) {
   render(h("div", { class: "card blocked" },
     h("div", { class: "end-icon" }, icon(closed ? "moon" : "clock")),
     h("h2", {}, closed ? "Stengt for nå" : "Ferdig for i dag"),
-    h("p", {}, err.message)));
+    h("p", {}, err.message)),
+  // Resten av appen er stengt, men barnet skal alltid kunne si fra og få hjelp.
+  h("div", { class: "blocked-help" },
+    h("p", { class: "danger-now" }, h("strong", {}, "Er du i fare akkurat nå? Ring 112.")),
+    h("p", { class: "help-line" }, icon("phone"), h("span", {}, h("strong", {}, "116 111"), " · Alarmtelefonen, alltid åpen")),
+    h("p", {}, h("button", { type: "button", class: "link small", onclick: openSafety }, icon("flag"), "Si fra om noe annet"))));
 }
 
 function handleChildError(err) {

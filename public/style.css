@@ -361,6 +361,9 @@ select {
 
 .blocked { text-align: center; padding: 40px 20px; margin-top: 8vh; }
 .blocked p { color: var(--text-2); margin: 6px 0 0; }
+.blocked-help { text-align: center; margin-top: 20px; }
+.blocked-help .help-line { display: inline-flex; align-items: center; gap: 8px; margin: 4px 4px 12px; padding: 10px 16px; border-radius: var(--radius-pill); background: var(--surface-2); }
+.blocked-help .help-line svg.icon { width: 18px; height: 18px; }
 
 /* ---------- Introduksjon ---------- */
 .intro { text-align: center; padding: 28px 22px 20px; margin-top: 2vh; }
