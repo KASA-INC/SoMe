@@ -30,6 +30,20 @@ function logo() {
   return a;
 }
 
+// Enkelt strekikon (som ikonene i appen) i stedet for cookie-emoji.
+function cookieIcon() {
+  const s = document.createElementNS(SVG_NS, "svg");
+  s.setAttribute("viewBox", "0 0 24 24");
+  s.setAttribute("class", "icon");
+  s.setAttribute("aria-hidden", "true");
+  for (const d of ["M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5", "M8.5 8.5v.01", "M16 15.5v.01", "M12 12v.01", "M11 17v.01", "M7 14v.01"]) {
+    const p = document.createElementNS(SVG_NS, "path");
+    p.setAttribute("d", d);
+    s.append(p);
+  }
+  return s;
+}
+
 export function fillFooter(el) {
   const make = (tag, cls, text) => {
     const e = document.createElement(tag);
@@ -52,13 +66,12 @@ export function fillFooter(el) {
   const cookie = make("p", "site-footer-cookie");
   const more = make("a", "", "Les mer");
   more.href = "/personvern#informasjonskapsler";
-  cookie.append(`🍪 Vi liker ikke cookies. ${APP_NAME} bruker bare én, og den holder deg innlogget. Ingen sporing og ingen reklame, og derfor ingen cookie-banner. `, more);
+  cookie.append(cookieIcon(), `Vi liker ikke cookies. ${APP_NAME} bruker bare én, og den holder deg innlogget. Ingen sporing og ingen reklame, og derfor ingen cookie-banner. `, more);
   const brand = make("div", "site-footer-brand");
   brand.append(logo());
-  const bottom = make("div", "site-footer-bottom");
-  bottom.append(cookie, make("p", "site-footer-copy", `© ${new Date().getFullYear()} ${APP_NAME}`));
+  // Rekkefølge: lenkene, cookie-linja, logoen i kremhvitt og © helt nederst.
   const inner = make("div", "site-footer-inner");
-  inner.append(brand, cols, bottom);
+  inner.append(cols, cookie, brand, make("p", "site-footer-copy", `© ${new Date().getFullYear()} ${APP_NAME}`));
   el.replaceChildren(inner);
 }
 
