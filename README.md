@@ -122,7 +122,10 @@ Krever Node.js 22.13 eller nyere (bruker den innebygde `node:sqlite`).
 npm install
 npm start          # http://localhost:3000
 npm test
+npm run test:browser
 ```
+
+`npm test` kjører de raske testene av API-et. `npm run test:browser` kjører røyktester i en ekte nettleser (Chromium via Playwright, i `test/browser/`). De starter appen med en tom database og går gjennom det viktigste: en foresatt lager konto, bekrefter e-posten og lager gruppe og barn, barnet deler et innlegg med bilde og bytter profilbilde, og eieren av gruppa godkjenner et barn fra en annen familie. Testen feiler hvis siden får en JavaScript-feil eller en feil i konsollen, så feil som bare finnes i `public/app.js`, blir fanget. Playwright er en utviklingspakke og kommer ikke med i Render eller Docker. Første gang må nettleseren lastes ned med `npx playwright install chromium`. Har du Chromium et annet sted, kan du peke på den med `CHROMIUM_PATH`. I skymiljøet til Claude Code ligger den allerede i `/opt/pw-browsers/chromium`, og den brukes av seg selv.
 
 ## Drift på Render
 

@@ -11,6 +11,7 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server/index.js",
     "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
+    "test:browser": "node --disable-warning=ExperimentalWarning --test test/browser/*.test.js",
     "reset-link": "node --disable-warning=ExperimentalWarning server/cli.js reset-link",
     "reset-all": "node --disable-warning=ExperimentalWarning server/cli.js reset-all",
     "test-mail": "node --disable-warning=ExperimentalWarning server/cli.js test-mail",
@@ -20,5 +21,8 @@
   "dependencies": {
     "express": "5.1.0",
     "nodemailer": "10.0.16"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
   }
 }
