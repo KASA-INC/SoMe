@@ -206,6 +206,33 @@ CREATE TABLE IF NOT EXISTS safety_reports (
   note TEXT NOT NULL DEFAULT ''
 );
 
+-- Alvorlige saker (trusler, ekkel kontakt, farlige bilder) som noen må ta ansvar for.
+-- En sak er åpen til en administrator har kvittert. Uten kvittering varsles neste på vaktlisten.
+CREATE TABLE IF NOT EXISTS incidents (
+  id INTEGER PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('post', 'safety')), -- meldt innlegg eller «Si fra om noe annet»
+  ref_id INTEGER NOT NULL,
+  category TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  step INTEGER NOT NULL DEFAULT 0,       -- hvor langt ned på vaktlisten varselet har gått
+  next_at INTEGER NOT NULL,              -- når neste varsel sendes hvis ingen har kvittert
+  acked_at INTEGER,
+  acked_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  UNIQUE (kind, ref_id)
+);
+-- Hvert varsel som er sendt for en sak. «Sendt» betyr ikke lest: bare kvitteringen i incidents gjør det.
+CREATE TABLE IF NOT EXISTS incident_alerts (
+  id INTEGER PRIMARY KEY,
+  incident_id INTEGER NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  recipient TEXT NOT NULL,               -- e-postadresse, eller «push» med enhet
+  channel TEXT NOT NULL,                 -- email eller push
+  step INTEGER NOT NULL,
+  sent_at INTEGER NOT NULL,
+  ok INTEGER NOT NULL,
+  error TEXT NOT NULL DEFAULT ''
+);
+
 -- Foresatte som er invitert til en gruppe. Med invitasjonen kan de melde inn barnet uten invitasjonskode.
 -- Har eieren av gruppa invitert, slipper barnet rett inn (auto_approve). Ellers må eieren godkjenne som vanlig.
 CREATE TABLE IF NOT EXISTS group_invitations (
@@ -282,6 +309,10 @@ function migrate(db) {
     db.exec("ALTER TABLE users ADD COLUMN totp_secret TEXT");
     db.exec("ALTER TABLE users ADD COLUMN totp_pending TEXT");
     db.exec("ALTER TABLE users ADD COLUMN totp_last_step INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!columns("users").includes("oncall_rank")) {
+    // Vaktliste for administratorer: 1 = vakthavende, 2 = reserve, osv. NULL = ikke på vaktlisten.
+    db.exec("ALTER TABLE users ADD COLUMN oncall_rank INTEGER");
   }
   if (!columns("sessions").includes("device")) {
     // Når innloggingen startet, sist ble brukt, og hvilken type enhet (for eksempel «iPhone · Safari»).

@@ -398,6 +398,10 @@ async function route() {
   }
   if (config.me.role === "child") return showChild();
   if (!config.me.emailVerified) return showVerifyEmail();
+  if (location.hash === "#admin" && config.me.isAdmin) {
+    history.replaceState(null, "", location.pathname);
+    parentTab = "admin";
+  }
   const voksen = location.hash.match(/^#voksen=(\d+)$/);
   if (voksen) {
     history.replaceState(null, "", location.pathname);
@@ -986,6 +990,7 @@ function reportThanks(close, text) {
   return h("div", { class: "report-thanks" },
     h("div", { class: "end-icon" }, icon("check")),
     h("p", {}, text),
+    h("p", { class: "danger-now" }, h("strong", {}, "Er du i fare akkurat nå? Ring 112.")),
     h("p", { class: "muted small" }, "Er du redd eller lei deg, snakk med en voksen du stoler på. Du kan også ringe Alarmtelefonen for barn og unge. Den er gratis og alltid åpen, og du trenger ikke si hvem du er. Vil du heller prate om hvordan du har det, kan du ringe eller chatte med Kors på halsen."),
     h("p", { class: "help-line" }, icon("phone"), h("span", {}, h("strong", {}, "116 111"), " · Alarmtelefonen for barn og unge")),
     h("p", { class: "help-line" }, icon("phone"), h("span", {}, h("strong", {}, "800 33 321"), " · Kors på halsen")),
@@ -1609,7 +1614,10 @@ function adminSections(statsData) {
   const search = h("input", { id: "admin-search", type: "search", placeholder: "Navn, brukernavn eller e-post", autocomplete: "off", autocapitalize: "none" });
   let timer;
   search.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => loadAdminUsers(users, search.value), 300); });
+  const incidents = h("div", {});
+  loadIncidents(incidents);
   return [
+    incidents,
     h("section", { class: "card" }, h("h3", {}, "Bruk"), stats),
     h("section", { class: "card" }, h("h3", {}, "Meldinger fra barn"), safety),
     h("section", { class: "card" }, h("h3", {}, "Meldte innlegg"), reports),
@@ -1670,6 +1678,65 @@ function mfaCodeCard() {
     } catch (err) { showWarning(warning, err.message); }
   });
   return form;
+}
+
+// Alvorlige saker øverst: de som ingen har tatt ansvar for ennå, med knappen for å kvittere,
+// og varslene som er sendt (sendt er ikke det samme som lest). Under: vaktlisten.
+async function loadIncidents(box) {
+  try {
+    const data = await api("/admin/incidents");
+    const open = data.incidents.filter((i) => !i.ackedAt);
+    const recent = data.incidents.filter((i) => i.ackedAt).slice(0, 5);
+    const alertLine = (i) => {
+      const names = [...new Set(i.alerts.filter((a) => a.ok).map((a) => a.name || a.recipient))];
+      const failed = i.alerts.filter((a) => !a.ok);
+      return h("p", { class: "muted small" }, names.length ? `Varslet: ${names.join(", ")}.` : "Ingen varsler kom fram.",
+        failed.length ? ` ${failed.length} varsel feilet (${failed.at(-1).error}).` : "",
+        ` Neste varsel ${fmtTime(i.nextAt)} hvis ingen tar ansvar.`);
+    };
+    const openCard = open.length && h("section", { class: "card incident-alarm" },
+      h("h3", {}, icon("alert"), `${open.length} alvorlig${open.length === 1 ? " sak venter" : "e saker venter"} på at noen tar ansvar`),
+      open.map((i) => h("div", { class: "incident" },
+        h("div", { class: "meta" }, h("strong", {}, i.label), ` · ${i.kind === "safety" ? "Si fra om noe annet" : "meldt innlegg"} · kom inn ${fmtTime(i.createdAt)}`),
+        alertLine(i),
+        btn("Jeg tar ansvar", async () => {
+          try {
+            await api(`/admin/incidents/${i.id}/ack`, { method: "POST" });
+            toast("Du har tatt ansvar for saken. Varslingen er stoppet.");
+            loadIncidents(box);
+            loadAdminLog(document.querySelector(".admin-log-box") || h("div"));
+          } catch (err) { toast(err.message); }
+        }, "danger", "check"))),
+      h("p", { class: "muted small" }, "Saken står under «Meldinger fra barn» eller «Meldte innlegg». Er et barn i fare nå, ring 112 først."));
+
+    // Vaktlisten: rekkefølgen administratorene varsles i.
+    let order = data.oncall.map((o) => o.id);
+    const list = h("ol", { class: "oncall" });
+    const draw = () => {
+      list.replaceChildren(...order.map((id, idx) => {
+        const a = data.admins.find((x) => x.id === id);
+        return h("li", {}, h("span", { class: "grow" }, h("strong", {}, a.displayName), " ", h("span", { class: "muted small" }, idx === 0 ? "vakthavende" : idx === 1 ? "reserve" : `nr. ${idx + 1}`)),
+          idx > 0 && iconBtn("back", `Flytt ${a.displayName} opp`, () => { order.splice(idx - 1, 0, order.splice(idx, 1)[0]); draw(); }),
+          iconBtn("x", `Ta ${a.displayName} av vaktlisten`, () => { order = order.filter((x) => x !== id); draw(); }));
+      }));
+      add.replaceChildren(...data.admins.filter((a) => !order.includes(a.id)).map((a) => btn(`+ ${a.displayName}`, () => { order.push(a.id); draw(); }, "ghost small")));
+    };
+    const add = h("div", { class: "row" });
+    draw();
+    const rota = h("section", { class: "card" }, h("h3", {}, "Vaktliste"),
+      h("p", { class: "muted small" }, `Alvorlige meldinger varsler vakthavende med en gang, på e-post og push. Har ingen trykket «Jeg tar ansvar» innen ${data.ackMinutes} minutter, varsles reserven, så resten av lista, og til slutt alle administratorer og beredskapsadressen, på nytt hvert ${data.ackMinutes}. minutt til noen tar ansvar.`),
+      !data.alarmEmails && h("p", { class: "warning" }, icon("alert"), h("span", {}, "Ingen beredskapsadresse er satt. Sett BEREDSKAP_EPOST hos Render, så går varselet også utenom administratorene.")),
+      list, add,
+      h("div", { class: "card-actions" }, btn("Lagre vaktlisten", async () => {
+        try {
+          await api("/admin/oncall", { method: "PUT", body: { order } });
+          toast("Vaktlisten er lagret");
+        } catch (err) { toast(err.message); }
+      }, "secondary", "check")),
+      recent.length ? h("div", {}, h("div", { class: "subhead" }, "Siste kvitterte saker"),
+        recent.map((i) => h("p", { class: "muted small" }, `${i.label}: kom inn ${fmtTime(i.createdAt)}, ${i.ackedBy} tok ansvar etter ${Math.max(1, Math.round((i.ackedAt - i.createdAt) / 60e3))} min.`))) : null);
+    box.replaceChildren(...[openCard, rota].filter(Boolean));
+  } catch (err) { box.replaceChildren(h("p", { class: "warning" }, icon("alert"), h("span", {}, err.message))); }
 }
 
 async function loadAdminSafety(box) {

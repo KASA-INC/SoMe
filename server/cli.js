@@ -124,7 +124,7 @@ function resetAll(confirm) {
   }
 
   db.exec("BEGIN");
-  for (const table of ["sessions", "password_resets", "email_verifications", "parent_invites", "child_shares", "group_invitations", "guardians", "admin_log", "banned_emails", "daily_stats", "safety_reports", "usage", "reports", "media", "posts", "adult_reads", "adult_messages", "memberships", "groups", "users"]) {
+  for (const table of ["sessions", "password_resets", "email_verifications", "parent_invites", "child_shares", "group_invitations", "guardians", "admin_log", "banned_emails", "daily_stats", "incident_alerts", "incidents", "safety_reports", "usage", "reports", "media", "posts", "adult_reads", "adult_messages", "memberships", "groups", "users"]) {
     db.exec(`DELETE FROM ${table}`);
   }
   db.exec("COMMIT");

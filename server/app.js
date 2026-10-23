@@ -85,6 +85,7 @@ function safeEqual(a, b) {
 // registrationCode: hvis satt, må foresatte oppgi denne koden for å lage konto.
 export function createApp({
   db, mediaDir, mediaLimits = DEFAULT_MEDIA_LIMITS, now = Date.now, secureCookies = false, registrationCode = "", push,
+  alarmEmails = [], ackMinutes = 15,
   appUrl = "http://localhost:3000", mailer = createMailer(),
 }) {
   const app = express();
@@ -828,6 +829,76 @@ export function createApp({
   }
   app.locals.sweepMedia = sweepMedia;
 
+  // ---------- Alvorlige saker: varsling, kvittering og eskalering ----------
+  // En alvorlig melding blir en sak. Vakthavende varsles straks. Har ingen kvittert innen ackMinutes,
+  // varsles neste på vaktlisten, så neste, og til slutt alle administratorer og beredskapsadressene
+  // (BEREDSKAP_EPOST), på nytt hvert ackMinutes til noen kvitterer. Et sendt varsel er ikke en kvittering.
+  const oncall = () => q(`SELECT * FROM users WHERE is_admin = 1 AND suspended_at IS NULL AND oncall_rank IS NOT NULL
+    ORDER BY oncall_rank, id`).all();
+  // Hvem som varsles på hvert steg: 0 = vakthavende, 1 = reserve, …, deretter alle + beredskap.
+  function recipientsFor(step) {
+    const list = oncall();
+    if (step < list.length) return { users: [list.at(step)], extra: [] };
+    const all = q("SELECT * FROM users WHERE is_admin = 1 AND suspended_at IS NULL").all();
+    return { users: all, extra: alarmEmails };
+  }
+  async function alertStep(incident, step) {
+    const cat = REPORT_CATEGORIES[incident.category]?.label || incident.category;
+    const late = step > 0 ? ` Ingen har tatt ansvar for den på ${Math.round((now() - incident.created_at) / 60e3)} minutter.` : "";
+    const subject = `Alvorlig melding i ${APP_NAME}: ta ansvar nå`;
+    const text = `${cat}, kom inn ${when(incident.created_at)}.${late}`;
+    const log = (userId, recipient, channel, ok, error = "") => {
+      if (!ok) console.error(`Varsel om alvorlig sak ${incident.id} til ${recipient} feilet: ${error}`);
+      q(`INSERT INTO incident_alerts (incident_id, user_id, recipient, channel, step, sent_at, ok, error)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(incident.id, userId, recipient, channel, step, now(), ok ? 1 : 0, error);
+    };
+    const { users, extra } = recipientsFor(step);
+    const email = async (to, userId) => {
+      try {
+        if (mailer.configured === false) throw new Error("e-post er ikke satt opp");
+        await mailer.send({ to, subject, ...renderEmail({
+          preheader: text,
+          heading: "En alvorlig melding venter på at noen tar ansvar",
+          paragraphs: [text, "Logg inn, åpne Admin og trykk «Jeg tar ansvar». Til noen har gjort det, går varselet videre til neste på vaktlisten.",
+            "Er et barn i fare nå, ring 112 først."],
+          button: { label: `Åpne ${APP_NAME}`, url: appUrl },
+        }) });
+        log(userId, to, "email", true);
+      } catch (err) {
+        log(userId, to, "email", false, err.message);
+      }
+    };
+    for (const u of users) {
+      if (u.email) await email(u.email, u.id);
+      for (const sub of q("SELECT * FROM push_subscriptions WHERE user_id = ?").all(u.id)) {
+        try {
+          const { gone } = await pushSender.send(sub, { title: subject, body: text, url: "/#admin", tag: `sak-${incident.id}`, topic: `sak-${incident.id}` });
+          if (gone) q("DELETE FROM push_subscriptions WHERE id = ?").run(sub.id);
+          log(u.id, `push ${sub.id}`, "push", !gone, gone ? "enheten finnes ikke lenger" : "");
+        } catch (err) {
+          log(u.id, `push ${sub.id}`, "push", false, err.message);
+        }
+      }
+    }
+    for (const to of extra) await email(to, null);
+    if (!users.length && !extra.length) log(null, "ingen", "email", false, "ingen administrator eller beredskapsadresse å varsle");
+  }
+  async function openIncident(kind, refId, category) {
+    if (q("SELECT 1 FROM incidents WHERE kind = ? AND ref_id = ?").get(kind, refId)) return;
+    const { lastInsertRowid } = q("INSERT INTO incidents (kind, ref_id, category, created_at, next_at) VALUES (?, ?, ?, ?, ?)")
+      .run(kind, refId, category, now(), now() + ackMinutes * 60e3);
+    await alertStep(q("SELECT * FROM incidents WHERE id = ?").get(lastInsertRowid), 0);
+  }
+  // Kjøres hvert minutt (se index.js): saker uten kvittering går videre på vaktlisten.
+  async function escalateIncidents() {
+    for (const inc of q("SELECT * FROM incidents WHERE acked_at IS NULL AND next_at <= ?").all(now())) {
+      const step = inc.step + 1;
+      q("UPDATE incidents SET step = ?, next_at = ? WHERE id = ?").run(step, now() + ackMinutes * 60e3, inc.id);
+      await alertStep(inc, step);
+    }
+  }
+  app.locals.escalateIncidents = escalateIncidents;
+
   // ---------- Administrasjon ----------
   // Bare for den som drifter quipu: statistikk som tall, meldte innlegg og utestenging.
   // Administrator må ha to-trinns innlogging, og skrive inn en engangskode på hver enhet minst hver 12. time.
@@ -912,6 +983,7 @@ export function createApp({
         sharedChildren: count("SELECT COUNT(*) AS n FROM (SELECT child_id FROM guardians GROUP BY child_id HAVING COUNT(*) > 1)"),
         openReports: count("SELECT COUNT(DISTINCT post_id) AS n FROM reports WHERE resolved = 0"),
         openSafety: count("SELECT COUNT(*) AS n FROM safety_reports WHERE resolved_at IS NULL"),
+        openIncidents: count("SELECT COUNT(*) AS n FROM incidents WHERE acked_at IS NULL"),
         suspended: count("SELECT COUNT(*) AS n FROM users WHERE suspended_at IS NOT NULL"),
         pushDevices: count("SELECT COUNT(*) AS n FROM push_subscriptions"),
       },
@@ -960,6 +1032,44 @@ export function createApp({
     q("UPDATE posts SET status = ? WHERE id = ?").run(action === "remove" ? "removed" : "visible", post.id);
     q("UPDATE reports SET resolved = 1 WHERE post_id = ?").run(post.id);
     adminLog(req, action === "remove" ? "fjernet innlegg" : "viste innlegg igjen", `innlegg ${post.id}`, post.text.slice(0, 80));
+    res.json({ ok: true });
+  });
+
+  // Alvorlige saker med varslene som er sendt. Åpne (ikke kvittert) først.
+  app.get("/api/admin/incidents", admin, (req, res) => {
+    const rows = q(`SELECT i.*, u.display_name AS ackedBy FROM incidents i LEFT JOIN users u ON u.id = i.acked_by
+      ORDER BY i.acked_at IS NOT NULL, i.created_at DESC LIMIT 50`).all();
+    res.json({
+      incidents: rows.map((i) => ({
+        id: i.id, kind: i.kind, refId: i.ref_id, category: i.category, label: REPORT_CATEGORIES[i.category]?.label || i.category,
+        createdAt: i.created_at, step: i.step, nextAt: i.next_at, ackedAt: i.acked_at, ackedBy: i.ackedBy || "",
+        alerts: q(`SELECT a.recipient, a.channel, a.step, a.sent_at AS sentAt, a.ok, a.error, u.display_name AS name FROM incident_alerts a
+          LEFT JOIN users u ON u.id = a.user_id WHERE a.incident_id = ? ORDER BY a.id`).all(i.id).map((a) => ({ ...a, ok: !!a.ok })),
+      })),
+      ackMinutes,
+      oncall: oncall().map((u) => ({ id: u.id, displayName: u.display_name, rank: u.oncall_rank })),
+      admins: q("SELECT id, display_name, oncall_rank FROM users WHERE is_admin = 1 AND suspended_at IS NULL ORDER BY display_name").all()
+        .map((u) => ({ id: u.id, displayName: u.display_name, rank: u.oncall_rank })),
+      alarmEmails: alarmEmails.length,
+    });
+  });
+  // Kvittering: denne administratoren tar ansvar for saken. Stopper eskaleringen.
+  app.post("/api/admin/incidents/:id/ack", admin, (req, res) => {
+    const inc = q("SELECT * FROM incidents WHERE id = ?").get(req.params.id);
+    if (!inc) fail(404, "Fant ikke saken");
+    if (inc.acked_at) return res.json({ ok: true, ackedBy: q("SELECT display_name FROM users WHERE id = ?").get(inc.acked_by)?.display_name || "" });
+    q("UPDATE incidents SET acked_at = ?, acked_by = ? WHERE id = ?").run(now(), req.user.id, inc.id);
+    adminLog(req, "tok ansvar for alvorlig sak", `sak ${inc.id}`, `${REPORT_CATEGORIES[inc.category]?.label || inc.category}, ${Math.round((now() - inc.created_at) / 60e3)} min etter meldingen`);
+    res.json({ ok: true, ackedBy: req.user.display_name });
+  });
+  // Vaktlisten: rekkefølgen administratorene varsles i. Tom liste = alle varsles med en gang.
+  app.put("/api/admin/oncall", admin, (req, res) => {
+    const ids = Array.isArray(req.body.order) ? req.body.order.map(Number) : [];
+    const admins = new Set(q("SELECT id FROM users WHERE is_admin = 1").all().map((u) => u.id));
+    if (ids.some((id) => !admins.has(id)) || new Set(ids).size !== ids.length) fail(400, "Vaktlisten kan bare ha administratorer, én gang hver");
+    q("UPDATE users SET oncall_rank = NULL WHERE is_admin = 1").run();
+    ids.forEach((id, i) => q("UPDATE users SET oncall_rank = ? WHERE id = ?").run(i + 1, id));
+    adminLog(req, "endret vaktlisten", ids.map((id) => q("SELECT display_name FROM users WHERE id = ?").get(id).display_name).join(" → ") || "tom");
     res.json({ ok: true });
   });
 
@@ -1122,7 +1232,7 @@ export function createApp({
   });
 
   // Si fra: innlegget skjules med en gang og venter på at gruppas voksne ser på det.
-  app.post("/api/posts/:id/report", needUser("child"), (req, res) => {
+  app.post("/api/posts/:id/report", needUser("child"), async (req, res) => {
     const post = q(`SELECT p.* FROM posts p JOIN memberships m ON m.group_id = p.group_id AND m.user_id = ? AND m.approved = 1
       WHERE p.id = ?`).get(req.user.id, req.params.id);
     if (!post) fail(404, "Fant ikke innlegget");
@@ -1130,19 +1240,21 @@ export function createApp({
     if (!q("SELECT 1 FROM reports WHERE post_id = ? AND reporter_id = ?").get(post.id, req.user.id)) {
       q("INSERT INTO reports (post_id, reporter_id, category, created_at) VALUES (?, ?, ?, ?)").run(post.id, req.user.id, category, now());
     }
+    if (REPORT_CATEGORIES[category].serious) await openIncident("post", post.id, category);
     if (post.status === "visible") q("UPDATE posts SET status = 'hidden' WHERE id = ?").run(post.id);
     res.json({ ok: true });
   });
 
   // Barnet sier fra om noe direkte til dem som drifter quipu, utenom gruppa og foresatte.
   // Brukes når problemet ikke står i et innlegg, eller gjelder en voksen.
-  app.post("/api/safety", needUser("child"), (req, res) => {
+  app.post("/api/safety", needUser("child"), async (req, res) => {
     const category = Object.hasOwn(REPORT_CATEGORIES, req.body.category) ? req.body.category : "annet";
     const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
     if (text.length < 3 || text.length > 1000) fail(400, "Skriv litt om hva som har skjedd (3–1000 tegn)");
     const recent = q("SELECT COUNT(*) AS n FROM safety_reports WHERE reporter_id = ? AND created_at > ?").get(req.user.id, now() - 864e5).n;
     if (recent >= 5) fail(429, "Du har sagt fra mange ganger i dag. Snakk med en voksen du stoler på, eller ring Alarmtelefonen for barn og unge på 116 111.");
-    q("INSERT INTO safety_reports (reporter_id, category, text, created_at) VALUES (?, ?, ?, ?)").run(req.user.id, category, text, now());
+    const { lastInsertRowid } = q("INSERT INTO safety_reports (reporter_id, category, text, created_at) VALUES (?, ?, ?, ?)").run(req.user.id, category, text, now());
+    if (REPORT_CATEGORIES[category].serious) await openIncident("safety", lastInsertRowid, category);
     res.status(201).json({ ok: true });
   });
 

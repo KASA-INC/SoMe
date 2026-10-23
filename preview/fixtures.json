@@ -222,10 +222,10 @@
   "/me": {
    "me": {
     "id": 1,
-    "username": "foresatt-b845f7da10",
+    "username": "foresatt-edbdda7e56",
     "role": "parent",
     "displayName": "Kristin",
-    "avatar": "c12",
+    "avatar": "c08",
     "isAdmin": true,
     "email": "kristin@example.com",
     "emailVerified": true,
@@ -368,7 +368,7 @@
      "id": 1,
      "name": "6B",
      "isOwner": true,
-     "inviteCode": "2362F6DCB4",
+     "inviteCode": "2A8E47ACE2",
      "mediaReview": true,
      "pendingMedia": 0,
      "members": [
@@ -422,7 +422,7 @@
   },
   "/notify": {
    "email": "soon",
-   "pushKey": "BMBgbwkHY6wi3QPOV8PdVWqxCv3b5-pliZnoWXI_ynaQ577J-ughqBWJttM9sDh-h7rc9ikPpueOr_CA4Uluu-M"
+   "pushKey": "BJ25bygthRuo85bma3EzscsObPqylf43X7lFDv2cGpPDb_OlM6AyJ6YVccUgi_r3Sq3QoUenWfKbyA4eNml-RXY"
   },
   "/admin/stats": {
    "totals": {
@@ -434,6 +434,7 @@
     "sharedChildren": 0,
     "openReports": 1,
     "openSafety": 1,
+    "openIncidents": 1,
     "suspended": 0,
     "pushDevices": 0
    },
@@ -486,11 +487,11 @@
      "reports": 1,
      "reportedAt": 1792489200000,
      "categories": [
-      "annet"
+      "kontakt"
      ],
      "hold": false,
      "postStatus": "hidden",
-     "serious": false,
+     "serious": true,
      "media": null
     }
    ],
@@ -572,10 +573,47 @@
     }
    }
   },
+  "/admin/incidents": {
+   "incidents": [
+    {
+     "id": 1,
+     "kind": "post",
+     "refId": 6,
+     "category": "kontakt",
+     "label": "Noen vil møte meg, ber om bilder eller er ekkel",
+     "createdAt": 1792489200000,
+     "step": 0,
+     "nextAt": 1792490100000,
+     "ackedAt": null,
+     "ackedBy": "",
+     "alerts": [
+      {
+       "recipient": "ingen",
+       "channel": "email",
+       "step": 0,
+       "sentAt": 1792489200000,
+       "ok": false,
+       "error": "ingen administrator eller beredskapsadresse å varsle",
+       "name": null
+      }
+     ]
+    }
+   ],
+   "ackMinutes": 15,
+   "oncall": [],
+   "admins": [
+    {
+     "id": 1,
+     "displayName": "Kristin",
+     "rank": null
+    }
+   ],
+   "alarmEmails": 0
+  },
   "/sessions": {
    "sessions": [
     {
-     "id": "2a0004372408608d",
+     "id": "8ee3104bb638ba28",
      "device": "Ukjent enhet",
      "createdAt": 1792490400000,
      "lastSeen": 1792490400000,
@@ -586,7 +624,7 @@
   "/invites": {
    "links": [
     {
-     "id": "i5f144d107196fe51",
+     "id": "i05054b48fe0252d1",
      "kind": "invite",
      "email": "erik@example.com",
      "group": "6B",
@@ -600,7 +638,7 @@
     {
      "id": 3,
      "role": "parent",
-     "username": "foresatt-61ecbfea2d",
+     "username": "foresatt-af5363701c",
      "displayName": "Hanne",
      "email": "hanne@example.com",
      "createdAt": 1792490400000,
@@ -614,7 +652,7 @@
     {
      "id": 1,
      "role": "parent",
-     "username": "foresatt-b845f7da10",
+     "username": "foresatt-edbdda7e56",
      "displayName": "Kristin",
      "email": "kristin@example.com",
      "createdAt": 1792490400000,
@@ -628,7 +666,7 @@
     {
      "id": 4,
      "role": "parent",
-     "username": "foresatt-adbac1776d",
+     "username": "foresatt-26b9e784ac",
      "displayName": "Lars",
      "email": "lars@example.com",
      "createdAt": 1792490400000,
@@ -642,7 +680,7 @@
     {
      "id": 2,
      "role": "parent",
-     "username": "foresatt-688475f3ce",
+     "username": "foresatt-65e3070b39",
      "displayName": "Thomas",
      "email": "thomas@example.com",
      "createdAt": 1792490400000,
@@ -824,7 +862,7 @@
      "text": "Jeg kan kjøre, har plass til tre barn.",
      "createdAt": 1792487400000,
      "author": "Kristin",
-     "avatar": "c12",
+     "avatar": "c08",
      "mine": true,
      "imageId": null,
      "canDelete": true
@@ -834,7 +872,7 @@
      "text": "Takk! Jeg kan ta med kake. Er det noen som kan kjøre til turdagen på fredag?",
      "createdAt": 1792486920000,
      "author": "Hanne",
-     "avatar": "c01",
+     "avatar": "c16",
      "mine": false,
      "imageId": null,
      "canDelete": true
@@ -844,7 +882,7 @@
      "text": "Hei alle! Husk foreldremøtet tirsdag kl. 18 i klasserommet. Det blir kaffe og kake.",
      "createdAt": 1792485420000,
      "author": "Thomas",
-     "avatar": "c01",
+     "avatar": "c05",
      "mine": false,
      "imageId": null,
      "canDelete": true

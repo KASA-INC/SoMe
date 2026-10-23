@@ -88,7 +88,7 @@ await kristin(`/groups/${g6b}/adult`, { method: "POST", body: { text: "Jeg kan k
 
 // Jonas melder innlegget om turdagen, så administrasjonen har noe å vise. Kristin er administrator i forhåndsvisningen.
 const jonasFeed = await jonas.k("/feed");
-await jonas.k(`/posts/${jonasFeed.posts.find((p) => p.author === "Ola").id}/report`, { method: "POST" });
+await jonas.k(`/posts/${jonasFeed.posts.find((p) => p.author === "Ola").id}/report`, { method: "POST", body: { category: "kontakt" } });
 db.prepare("UPDATE users SET is_admin = 1 WHERE email = 'kristin@example.com'").run();
 // To-trinns innlogging for administratoren i forhåndsvisningen.
 const mfa = await kristin("/admin/mfa/setup", { method: "POST" });
@@ -108,6 +108,7 @@ const parentFix = {
   "/admin/reports": await kristin("/admin/reports"),
   "/admin/log": await kristin("/admin/log"),
   "/admin/safety": await kristin("/admin/safety"),
+  "/admin/incidents": await kristin("/admin/incidents"),
   "/sessions": await kristin("/sessions"),
   "/invites": await kristin("/invites"),
 };

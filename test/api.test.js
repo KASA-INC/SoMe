@@ -1287,3 +1287,109 @@ test("eksport: en foresatt laster ned alt quipu har om seg og barna", async () =
   assert.equal(body.barn[0].innlegg[0].tekst, "Dette er mitt innlegg");
   assert.equal((await a.kid("/me/export")).status, 403);
 });
+
+test("alvorlig sak: vakthavende varsles, reserven varsles når ingen kvitterer, og kvittering stopper det", async () => {
+  // Egen app med beredskapsadresse og 15 minutters frist, og en e-post som feiler for å vise at «sendt» ≠ «lest».
+  const sent = [];
+  const db3 = openDb();
+  const app3 = createApp({ db: db3, mediaDir, now: () => clock, appUrl: "https://some.example", alarmEmails: ["beredskap@example.com"], ackMinutes: 15,
+    mailer: { send: async (m) => { if (m.to === "feiler@example.com") throw new Error("postkassen er full"); if (/ta ansvar/.test(m.subject)) sent.push(m); } },
+    push: { send: async () => ({}) } });
+  const srv = app3.listen(0);
+  await new Promise((r) => srv.once("listening", r));
+  const url = `http://localhost:${srv.address().port}/api`;
+  const call = () => { let cookie = ""; return async (path, { method = "GET", body } = {}) => {
+    const res = await fetch(url + path, { method, headers: { cookie, ...(method === "GET" ? {} : { "Content-Type": "application/json" }) }, body: method === "GET" ? undefined : JSON.stringify(body || {}) });
+    const set = res.headers.get("set-cookie"); if (set) cookie = set.split(";")[0];
+    return { status: res.status, body: await res.json().catch(() => ({})) };
+  }; };
+  const parentWith = async (email, name) => {
+    const c = call();
+    await c("/register", { method: "POST", body: { displayName: name, email, password: "hemmelig123" } });
+    db3.prepare("UPDATE users SET email_verified = 1 WHERE email = ?").run(email);
+    return c;
+  };
+  const admin = async (email, name) => {
+    const c = await parentWith(email, name);
+    db3.prepare("UPDATE users SET is_admin = 1 WHERE email = ?").run(email);
+    const { body } = await c("/admin/mfa/setup", { method: "POST" });
+    await c("/admin/mfa/confirm", { method: "POST", body: { code: codeAt(body.secret, Math.floor(clock / 30000)) } });
+    return c;
+  };
+  const start = clock;
+  clock = Date.parse("2026-10-20T21:30:00Z"); // 23.30 i Oslo
+  try {
+    const vakt = await admin("vakt@example.com", "Vakt");
+    const reserve = await admin("reserve@example.com", "Reserve");
+    const ids = Object.fromEntries(db3.prepare("SELECT email, id FROM users WHERE is_admin = 1").all().map((u) => [u.email, u.id]));
+    assert.equal((await vakt("/admin/oncall", { method: "PUT", body: { order: [ids["vakt@example.com"], ids["reserve@example.com"]] } })).status, 200);
+
+    // Et barn sier fra om noe alvorlig kl. 23.30.
+    const mor = await parentWith("mor@example.com", "Mor");
+    await mor("/children", { method: "POST", body: { username: "kid", password: "kid123456", displayName: "Kid", avatar: "c01" } });
+    const kid = call();
+    await kid("/login", { method: "POST", body: { username: "kid", password: "kid123456" } });
+    db3.prepare("UPDATE users SET open_from = '00:00', open_to = '23:59' WHERE username = 'kid'").run();
+    await kid("/safety", { method: "POST", body: { category: "trussel", text: "Noen sier de skal ta meg etter skolen i morgen" } });
+    assert.deepEqual(sent.map((m) => m.to), ["vakt@example.com"], "bare vakthavende varsles først");
+    assert.doesNotMatch(sent[0].text, /ta meg etter skolen/, "e-posten inneholder ikke barnets melding");
+
+    // Vakthavende svarer ikke. Etter 15 minutter varsles reserven, etter 30 alle og beredskapsadressen.
+    clock += 14 * 60e3;
+    await app3.locals.escalateIncidents();
+    assert.equal(sent.length, 1, "ikke før fristen");
+    clock += 2 * 60e3;
+    await app3.locals.escalateIncidents();
+    assert.equal(sent.at(-1).to, "reserve@example.com");
+    clock += 15 * 60e3;
+    await app3.locals.escalateIncidents();
+    assert.deepEqual(sent.slice(2).map((m) => m.to).sort(), ["beredskap@example.com", "reserve@example.com", "vakt@example.com"]);
+
+    // Varslene er logget som sendt, men saken er fortsatt åpen: sendt er ikke lest.
+    let { body } = await reserve("/admin/incidents");
+    const inc = body.incidents[0];
+    assert.equal(inc.ackedAt, null);
+    assert.equal(inc.step, 2);
+    assert.ok(inc.alerts.length >= 5 && inc.alerts.every((a) => a.ok));
+
+    // Reserven tar ansvar. Da stopper varslingen.
+    clock += 60e3;
+    assert.equal((await reserve(`/admin/incidents/${inc.id}/ack`, { method: "POST" })).body.ackedBy, "Reserve");
+    const n = sent.length;
+    clock += 60 * 60e3;
+    await app3.locals.escalateIncidents();
+    assert.equal(sent.length, n, "ingen flere varsler etter kvittering");
+    ({ body } = await vakt("/admin/incidents"));
+    assert.equal(body.incidents[0].ackedBy, "Reserve");
+    assert.match((await vakt("/admin/log")).body.log[0].detail, /min etter meldingen/);
+
+    // En e-post som feiler, logges som feilet, ikke som sendt.
+    db3.prepare("UPDATE users SET email = 'feiler@example.com' WHERE email = 'vakt@example.com'").run();
+    await kid("/safety", { method: "POST", body: { category: "kontakt", text: "En jeg ikke kjenner vil møte meg" } });
+    ({ body } = await reserve("/admin/incidents"));
+    const failed = body.incidents.find((i) => !i.ackedAt).alerts.find((a) => a.recipient === "feiler@example.com");
+    assert.equal(failed.ok, false);
+    assert.match(failed.error, /postkassen er full/);
+  } finally {
+    clock = start;
+    srv.close();
+  }
+});
+
+test("alvorlig sak uten vaktliste: alle administratorer varsles med en gang", async () => {
+  const a = await setupFamily("ingenvakt");
+  const sjef = client();
+  await registerParent(sjef, "ingenvakt-sjef@example.com", "Sjef");
+  await makeAdmin(sjef, "ingenvakt-sjef@example.com");
+  await post(a.kid, a.groupId, "Hei");
+  const { body: { posts: [p] } } = await a.kid("/feed");
+  const n = outbox.length;
+  await a.kid(`/posts/${p.id}/report`, { method: "POST", body: { category: "bilde" } });
+  assert.ok(outbox.slice(n).some((m) => m.to === "ingenvakt-sjef@example.com" && /ta ansvar/.test(m.subject)));
+  // Vanlige kategorier blir ikke saker.
+  await post(a.kid, a.groupId, "Hei igjen");
+  const { body: { posts: [p2] } } = await a.kid("/feed");
+  const m = outbox.length;
+  await a.kid(`/posts/${p2.id}/report`, { method: "POST", body: { category: "mobbing" } });
+  assert.equal(outbox.slice(m).some((x) => /ta ansvar/.test(x.subject)), false);
+});

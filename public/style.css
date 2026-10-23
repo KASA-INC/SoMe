@@ -880,3 +880,14 @@ main { width: 100%; }
 .members-list summary::-webkit-details-marker { display: none; }
 .members-list summary::after { content: "+"; margin-left: auto; font-size: 1.3rem; font-weight: 500; color: var(--text-2); }
 .members-list[open] summary::after { content: "−"; }
+.incident-alarm { border: 2px solid var(--danger); }
+.incident-alarm h3 { display: flex; align-items: center; gap: 8px; color: var(--danger); }
+.incident { padding: 10px 0; border-top: 1px solid var(--border); }
+.incident:first-of-type { border-top: none; }
+.incident .meta { font-size: 0.9rem; }
+.oncall { margin: 8px 0; padding-left: 20px; }
+.oncall li { display: flex; align-items: center; gap: 4px; padding: 4px 0; }
+.oncall .grow { flex: 1; }
+.oncall .icon-btn svg.icon { transform: rotate(90deg); }
+.oncall .icon-btn:last-child svg.icon { transform: none; }
+.danger-now { margin: 0 0 8px; color: var(--danger); }

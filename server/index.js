@@ -10,6 +10,9 @@ const app = createApp({
   mediaDir: process.env.MEDIA_DIR || "data/media",
   secureCookies: process.env.NODE_ENV === "production",
   registrationCode: process.env.REGISTRATION_CODE || "",
+  // Beredskap: adresser som varsles når ingen administrator har tatt ansvar for en alvorlig sak.
+  alarmEmails: (process.env.BEREDSKAP_EPOST || "").split(",").map((s) => s.trim()).filter(Boolean),
+  ackMinutes: Number(process.env.KVITTERING_MINUTTER) || 15,
   appUrl: appUrl(),
   mailer: createMailer(),
 });
@@ -22,6 +25,9 @@ app.locals.sweepMedia();
 setInterval(app.locals.sweepMedia, 15 * 60 * 1000).unref();
 // E-post om nye beskjeder i voksenkontakten (for dem som har slått det på).
 setInterval(() => app.locals.emailAdultMessages().catch((err) => console.error(err)), 5 * 60 * 1000).unref();
+
+// Alvorlige saker uten kvittering varsles videre på vaktlisten. Sjekkes hvert minutt.
+setInterval(() => app.locals.escalateIncidents().catch((err) => console.error(err)), 60 * 1000).unref();
 
 // Slett gamle tekniske data én gang i døgnet (og ved oppstart).
 app.locals.cleanup();

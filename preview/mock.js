@@ -99,6 +99,11 @@
       parent["/invites"].links = parent["/invites"].links.filter((l) => l.id !== m[1]);
       return ok;
     }
+    if ((m = p.match(/^\/admin\/incidents\/(\d+)\/ack$/))) {
+      const inc = parent["/admin/incidents"].incidents.find((x) => x.id === Number(m[1]));
+      if (inc) Object.assign(inc, { ackedAt: Date.now(), ackedBy: "Kristin" });
+      return { ok: true, ackedBy: "Kristin" };
+    }
     if (p === "/sessions/others") return { ok: true, loggedOut: 0 };
     if (p === "/me/export") return { merknad: "Forhåndsvisning: eksempeldata" };
     if ((m = p.match(/^\/admin\/posts\/(\d+)$/))) {

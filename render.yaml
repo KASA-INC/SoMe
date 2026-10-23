@@ -32,3 +32,7 @@ services:
       # Koden foresatte må skrive inn for å lage konto. Du velger den selv når du oppretter tjenesten.
       - key: REGISTRATION_CODE
         sync: false
+      # Beredskap: e-postadresser (kommaseparert) som varsles når ingen administrator har tatt ansvar
+      # for en alvorlig sak innen fristen. Du velger dem selv.
+      - key: BEREDSKAP_EPOST
+        sync: false
