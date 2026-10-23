@@ -794,6 +794,19 @@ export function createApp({
     res.json({ isOwner: !!g.isOwner, posts: posts.map((p) => withMedia({ ...p, byMyChild: !!p.byMyChild })) });
   });
 
+  // Samme som for barna: antall nye innlegg i gruppa siden innlegget med id «since», med de samme
+  // reglene for hva den foresatte får se.
+  app.get("/api/groups/:groupId/posts/new", parent, (req, res) => {
+    const g = visibleGroup(req.user.id, req.params.groupId);
+    if (!g) fail(404, "Fant ikke gruppa");
+    const since = Number(req.query.since) || 0;
+    const { n } = q(`SELECT COUNT(*) AS n ${POST_JOINS}
+      WHERE p.group_id = ? AND p.id > ? AND (p.status = 'visible' OR (? AND p.status = 'hidden'))
+        AND (md.id IS NULL OR md.approved = 1 OR ? OR u.parent_id = ?)`)
+      .get(g.id, since, g.isOwner ? 1 : 0, g.isOwner ? 1 : 0, req.user.id);
+    res.json({ count: n });
+  });
+
   app.post("/api/posts/:id/moderate", parent, (req, res) => {
     const post = q(`SELECT p.* FROM posts p JOIN groups g ON g.id = p.group_id WHERE p.id = ? AND g.owner_id = ?`)
       .get(req.params.id, req.user.id);

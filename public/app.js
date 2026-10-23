@@ -667,10 +667,15 @@ async function showChild() {
 // Innleggene settes ikke inn av seg selv, så teksten barnet leser, ikke hopper. Sjekker bare når appen vises.
 const NEW_POSTS_EVERY = 20000;
 let newPostsSince = 0;
-const newPostsBar = h("button", { type: "button", class: "new-posts hidden", onclick: () => { window.scrollTo({ top: 0 }); showChild(); } });
+let newPostsUrl = "/feed/new";
+let newPostsReload = () => showChild();
+const newPostsBar = h("button", { type: "button", class: "new-posts hidden", onclick: () => { window.scrollTo({ top: 0 }); newPostsReload(); } });
 
-function watchNewPosts(since) {
+// Brukes av barnas feed og av foresattes visning av en gruppe.
+function watchNewPosts(since, url = "/feed/new", reload = () => showChild()) {
   newPostsSince = since;
+  newPostsUrl = url;
+  newPostsReload = reload;
   newPostsBar.classList.add("hidden");
   clearInterval(newPostsTimer);
   newPostsTimer = setInterval(checkNewPosts, NEW_POSTS_EVERY);
@@ -680,7 +685,7 @@ function watchNewPosts(since) {
 async function checkNewPosts() {
   if (document.visibilityState !== "visible") return;
   try {
-    const { count } = await api(`/feed/new?since=${newPostsSince}`);
+    const { count } = await api(`${newPostsUrl}?since=${newPostsSince}`);
     newPostsBar.replaceChildren(icon("refresh"), count === 1 ? "1 nytt innlegg" : `${count} nye innlegg`);
     newPostsBar.classList.toggle("hidden", !count);
   } catch (err) {
@@ -955,6 +960,7 @@ function videoDuration(file) {
 
 // ---------- Foresatte ----------
 async function showParent() {
+  stopTimers(); // slutt å se etter nye innlegg når man går ut av en gruppe
   const [{ children }, { groups }] = await Promise.all([api("/children"), api("/groups")]);
   const todo = groups.reduce((n, g) => n + (g.openReports || 0) + (g.pendingMedia || 0) + (g.pendingMembers?.length || 0), 0);
 
@@ -1295,7 +1301,9 @@ async function showGroupPosts(g) {
     ? h("p", { class: "status-note danger" }, icon("flag"), `Rapportert ${p.reports} ${p.reports === 1 ? "gang" : "ganger"} – skjult for barna`)
     : p.media?.pending ? h("p", { class: "status-note" }, icon("clock"), "Venter på godkjenning – bare forfatteren ser det") : null;
 
+  watchNewPosts(Math.max(0, ...posts.map((p) => p.id)), `/groups/${g.id}/posts/new`, () => showGroupPosts(g));
   render.feed(
+    newPostsBar,
     h("div", { class: "back-head" }, iconBtn("back", "Tilbake", showParent), h("h2", {}, g.name)),
     posts.length ? null : h("div", { class: "card empty" },
       h("div", { class: "end-icon" }, icon("sparkles")), h("p", {}, "Ingen innlegg ennå.")),

@@ -631,3 +631,17 @@ test("feeden kan spørre om det er kommet nye innlegg fra de andre", async () =>
   await post(kid2, a.groupId, "Og en til");
   assert.equal((await a.kid(`/feed/new?since=${since}`)).body.count, 2);
 });
+
+test("foresatte kan også spørre om nye innlegg i en gruppe", async () => {
+  const a = await setupFamily("fnytt");
+  await post(a.kid, a.groupId, "Første");
+  const { body: { posts } } = await a.parent(`/groups/${a.groupId}/posts`);
+  const since = posts[0].id;
+  assert.equal((await a.parent(`/groups/${a.groupId}/posts/new?since=${since}`)).body.count, 0);
+  await post(a.kid, a.groupId, "Andre");
+  assert.equal((await a.parent(`/groups/${a.groupId}/posts/new?since=${since}`)).body.count, 1);
+  // Andre foresatte uten barn i gruppa får ikke se noe.
+  const stranger = client();
+  await registerParent(stranger, "fnytt-fremmed@example.com");
+  assert.equal((await stranger(`/groups/${a.groupId}/posts/new?since=0`)).status, 404);
+});
