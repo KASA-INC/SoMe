@@ -3,9 +3,9 @@
 import { APP_NAME, MARK_PATH, MARK_TIGHT_VIEWBOX, WORDMARK_PATH, WORDMARK_VIEWBOX } from "./brand.js";
 
 const LINKS = [
-  ["quipu", [["Om quipu", "/om"], ["Hvem står bak", "/hvem"], ["Kontakt", "mailto:hei@quipu.no"]]],
-  ["Trygghet", [["Slik gjør vi det trygt", "/om"], ["Teknisk sikkerhet", "/sikkerhet"], ["Personvern", "/personvern"]]],
   ["Kom i gang", [["Logg inn", "/"], ["Lag konto", "/#registrer"], ["Legg på hjemskjermen", "/#registrer"]]],
+  ["Trygghet", [["Slik gjør vi det trygt", "/om"], ["Teknisk sikkerhet", "/sikkerhet"], ["Personvern", "/personvern"]]],
+  ["quipu", [["Om quipu", "/om"], ["Hvem står bak", "/hvem"], ["Kontakt", "mailto:hei@quipu.no"]]],
 ];
 
 const SVG_NS = "http://www.w3.org/2000/svg";
