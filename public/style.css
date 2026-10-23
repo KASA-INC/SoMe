@@ -170,7 +170,7 @@ h3 { margin: 0; font-size: 1.05rem; font-weight: 650; }
 .lockup { display: inline-flex; align-items: center; color: var(--brand); }
 .lockup .mark { height: 1.25em; width: 1.25em; }
 .lockup .wordmark { height: 0.85em; width: auto; margin-left: 0.3em; margin-top: 0.12em; }
-.header-lockup { font-size: 26px; }
+.header-lockup { font-size: 32px; }
 .hero-lockup { font-size: 64px; flex-direction: column; }
 .hero-lockup .mark { height: 1.3em; width: 1.3em; }
 .hero-lockup .wordmark { margin: 0.3em 0 0; height: 0.62em; }
@@ -824,19 +824,32 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 .install-guide .ui svg.icon { width: 18px; height: 18px; padding: 2px; border-radius: 5px; background: var(--surface-2); box-sizing: content-box; }
 
 /* ---------- Bunntekst med lenker (footer.js) ---------- */
+/* Eget felt i full bredde nederst på siden: ett hakk mørkere korall i lys modus, ett hakk lysere petrol i mørk. */
+body { display: flex; flex-direction: column; }
+main { width: 100%; }
 .site-footer {
-  max-width: 720px; margin: 8px auto 0;
-  padding: 24px calc(20px + var(--safe-right)) calc(28px + var(--safe-bottom)) calc(20px + var(--safe-left));
-  border-top: 1px solid var(--surface); color: var(--on-bg-2); font-size: 0.9rem;
+  margin-top: auto; width: 100%;
+  background: var(--surface); color: var(--text-2); font-size: 0.9rem;
+  padding: 32px calc(20px + var(--safe-right)) calc(28px + var(--safe-bottom)) calc(20px + var(--safe-left));
 }
+.site-footer-inner { max-width: 1040px; margin: 0 auto; display: grid; gap: 28px; }
+.footer-lockup { font-size: 30px; text-decoration: none; }
 .site-footer-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 16px; }
-.site-footer-col h2 { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--on-bg); }
-.site-footer-col a { display: block; padding: 6px 0; color: var(--on-bg-2); text-decoration: none; }
-.site-footer-col a:hover { color: var(--on-bg); text-decoration: underline; text-underline-offset: 3px; }
-.site-footer-cookie { margin: 22px 0 0; line-height: 1.5; }
-.site-footer-cookie a { color: var(--on-bg); text-decoration: underline; text-underline-offset: 3px; }
-.site-footer-copy { margin: 12px 0 0; font-size: 0.8rem; }
+.site-footer-col h2 { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text); }
+.site-footer-col a { display: block; padding: 6px 0; color: var(--text-2); text-decoration: none; }
+.site-footer-col a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.site-footer-bottom { border-top: 1px solid var(--border); padding-top: 18px; }
+.site-footer-cookie { margin: 0; line-height: 1.5; }
+.site-footer-cookie a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.site-footer-copy { margin: 10px 0 0; font-size: 0.8rem; }
 @media (min-width: 560px) { .site-footer-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* PC: logoen til venstre, lenkene til høyre, og cookie-linja og © på én rad nederst. */
+@media (min-width: 900px) {
+  .site-footer { padding-top: 44px; padding-bottom: calc(32px + var(--safe-bottom)); }
+  .site-footer-inner { grid-template-columns: minmax(220px, 1fr) 2fr; gap: 36px 48px; }
+  .site-footer-bottom { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 24px; }
+  .site-footer-copy { margin: 0; white-space: nowrap; }
+}
 
 /* ---------- Nye innlegg ---------- */
 .new-posts {

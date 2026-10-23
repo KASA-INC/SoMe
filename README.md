@@ -16,7 +16,7 @@ En ekte, men rolig sosial kanal for barn (laget for mellomtrinnet), og det motsa
 
 [`/personvern`](public/personvern.html) er personvernerklæringen: hvilke opplysninger som behandles, hvorfor, hvor lenge, hvem som ser hva, databehandlere og rettigheter. Den forklarer også at quipu bare bruker én nødvendig informasjonskapsel (innloggingen) og derfor ikke trenger cookie-banner. Utløpte innlogginger og lenker, skjermtid eldre enn 30 dager og innlegg som en voksen fjernet for over 30 dager siden, slettes automatisk én gang i døgnet.
 
-**Bunntekst:** Alle sider unntatt feeder og det barn ser, har en bunntekst (`public/footer.js`) med lenker til Om quipu, Hvem står bak, Kontakt, Slik gjør vi det trygt, Teknisk sikkerhet, Personvern, Logg inn og Lag konto (`/#registrer`).
+**Bunntekst:** Alle sider for voksne (og innloggingssidene) har en bunntekst i full bredde nederst, med logo og (`public/footer.js`) med lenker til Om quipu, Hvem står bak, Kontakt, Slik gjør vi det trygt, Teknisk sikkerhet, Personvern, Logg inn og Lag konto (`/#registrer`).
 
 **Profilbilder:** Barna har tegnede figurer, 24 «Critters» fra DiceBear (CC0 1.0), farget med paletten og lagret som SVG i `public/avatars/` (lages med `scripts/avatars.mjs`). Foresatte velger figur når de lager kontoen, og barnet kan bytte selv ved å trykke på profilbildet sitt øverst, eller på «Bytt profilbilde» nederst i feeden. Gamle emoji-profilbilder ble gjort om til figurer automatisk, også for foresatte.
 

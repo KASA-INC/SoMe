@@ -186,7 +186,7 @@ function timeAgo(t) {
 }
 
 // Fyller hovedvisningen. Lister flates ut og tomme verdier hoppes over.
-// Bunnteksten med lenker vises overalt unntatt i feeder og for barn.
+// Bunnteksten med lenker vises alltid for voksne og innloggingssidene, aldri for barn.
 const siteFooter = document.getElementById("site-footer");
 fillFooter(siteFooter);
 const show = (nodes, footer) => {
@@ -195,7 +195,6 @@ const show = (nodes, footer) => {
   view.replaceChildren(...nodes.flat(Infinity).filter(Boolean));
 };
 const render = (...nodes) => show(nodes, config?.me.role !== "child");
-render.feed = (...nodes) => show(nodes, false);
 
 // Barnas profilbilder er tegnede figurer (c01–c24 i /avatars). Foresatte har en emoji.
 const isFigure = (value) => /^c\d{2}$/.test(value);
@@ -1394,7 +1393,7 @@ async function showGroupPosts(g) {
     : p.media?.pending ? h("p", { class: "status-note" }, icon("clock"), "Venter på godkjenning – bare forfatteren ser det") : null;
 
   watchNewPosts(Math.max(0, ...posts.map((p) => p.id)), `/groups/${g.id}/posts/new`, () => showGroupPosts(g));
-  render.feed(
+  render(
     newPostsBar,
     h("div", { class: "back-head" }, iconBtn("back", "Tilbake", showParent), h("h2", {}, g.name)),
     posts.length ? null : h("div", { class: "card empty" },
@@ -1476,7 +1475,7 @@ async function showAdultChat(g) {
       await api(`/adult/${m.id}`, { method: "DELETE" }).then(() => showAdultChat(g), (err) => toast(err.message));
     }, "ghost", "trash")));
 
-  render.feed(
+  render(
     newPostsBar,
     h("div", { class: "back-head" }, iconBtn("back", "Tilbake", () => { parentTab = "grupper"; showParent(); }), h("h2", {}, `Voksenkontakt · ${g.name}`)),
     h("p", { class: "muted small adult-note" }, icon("lock"), h("span", {}, "Bare foresatte i gruppa ser dette. Barna ser det ikke.")),
