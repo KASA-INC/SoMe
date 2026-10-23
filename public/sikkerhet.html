@@ -45,8 +45,16 @@
     </section>
 
     <section class="info-section">
-      <h2>Lite kode fra andre</h2>
-      <p>Mange sikkerhetshull kommer ikke fra appen selv, men fra kodepakker den bygger på. quipu bruker bare to: <strong>Express</strong> (webserveren) og <strong>Nodemailer</strong> (e-post). Versjonene er låst og sjekket mot kjente sårbarheter. Alt annet, som kryptering, database og behandling av bilder og video, bruker det som er innebygd i Node.js eller er skrevet for quipu. Nettleseren laster ikke ett eneste skript fra andre nettsteder. Ved hver endring i koden kjøres alle testene og en sjekk av kjente sårbarheter i kodepakkene automatisk.</p>
+      <h2>Tilgang avgjøres på serveren</h2>
+      <p>Appen på telefonen bestemmer ingenting selv. Hver eneste forespørsel sjekkes på serveren: Er du logget inn? Er du med i denne gruppa, og er du godkjent? Eier du denne gruppa? Er det barnet ditt? Er appen åpen nå, og har barnet tid og innlegg igjen i dag? Et barn som er flink med teknikk, kommer ikke rundt grensene ved å endre på appen.</p>
+      <ul class="info-list">
+        <li>Administrator er bare den som drifter quipu. Det settes med en kommando på serveren og kan ikke slås på i appen, og krever to-trinns innlogging med en engangskode fra en app, på hver enhet og på nytt etter 12 timer. Administratoren ser statistikk som tall, innlegg som er meldt med «Si fra» og det barn sender med «Si fra om noe annet», og kan stenge kontoer. Alt administratoren gjør, logges.</li>
+        <li>Sier et barn fra om trusler, ekkel kontakt eller farlige bilder, varsles administratoren som har vakt straks, på e-post og push. Har ingen tatt ansvar for saken innen 15 minutter, varsles reserven, så resten av vaktlisten og til slutt alle administratorer, hvert kvarter til noen kvitterer. Hvert varsel lagres som sendt eller feilet, for at et sendt varsel ikke er det samme som et lest. Bare en kvittering stopper varslingen, og den lagres med navn og tidspunkt. Varslene inneholder ikke barnets melding eller hvem barnet er.</li>
+        <li>Eieren av en gruppe kan ta ut et barn, og barnets foresatte får e-post om det. Eieren kan også lage en ny invitasjonskode hvis den gamle er spredt. Invitasjoner og delingslenker som ikke er brukt, kan trekkes tilbake under Konto.</li>
+        <li>Et barn ser ingenting i en gruppe før den voksne som eier gruppa har godkjent det. Eieren ser navn og e-post på den foresatte som spør. Har eieren selv invitert den foresatte, regnes invitasjonen som godkjenning.</li>
+        <li>Bilder og videoer har tilfeldige navn, ligger utenfor den offentlige delen av serveren og sendes bare til den som har tilgang.</li>
+        <li>Innloggede sider kan ikke mellomlagres av andre enn din egen enhet.</li>
+      </ul>
     </section>
 
     <section class="info-section">
@@ -61,33 +69,6 @@
         <li><strong>Bekreftet e-post.</strong> Nye foresatte må åpne en lenke i e-posten før de kan lage barnekontoer. Ny e-postadresse tas først i bruk når lenken til den nye adressen er åpnet.</li>
         <li><strong>Trygg «Glemt passord».</strong> Lenken virker i én time og bare én gang, og bare en hash av den lagres. Koden ligger etter <code>#</code> i adressen, så den aldri havner i serverlogger. Svaret er det samme uansett om e-posten finnes, så ingen kan sjekke hvem som har konto. Når passordet byttes, blir alle andre enheter logget ut.</li>
         <li><strong>Barnekontoer lages av foresatte.</strong> En barnekonto kan bare opprettes fra en foresatt-konto, og den har ikke e-post, bare brukernavn. Den som lager en foresatt-konto, må bekrefte e-posten og krysse av for at hen er over 18 år og foresatt. Alder kan vi ikke kontrollere ennå. Det krever innlogging med for eksempel BankID eller Vipps, som står på planen. Derfor er det viktigste vernet at et barn ikke kommer inn i en gruppe uten at den voksne som eier gruppa, har godkjent det.</li>
-      </ul>
-    </section>
-
-    <section class="info-section">
-      <h2>Tilgang avgjøres på serveren</h2>
-      <p>Appen på telefonen bestemmer ingenting selv. Hver eneste forespørsel sjekkes på serveren: Er du logget inn? Er du med i denne gruppa, og er du godkjent? Eier du denne gruppa? Er det barnet ditt? Er appen åpen nå, og har barnet tid og innlegg igjen i dag? Et barn som er flink med teknikk, kommer ikke rundt grensene ved å endre på appen.</p>
-      <ul class="info-list">
-        <li>Administrator er bare den som drifter quipu. Det settes med en kommando på serveren og kan ikke slås på i appen, og krever to-trinns innlogging med en engangskode fra en app, på hver enhet og på nytt etter 12 timer. Administratoren ser statistikk som tall, innlegg som er meldt med «Si fra» og det barn sender med «Si fra om noe annet», og kan stenge kontoer. Alt administratoren gjør, logges.</li>
-        <li>Sier et barn fra om trusler, ekkel kontakt eller farlige bilder, varsles administratoren som har vakt straks, på e-post og push. Har ingen tatt ansvar for saken innen 15 minutter, varsles reserven, så resten av vaktlisten og til slutt alle administratorer, hvert kvarter til noen kvitterer. Hvert varsel lagres som sendt eller feilet, for at et sendt varsel ikke er det samme som et lest. Bare en kvittering stopper varslingen, og den lagres med navn og tidspunkt. Varslene inneholder ikke barnets melding eller hvem barnet er.</li>
-        <li>Eieren av en gruppe kan ta ut et barn, og barnets foresatte får e-post om det. Eieren kan også lage en ny invitasjonskode hvis den gamle er spredt. Invitasjoner og delingslenker som ikke er brukt, kan trekkes tilbake under Konto.</li>
-        <li>Et barn ser ingenting i en gruppe før den voksne som eier gruppa har godkjent det. Eieren ser navn og e-post på den foresatte som spør. Har eieren selv invitert den foresatte, regnes invitasjonen som godkjenning.</li>
-        <li>Bilder og videoer har tilfeldige navn, ligger utenfor den offentlige delen av serveren og sendes bare til den som har tilgang.</li>
-        <li>Innloggede sider kan ikke mellomlagres av andre enn din egen enhet.</li>
-      </ul>
-    </section>
-
-    <section class="info-section">
-      <h2>Vern i nettleseren</h2>
-      <ul class="info-grid checks">
-        <li><strong>Streng Content-Security-Policy.</strong> Nettleseren får bare kjøre kode fra quipu sin egen server. Skript, stiler og rammer fra andre steder blokkeres, og det gjelder også kode som noen prøver å snike inn i et innlegg.</li>
-        <li><strong>Tekst er alltid tekst.</strong> Det barna skriver, settes inn som ren tekst og blir aldri tolket som kode (vern mot XSS).</li>
-        <li><strong>Vern mot falske forespørsler (CSRF).</strong> I tillegg til <code>SameSite=Strict</code> godtar serveren bare endringer sendt som JSON. Opplastinger må ha en egen header. Begge deler kan andre nettsider ikke lage.</li>
-        <li><strong>Ingen innramming.</strong> quipu kan ikke vises inne i en annen nettside, så ingen kan lure noen til å trykke på noe skjult (clickjacking).</li>
-        <li><strong>Alltid HTTPS.</strong> All trafikk er kryptert, og nettleseren blir bedt om å aldri bruke ukryptert forbindelse (HSTS).</li>
-        <li><strong>Ingen tilgang til posisjon, kamera eller mikrofon</strong> for nettsiden. Bilder velges med telefonens egen velger.</li>
-        <li><strong>Krypterte push-varsler.</strong> Varsler til foresatte krypteres for den enkelte enheten (Web Push, RFC 8291) og signeres av quipu (VAPID). Apple, Google og Mozilla, som leverer dem, kan ikke lese innholdet. Barna får aldri varsler.</li>
-        <li><strong>Ingen lekkasje av adresser.</strong> Når man trykker på en lenke ut, får ikke den andre siden vite hvor man kom fra.</li>
       </ul>
     </section>
 
@@ -111,6 +92,25 @@
         <li>Innlegg, bilder, video og meldinger i voksenkontakten slettes av seg selv etter 60 dager.</li>
         <li>Sletter en foresatt kontoen sin, slettes også barnas kontoer, innlegg, bilder og videoer, med mindre barnet har en annen foresatt.</li>
       </ul>
+    </section>
+
+    <section class="info-section">
+      <h2>Vern i nettleseren</h2>
+      <ul class="info-grid checks">
+        <li><strong>Streng Content-Security-Policy.</strong> Nettleseren får bare kjøre kode fra quipu sin egen server. Skript, stiler og rammer fra andre steder blokkeres, og det gjelder også kode som noen prøver å snike inn i et innlegg.</li>
+        <li><strong>Tekst er alltid tekst.</strong> Det barna skriver, settes inn som ren tekst og blir aldri tolket som kode (vern mot XSS).</li>
+        <li><strong>Vern mot falske forespørsler (CSRF).</strong> I tillegg til <code>SameSite=Strict</code> godtar serveren bare endringer sendt som JSON. Opplastinger må ha en egen header. Begge deler kan andre nettsider ikke lage.</li>
+        <li><strong>Ingen innramming.</strong> quipu kan ikke vises inne i en annen nettside, så ingen kan lure noen til å trykke på noe skjult (clickjacking).</li>
+        <li><strong>Alltid HTTPS.</strong> All trafikk er kryptert, og nettleseren blir bedt om å aldri bruke ukryptert forbindelse (HSTS).</li>
+        <li><strong>Ingen tilgang til posisjon, kamera eller mikrofon</strong> for nettsiden. Bilder velges med telefonens egen velger.</li>
+        <li><strong>Krypterte push-varsler.</strong> Varsler til foresatte krypteres for den enkelte enheten (Web Push, RFC 8291) og signeres av quipu (VAPID). Apple, Google og Mozilla, som leverer dem, kan ikke lese innholdet. Barna får aldri varsler.</li>
+        <li><strong>Ingen lekkasje av adresser.</strong> Når man trykker på en lenke ut, får ikke den andre siden vite hvor man kom fra.</li>
+      </ul>
+    </section>
+
+    <section class="info-section">
+      <h2>Lite kode fra andre</h2>
+      <p>Mange sikkerhetshull kommer ikke fra appen selv, men fra kodepakker den bygger på. quipu bruker bare to: <strong>Express</strong> (webserveren) og <strong>Nodemailer</strong> (e-post). Versjonene er låst og sjekket mot kjente sårbarheter. Alt annet, som kryptering, database og behandling av bilder og video, bruker det som er innebygd i Node.js eller er skrevet for quipu. Nettleseren laster ikke ett eneste skript fra andre nettsteder. Ved hver endring i koden kjøres alle testene og en sjekk av kjente sårbarheter i kodepakkene automatisk.</p>
     </section>
 
     <section class="info-section">
