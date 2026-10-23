@@ -58,8 +58,7 @@ const PAIRS = [
   ["on-bg", "bg", 4.5], ["on-bg-2", "bg", 4.5], ["link", "surface", 4.5], ["link", "bg", 4.5],
   ["accent-ink", "accent", 4.5], ["accent-soft-ink", "accent-soft", 4.5], ["danger", "danger-soft", 4.5], ["danger-ink", "danger", 4.5],
   ["warn", "warn-soft", 4.5], ["bubble-ink", "bubble", 4.5], ["bubble-mine-ink", "bubble-mine", 4.5],
-  ["accent", "surface", 3], ["accent", "bg", 3], ["brand", "bg", 3],
-  // icon-mark på icon-tile (app-ikonet, 2,85:1) er ikke med: logoer er unntatt fra kontrastkravet, og fargene er valgt med vilje.
+  ["accent", "surface", 3], ["accent", "bg", 3], ["brand", "bg", 3], ["icon-mark", "icon-tile", 3],
 ];
 export function checkContrast() {
   const fails = [];

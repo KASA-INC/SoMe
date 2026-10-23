@@ -10,8 +10,8 @@ export const MARK_EYE_RIGHT = "M835 838a25 25 0 0 1 50 0v100a25 25 0 0 1-50 0Z";
 export const MARK_MOUTH = "M477.5 993.1Q584.5 1080.9 691.5 993.1A25.5 25.5 0 0 1 723.5 1032.9Q584.5 1143.1 445.5 1032.9A25.5 25.5 0 0 1 477.5 993.1Z";
 export const MARK_PATH = MARK_RING + MARK_EYE_LEFT + MARK_EYE_RIGHT + MARK_MOUTH;
 export const MARK_TIGHT_VIEWBOX = "30 334 1109 1109";
-// Kvadrat med luft rundt merket (samme forhold som i den kvadratiske logoversjonen), for appikoner.
-export const MARK_VIEWBOX = "-256 48 1675 1675";
+// Kvadrat med luft rundt merket, for appikoner. Merket fyller 71 % av bredden.
+export const MARK_VIEWBOX = "-195.5 108.5 1560 1560";
 
 // Ordbildet «quipu», vektorisert fra logofila.
 export const WORDMARK_VIEWBOX = "7 9.5 449.5 155.75";

@@ -40,8 +40,8 @@
   --on-bg-2: var(--neutral-800);
   --brand: var(--petrol-600);
   --brand-petrol: var(--petrol-600);
-  --icon-tile: var(--coral-600);
-  --icon-mark: var(--petrol-600);
+  --icon-tile: var(--petrol-600);
+  --icon-mark: var(--cream);
   --bubble: var(--petrol-600);
   --bubble-ink: var(--cream);
   --bubble-mine: var(--coral-600);
@@ -96,7 +96,7 @@
     --on-bg-2: var(--neutral-300);
     --brand: var(--coral-600);
     --brand-petrol: var(--petrol-300);
-    --icon-tile: var(--petrol-600);
+    --icon-tile: var(--ink);
     --icon-mark: var(--coral-600);
     --bubble: var(--coral-600);
     --bubble-ink: var(--ink);

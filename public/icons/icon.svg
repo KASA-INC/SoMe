@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-256 48 1675 1675">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-195.5 108.5 1560 1560">
   <style>
-    /* Lys modus: petrol logo på korall. Mørk modus: korall logo på petrol. */
-    .tile { fill: #f3785b; } .mark { fill: #145b5e; }
-    @media (prefers-color-scheme: dark) { .tile { fill: #145b5e; } .mark { fill: #f3785b; } }
+    /* Lys modus: kremhvitt merke på petrol. Mørk modus: korall merke på nesten svart. Lages av scripts/app-icons.mjs. */
+    .tile { fill: #145b5e; } .mark { fill: #f8f8f4; }
+    @media (prefers-color-scheme: dark) { .tile { fill: #161619; } .mark { fill: #f3785b; } }
   </style>
-  <rect class="tile" x="-256" y="48" width="1675" height="1675" rx="370"/>
+  <rect class="tile" x="-195.5" y="108.5" width="1560" height="1560" rx="345"/>
   <path class="mark" fill-rule="evenodd" d="M953 1302A554.5 554.5 0 1 0 861 1368C940 1415 1050 1442 1138 1442C1070 1415 990 1360 953 1302ZM155.0 888.5a429.5 429.5 0 1 0 859.0 0a429.5 429.5 0 1 0 -859.0 0ZM284 838a25 25 0 0 1 50 0v100a25 25 0 0 1-50 0ZM835 838a25 25 0 0 1 50 0v100a25 25 0 0 1-50 0ZM477.5 993.1Q584.5 1080.9 691.5 993.1A25.5 25.5 0 0 1 723.5 1032.9Q584.5 1143.1 445.5 1032.9A25.5 25.5 0 0 1 477.5 993.1Z"/>
 </svg>
