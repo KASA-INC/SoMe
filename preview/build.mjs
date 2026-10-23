@@ -37,12 +37,15 @@ const footerJs = `const fillFooter = (() => {\n${relink(footerBody, '"')}\nretur
 
 const avatars = Object.fromEntries(readdirSync(new URL("avatars/", PUB)).filter((f) => f.endsWith(".svg"))
   .map((f) => [f.replace(".svg", ""), dataUri(`avatars/${f}`, "image/svg+xml")]));
+// Videokomprimeringen (mp4.js og video.js) pakkes inn for seg, så navnene ikke kolliderer med app.js.
+const strip = (f) => read(f).replace(/^import[\s\S]*?from "\.\/[a-z0-9]+\.js";\n/gm, "").replace(/^export /gm, "");
+const videoJs = `const { shrinkVideo } = (() => {\n${strip("mp4.js")}\n${strip("video.js")}\nreturn { shrinkVideo };\n})();`;
 let appJs = read("app.js").replace(/^import[\s\S]*?from "\.\/[a-z]+\.js";\n/gm, "");
 const avatarUrl = "`/avatars/${id}.svg`";
 if (!appJs.includes(avatarUrl)) throw new Error("Fant ikke figur-adressen i app.js");
 appJs = appJs.replace(avatarUrl, "PREVIEW_AVATARS[id]");
 appJs = relink(appJs, '"');
-appJs = `const PREVIEW_AVATARS = ${JSON.stringify(avatars)};\n${appJs}\nwindow.__quipuRestart = () => { stopTimers(); start(); };`;
+appJs = `const PREVIEW_AVATARS = ${JSON.stringify(avatars)};\n${videoJs}\n${appJs}\nwindow.__quipuRestart = () => { stopTimers(); start(); };`;
 
 // Plukker ut <title> og <body> fra en side i public/ og setter inn stil og skript.
 function page(file, { scripts }) {

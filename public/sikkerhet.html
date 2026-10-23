@@ -95,6 +95,7 @@
       <h2>Bilder og video</h2>
       <ul class="info-grid checks">
         <li><strong>Posisjonen fjernes to ganger.</strong> Bilder tegnes på nytt på telefonen før opplasting. Det fjerner EXIF-data og GPS, gjør bildet mindre og gjør HEIC-bilder fra iPhone om til WebP eller JPEG. Serveren fjerner i tillegg alle metadata, både i JPEG og WebP.</li>
+        <li><strong>Video gjøres mindre på telefonen.</strong> Nettleseren koder videoen på nytt med WebCodecs før opplasting, med egen kode for å lese og skrive MP4. Serveren gjør ingen konvertering, så den slipper å tolke videobildene.</li>
         <li><strong>Video sjekkes på serveren.</strong> MP4- og MOV-filer leses av egen kode uten eksterne verktøy. Metadata-boksene, der GPS ligger, nulles ut, og lengden kontrolleres på nytt, så grensen på 30 sekunder ikke kan omgås.</li>
         <li><strong>Bare kjente filtyper</strong> godtas, og alle filer har en øvre størrelsesgrense.</li>
         <li><strong>Voksne godkjenner</strong> bilder og video før de andre barna ser dem, og video spilles aldri av automatisk.</li>

@@ -118,6 +118,7 @@ Da åpnes quipu som en egen app med eget ikon og uten nettleserlinjer.
 
 - **Bilder** skaleres ned (maks 1440 px på den lengste siden) og tegnes på nytt på telefonen før opplasting. Det fjerner EXIF/GPS og gjør HEIC-bilder fra iPhone om til WebP (kvalitet 0,8), eller JPEG (0,8) i nettlesere som ikke kan lage WebP. Serveren godtar bare JPEG og WebP, og fjerner i tillegg alle metadata.
 - **Video** må være MP4 eller MOV, som er det iPhone og Android tar opp i. Lengden sjekkes på telefonen før opplasting og kontrolleres på nytt på serveren. Er en video for lang, får barnet beskjed om å klippe den i Bilder-appen. Metadata-boksene i videofila (der GPS-posisjonen ligger) nulles ut på serveren.
+- **Video gjøres mindre på telefonen** før opplasting (`public/video.js`): nettleseren dekoder videoen med WebCodecs, skalerer den ned til 1280 punkter på den lengste siden og koder den som H.264 med rundt 2 Mbit/s. Lyden kopieres som den er. `public/mp4.js` leser og skriver MP4 uten kode fra andre, og beholder rotasjonen fra iPhone. 30 sekunder blir rundt 8 MB, mot 30–60 MB fra en mobil. Kan ikke nettleseren dette, eller blir fila ikke minst 10 % mindre, lastes originalen opp. Serveren gjør ingen konvertering.
 - Bare de som har tilgang til innlegget kan hente fila. Opplastinger som ikke blir delt, og filer fra slettede innlegg, ryddes bort automatisk.
 - En iPhone med «Høy effektivitet» filmer i HEVC. Safari gjør vanligvis om videoen til H.264 når den lastes opp fra nettleseren, men enkelte eldre Android-telefoner kan ha problemer med å spille HEVC.
 

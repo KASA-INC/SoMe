@@ -37,12 +37,13 @@
     </section>
 
     <section class="info-section">
-      <h2>Små bilder</h2>
-      <p>Bilder fra mobilen er ofte flere megabyte. quipu gjør dem mindre på telefonen før de lastes opp, så de tar mindre plass både på serveren, i nettet og på telefonene som viser dem.</p>
+      <h2>Små bilder og videoer</h2>
+      <p>Bilder og videoer fra mobilen er ofte mange megabyte. quipu gjør dem mindre på telefonen før de lastes opp, så de tar mindre plass både på serveren, i nettet og på telefonene som viser dem.</p>
       <ul class="info-list">
         <li>Bildet skaleres ned til 1440 punkter på den lengste siden. Det er skarpt nok for feeden, også på skjermer med høy oppløsning.</li>
         <li>Telefonen lagrer bildet som WebP, et format som blir 25–35 % mindre enn vanlig JPEG med samme kvalitet. Telefoner som ikke kan lage WebP, bruker JPEG.</li>
         <li>På et testbilde på 12 megapiksler ble fila halvparten så stor som før vi gjorde dette.</li>
+        <li>Videoer gjøres også mindre på telefonen: ned til 1280 punkter på den lengste siden, og så mye mindre data per sekund at 30 sekunder blir rundt 8 MB i stedet for 30–60 MB. Det skjer på telefonen, ikke på serveren. Telefoner som ikke kan gjøre det, laster opp originalen.</li>
         <li>En video kan være høyst 30 sekunder.</li>
       </ul>
     </section>
@@ -73,7 +74,6 @@
     <section class="info-section">
       <h2>Det vi vurderer videre</h2>
       <ul class="info-list">
-        <li>Gjøre video mindre på telefonen før opplasting, slik vi gjør med bilder. Video er det som tar mest plass.</li>
         <li>Sikkerhetskopier som bare kopierer nye filer. Bilder og video endres aldri, så hver fil trenger bare å kopieres én gang.</li>
         <li>Velge leverandører som bruker fornybar strøm, når vi velger sted for sikkerhetskopier eller flytter tjenesten.</li>
       </ul>

@@ -4,6 +4,7 @@ import {
   WORDMARK_VIEWBOX, WORDMARK_PATH,
 } from "./brand.js";
 import { fillFooter } from "./footer.js";
+import { shrinkVideo } from "./video.js";
 
 const view = document.getElementById("view");
 let config = null; // { me, kinds, colors, stickers, avatars, media }
@@ -839,23 +840,42 @@ function composer(groups, close) {
     fileInput.value = "";
   };
 
+  let picks = 0; // teller filvalg, så en video som blir ferdig sent, ikke tar over for en nyere
   fileInput.addEventListener("change", async () => {
     const file = fileInput.files[0];
     if (!file) return;
     warning.classList.add("hidden");
     const isVideo = file.type.startsWith("video/") || /\.(mov|mp4|m4v)$/i.test(file.name);
+    const pick = ++picks;
+    const bar = h("progress", { max: 1, value: 0 });
+    const status = h("span", {}, "Laster opp …");
     let blob = file;
     try {
       if (isVideo) {
-        if (file.size > limits.videoMb * 1024 * 1024) {
-          clearAttachment();
-          return showWarning(warning, `Videoen er for stor (${Math.round(file.size / 1048576)} MB). Maks er ${limits.videoMb} MB.`);
-        }
         const d = await videoDuration(file);
         if (d && d > limits.videoSeconds + 0.5) {
           clearAttachment();
           return showWarning(warning, `Videoen er ${Math.round(d)} sekunder. Maks er ${limits.videoSeconds} sekunder. Du kan klippe den i Bilder-appen.`);
         }
+        // Videoen gjøres mindre på telefonen før opplasting (video.js). Går ikke det, lastes originalen opp.
+        status.textContent = "Gjør videoen mindre …";
+        preview.replaceChildren(h("div", { class: "upload-row" }, status, bar));
+        preview.classList.remove("hidden");
+        uploading = true;
+        send.disabled = true;
+        try {
+          blob = (await shrinkVideo(file, { onProgress: (p) => (bar.value = p) })) || file;
+        } finally {
+          uploading = false;
+          send.disabled = false;
+        }
+        if (pick !== picks) return; // barnet har valgt en annen fil i mellomtiden
+        if (blob.size > limits.videoMb * 1024 * 1024) {
+          clearAttachment();
+          return showWarning(warning, `Videoen er for stor (${Math.round(blob.size / 1048576)} MB). Maks er ${limits.videoMb} MB.`);
+        }
+        bar.value = 0;
+        status.textContent = "Laster opp …";
       } else {
         blob = await prepareImage(file);
       }
@@ -865,8 +885,6 @@ function composer(groups, close) {
     }
 
     const localUrl = URL.createObjectURL(blob);
-    const bar = h("progress", { max: 1, value: 0 });
-    const status = h("span", {}, "Laster opp …");
     const media = isVideo
       ? h("video", { src: localUrl, controls: true, playsinline: true, muted: true, preload: "metadata" })
       : h("img", { src: localUrl, alt: "Bildet du har valgt" });
