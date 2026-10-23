@@ -1,5 +1,2 @@
 node_modules/
 data/
-
-# Visby CF er en kommersiell font. Filene legges ikke i det offentlige repoet før lisensen er avklart.
-public/fonts/
