@@ -1226,3 +1226,64 @@ test("bremsen mot passordgjetting lagres i databasen og gjelder etter omstart", 
   }
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM login_failures WHERE key_hash LIKE '%@%'").get().n, 0, "bare hash lagres");
 });
+
+test("grupper og lenker: eieren tar ut barn og bytter kode, og lenker kan trekkes tilbake", async () => {
+  const a = await setupFamily("gl");
+  const b = await secondParent(a, "gl"); // Tor er med
+  const tor = (await b("/children")).body.children[0];
+  // Eieren tar Tor ut. Han mister tilgangen med en gang, og foresatte får e-post.
+  const owner = (await a.parent("/groups")).body.groups[0];
+  assert.ok(owner.members.find((m) => m.displayName === "Tor").id);
+  assert.equal((await b("/groups")).body.groups[0].members.every((m) => m.id === undefined), true, "bare eieren ser id-er");
+  assert.equal((await b(`/groups/${a.groupId}/members/${tor.id}`, { method: "POST", body: { action: "remove" } })).status, 404, "bare eieren");
+  assert.equal((await a.parent(`/groups/${a.groupId}/members/${tor.id}`, { method: "POST", body: { action: "remove" } })).status, 200);
+  assert.match(outbox.findLast((m) => m.to === "gl-far@example.com").subject, /Tor er tatt ut av Klasse 4B/);
+  assert.equal((await b("/groups")).body.groups.length, 0);
+  // Et barn som bare venter, tas ikke ut på denne måten (det avslås).
+  await b("/groups/join", { method: "POST", body: { code: a.code, childId: tor.id } });
+  assert.equal((await a.parent(`/groups/${a.groupId}/members/${tor.id}`, { method: "POST", body: { action: "remove" } })).status, 404);
+  await a.parent(`/groups/${a.groupId}/members/${tor.id}`, { method: "POST", body: { action: "reject" } });
+
+  // Ny kode: den gamle virker ikke lenger.
+  const { body: { inviteCode } } = await a.parent(`/groups/${a.groupId}/code`, { method: "POST" });
+  assert.notEqual(inviteCode, a.code);
+  assert.equal((await b("/groups/join", { method: "POST", body: { code: a.code, childId: tor.id } })).status, 404);
+  assert.equal((await b(`/groups/${a.groupId}/code`, { method: "POST" })).status, 404, "bare eieren");
+
+  // Invitasjoner og delingslenker kan trekkes tilbake.
+  const inv = await a.parent("/invites", { method: "POST", body: { groupId: a.groupId } });
+  const share = await a.parent(`/children/${a.childId}/share`, { method: "POST", body: {} });
+  const { body: { links } } = await a.parent("/invites");
+  assert.deepEqual(links.map((l) => l.kind).sort(), ["invite", "share"]);
+  for (const l of links) await a.parent(`/invites/${l.id}`, { method: "DELETE" });
+  assert.equal((await client()(`/invites/${inv.body.url.split("=")[1]}`)).status, 404);
+  assert.equal((await client()(`/shares/${share.body.url.split("=")[1]}`)).status, 404);
+  assert.equal((await b("/invites")).body.links.length, 0);
+});
+
+test("de andre foresatte får e-post når grenser eller passord for barnet endres", async () => {
+  const a = await setupFamily("gr");
+  const far = client();
+  await registerParent(far, "gr-far@example.com", "Pappa");
+  const link = await a.parent(`/children/${a.childId}/share`, { method: "POST", body: {} });
+  await far(`/shares/${link.body.url.split("=")[1]}/accept`, { method: "POST" });
+  const n = outbox.length;
+  await far(`/children/${a.childId}`, { method: "PATCH", body: { dailyMinutes: 45, password: "nytt-passord-1" } });
+  const mail = outbox.slice(n).find((m) => m.to === "gr@example.com");
+  assert.match(mail.subject, /Pappa endret innstillingene for Ola/);
+  assert.match(mail.text, /Skjermtid fra 20 til 45 minutter/);
+  assert.match(mail.text, /Nytt passord/);
+  assert.equal(outbox.slice(n).some((m) => m.to === "gr-far@example.com"), false, "ikke til den som endret");
+});
+
+test("eksport: en foresatt laster ned alt quipu har om seg og barna", async () => {
+  const a = await setupFamily("eks");
+  await post(a.kid, a.groupId, "Dette er mitt innlegg");
+  const { status, headers, body } = await a.parent("/me/export");
+  assert.equal(status, 200);
+  assert.match(headers.get("content-disposition"), /attachment; filename="quipu-data-/);
+  assert.equal(body.konto.epost, "eks@example.com");
+  assert.equal(body.barn[0].navn, "Ola");
+  assert.equal(body.barn[0].innlegg[0].tekst, "Dette er mitt innlegg");
+  assert.equal((await a.kid("/me/export")).status, 403);
+});

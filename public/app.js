@@ -1347,9 +1347,19 @@ function groupCard(g) {
           g.pendingMedia ? h("span", { class: "badge warn" }, `${g.pendingMedia} venter på godkjenning`) : null) : null),
       g.members.length ? h("div", { class: "avatars-stack", "aria-hidden": "true" }, g.members.slice(0, 4).map((m) => avatar(m.avatar, "sm"))) : null),
     g.pendingMembers?.length ? pendingMembers(g) : null,
+    g.isOwner && g.members.length ? membersList(g) : null,
     g.isOwner && h("div", { class: "code-box" },
       h("div", {}, h("div", { class: "label" }, "Invitasjonskode"), h("code", {}, g.inviteCode)),
-      btn("Kopier", () => copyText(g.inviteCode), "secondary small", "copy")),
+      h("div", { class: "row" },
+        btn("Kopier", () => copyText(g.inviteCode), "secondary small", "copy"),
+        btn("Ny kode", async () => {
+          if (!confirm(`Lage en ny invitasjonskode for ${g.name}? Den gamle slutter å virke med en gang. Barn som er med, blir værende.`)) return;
+          try {
+            await api(`/groups/${g.id}/code`, { method: "POST" });
+            toast("Ny kode er laget");
+            showParent();
+          } catch (err) { toast(err.message); }
+        }, "ghost small", "refresh"))),
     g.isOwner && reviewSwitch(g),
     h("div", { class: "card-actions" },
       btn("Se innlegg", () => showGroupPosts(g), "", "eye"),
@@ -1364,6 +1374,23 @@ function groupCard(g) {
 }
 
 // Barn som har bedt om å bli med. Eieren ser hvilken foresatt som spør, og godkjenner eller avslår.
+// Eieren ser hvem som er med og kan ta et barn ut. Foresatte får e-post om det.
+function membersList(g) {
+  return h("details", { class: "members-list" },
+    h("summary", {}, `Medlemmer (${g.members.length})`),
+    g.members.map((m) => h("div", { class: "list-row" },
+      avatar(m.avatar),
+      h("div", { class: "grow" }, h("strong", {}, m.displayName)),
+      btn("Ta ut", async () => {
+        if (!confirm(`Ta ${m.displayName} ut av ${g.name}? ${m.displayName} ser ikke gruppa lenger, og foresatte får e-post om det.`)) return;
+        try {
+          await api(`/groups/${g.id}/members/${m.id}`, { method: "POST", body: { action: "remove" } });
+          toast(`${m.displayName} er tatt ut av ${g.name}`);
+          showParent();
+        } catch (err) { toast(err.message); }
+      }, "ghost small"))));
+}
+
 function pendingMembers(g) {
   const answer = (m, action) => async () => {
     try {
@@ -1538,6 +1565,8 @@ function accountTab() {
     emailCard(),
     passwordCard(),
     sessionsCard(),
+    linksCard(),
+    exportCard(),
     h("section", { class: "card" },
       h("h3", {}, "Slett konto"),
       h("p", { class: "muted small" }, "Sletter kontoen din, barnekontoene og alt de har delt. Dette kan ikke angres."),
@@ -1785,6 +1814,48 @@ async function loadAdminLog(box) {
         h("span", { class: "muted small" }, fmtTime(l.createdAt)), " ", h("strong", {}, l.action), ` ${l.target}`, l.detail && h("span", { class: "muted" }, ` · ${l.detail}`))))
       : h("p", { class: "muted small" }, "Ingenting ennå."));
   } catch (err) { box.replaceChildren(h("p", { class: "warning" }, icon("alert"), h("span", {}, err.message))); }
+}
+
+// Invitasjoner og delingslenker man har sendt som ikke er brukt. Kan trekkes tilbake.
+function linksCard() {
+  const list = h("ul", { class: "sessions" });
+  const card = h("section", { class: "card hidden" }, h("h3", {}, "Lenker du har sendt"),
+    h("p", { class: "muted small" }, "Invitasjoner og delingslenker som ikke er brukt ennå. Trekker du en tilbake, slutter den å virke med en gang."), list);
+  const load = async () => {
+    try {
+      const { links } = await api("/invites");
+      card.classList.toggle("hidden", !links.length);
+      list.replaceChildren(...links.map((l) => h("li", {}, icon(l.kind === "share" ? "users" : "mail"),
+        h("div", { class: "who" },
+          h("strong", {}, l.kind === "share" ? `Dele ${l.child}` : l.group ? `Invitasjon til ${l.group}` : "Invitasjon"),
+          h("div", { class: "muted small" }, `${l.email || "Lenke uten e-post"} · virker til ${fmtTime(l.expiresAt)}`)),
+        btn("Trekk tilbake", async () => {
+          await api(`/invites/${l.id}`, { method: "DELETE" }).catch((err) => toast(err.message));
+          toast("Lenken virker ikke lenger");
+          load();
+        }, "secondary small"))));
+    } catch { card.classList.add("hidden"); }
+  };
+  load();
+  return card;
+}
+
+// Innsyn: alt quipu har om deg og barna, som en fil.
+function exportCard() {
+  return h("section", { class: "card" }, h("h3", {}, "Dataene dine"),
+    h("p", { class: "muted small" }, `Last ned alt ${APP_NAME} har om deg og barna dine: kontoene, grensene, gruppene, innleggene og beskjedene dine i voksenkontakten. Fila er i JSON-format, som kan åpnes i de fleste programmer.`),
+    h("div", { class: "card-actions" }, btn("Last ned dataene mine", async () => {
+      try {
+        const res = await fetch("/api/me/export");
+        if (!res.ok) throw new Error("Klarte ikke å lage fila. Prøv igjen.");
+        const url = URL.createObjectURL(await res.blob());
+        const a = h("a", { href: url, download: `quipu-data-${new Date().toISOString().slice(0, 10)}.json` });
+        document.body.append(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (err) { toast(err.message); }
+    }, "secondary", "share")));
 }
 
 // Hvor man er logget inn. Kjenner man ikke igjen en enhet, logger man den ut og bytter passord.

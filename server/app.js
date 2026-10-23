@@ -355,6 +355,26 @@ export function createApp({
     res.status(201).json({ results });
   });
 
+  // Invitasjoner og delingslenker jeg har sendt som ikke er brukt ennå. De kan trekkes tilbake.
+  app.get("/api/invites", parent, (req, res) => {
+    const invites = q(`SELECT i.token_hash, i.email, i.created_at, i.expires_at, g.name AS group_name FROM parent_invites i
+      LEFT JOIN groups g ON g.id = i.group_id WHERE i.inviter_id = ? AND i.expires_at > ? ORDER BY i.created_at DESC`).all(req.user.id, now());
+    const shares = q(`SELECT s.token_hash, s.email, s.created_at, s.expires_at, c.display_name AS child_name FROM child_shares s
+      JOIN users c ON c.id = s.child_id WHERE s.inviter_id = ? AND s.expires_at > ? ORDER BY s.created_at DESC`).all(req.user.id, now());
+    res.json({
+      links: [
+        ...invites.map((i) => ({ id: `i${i.token_hash.slice(0, 16)}`, kind: "invite", email: i.email || "", group: i.group_name || null, createdAt: i.created_at, expiresAt: i.expires_at })),
+        ...shares.map((x) => ({ id: `s${x.token_hash.slice(0, 16)}`, kind: "share", email: x.email || "", child: x.child_name, createdAt: x.created_at, expiresAt: x.expires_at })),
+      ].sort((a, b) => b.createdAt - a.createdAt),
+    });
+  });
+  app.delete("/api/invites/:id", parent, (req, res) => {
+    const m = req.params.id.match(/^([is])([0-9a-f]{16})$/);
+    if (!m) fail(404, "Fant ikke lenken");
+    q(`DELETE FROM ${m[1] === "i" ? "parent_invites" : "child_shares"} WHERE inviter_id = ? AND substr(token_hash, 1, 16) = ?`).run(req.user.id, m[2]);
+    res.json({ ok: true });
+  });
+
   // Gruppeinvitasjoner den innloggede foresatte har fått. Kan skjules.
   app.delete("/api/invitations/:groupId", parent, (req, res) => {
     q("DELETE FROM group_invitations WHERE user_id = ? AND group_id = ?").run(req.user.id, req.params.groupId);
@@ -647,6 +667,37 @@ export function createApp({
   });
 
   // Foresatte kan slette sin egen konto. Barnekontoene og alt innholdet slettes også.
+  // Innsyn og dataportabilitet: alt quipu har om deg og barna dine, som én JSON-fil.
+  app.get("/api/me/export", parentAny, (req, res) => {
+    const me = req.user;
+    const children = q("SELECT u.* FROM users u JOIN guardians gd ON gd.child_id = u.id AND gd.parent_id = ?").all(me.id);
+    const postsBy = (id) => q(`SELECT p.id, g.name AS gruppe, p.kind AS merkelapp, p.text AS tekst, p.status, p.created_at AS tidspunkt,
+      (SELECT md.type FROM media md WHERE md.post_id = p.id) AS vedlegg FROM posts p JOIN groups g ON g.id = p.group_id
+      WHERE p.author_id = ? ORDER BY p.created_at`).all(id).map((p) => ({ ...p, tidspunkt: new Date(p.tidspunkt).toISOString() }));
+    const iso = (t) => (t ? new Date(t).toISOString() : null);
+    const data = {
+      laget: new Date(now()).toISOString(),
+      tjeneste: APP_NAME,
+      konto: { navn: me.display_name, epost: me.email, laget: iso(me.created_at), epostVarsler: me.notify_email },
+      innlogginger: q("SELECT device AS enhet, created_at, last_seen FROM sessions WHERE user_id = ?").all(me.id)
+        .map((x) => ({ enhet: x.enhet, startet: iso(x.created_at), sistBrukt: iso(x.last_seen) })),
+      barn: children.map((c) => ({
+        navn: c.display_name, brukernavn: c.username, laget: iso(c.created_at),
+        grenser: { minutterPerDag: c.daily_minutes, apenFra: c.open_from, apenTil: c.open_to, innleggPerDag: c.posts_per_day },
+        foresatte: guardiansOf(c.id).map((g) => g.display_name),
+        grupper: q("SELECT g.name, m.approved FROM memberships m JOIN groups g ON g.id = m.group_id WHERE m.user_id = ?").all(c.id)
+          .map((g) => ({ navn: g.name, godkjent: !!g.approved })),
+        innlegg: postsBy(c.id),
+        skjermtid: q("SELECT day AS dag, minutes AS minutter FROM usage WHERE user_id = ? ORDER BY day").all(c.id),
+      })),
+      grupperJegEier: q("SELECT name AS navn, created_at FROM groups WHERE owner_id = ?").all(me.id).map((g) => ({ navn: g.navn, laget: iso(g.created_at) })),
+      mineBeskjederIVoksenkontakt: q(`SELECT g.name AS gruppe, m.text AS tekst, m.created_at FROM adult_messages m JOIN groups g ON g.id = m.group_id
+        WHERE m.author_id = ? ORDER BY m.created_at`).all(me.id).map((m) => ({ gruppe: m.gruppe, tekst: m.tekst, tidspunkt: iso(m.created_at) })),
+      merknad: "Bilder og video er ikke med i fila. Skriv til " + CONTACT_EMAIL + " hvis du vil ha dem.",
+    };
+    res.set("Content-Disposition", `attachment; filename="quipu-data-${clock().day}.json"`).json(data);
+  });
+
   // Barn med andre foresatte beholdes (de får en ny første foresatt). Barn der du er eneste foresatt, slettes.
   app.delete("/api/me", parentAny, (req, res) => {
     for (const { child_id } of q("SELECT child_id FROM guardians WHERE parent_id = ?").all(req.user.id)) {
@@ -1131,7 +1182,7 @@ export function createApp({
     res.status(201).json({ ok: true });
   });
 
-  app.patch("/api/children/:id", parent, (req, res) => {
+  app.patch("/api/children/:id", parent, async (req, res) => {
     const c = ownChild(req);
     const b = req.body;
     const next = {
@@ -1152,6 +1203,20 @@ export function createApp({
       if (typeof b.password !== "string" || b.password.length < 8) fail(400, "Passordet må ha minst 8 tegn");
       q("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(b.password), c.id);
       q("DELETE FROM sessions WHERE user_id = ?").run(c.id);
+    }
+    // De andre foresatte får vite hva som ble endret, og av hvem.
+    const changes = [
+      next.daily_minutes !== c.daily_minutes && `skjermtid fra ${c.daily_minutes} til ${next.daily_minutes} minutter per dag`,
+      (next.open_from !== c.open_from || next.open_to !== c.open_to) && `åpningstid fra ${c.open_from}–${c.open_to} til ${next.open_from}–${next.open_to}`,
+      next.posts_per_day !== c.posts_per_day && `innlegg per dag fra ${c.posts_per_day} til ${next.posts_per_day}`,
+      next.display_name !== c.display_name && `navn fra ${c.display_name} til ${next.display_name}`,
+      b.password !== undefined && `nytt passord (${next.display_name} ble logget ut)`,
+    ].filter(Boolean);
+    if (changes.length) {
+      for (const g of guardiansOf(c.id).filter((x) => x.id !== req.user.id && x.email)) {
+        await notifyAccount(g.email, `${req.user.display_name} endret innstillingene for ${next.display_name}`, `Endringer for ${next.display_name}`,
+          [`${req.user.display_name} endret dette for ${next.display_name} i ${APP_NAME} ${when(now())}:`, ...changes.map((x) => `– ${x[0].toUpperCase()}${x.slice(1)}.`)]);
+      }
     }
     res.json({ ok: true });
   });
@@ -1288,8 +1353,8 @@ export function createApp({
           mediaReview: !!g.media_review,
           pendingMedia: isOwner ? q(`SELECT COUNT(*) AS n FROM media md JOIN posts p ON p.id = md.post_id
             WHERE p.group_id = ? AND md.approved = 0 AND p.status = 'visible'`).get(g.id).n : undefined,
-          members: q(`SELECT u.display_name AS displayName, u.avatar FROM memberships m JOIN users u ON u.id = m.user_id
-            WHERE m.group_id = ? AND m.approved = 1 ORDER BY u.display_name`).all(g.id),
+          members: q(`SELECT u.id, u.display_name AS displayName, u.avatar FROM memberships m JOIN users u ON u.id = m.user_id
+            WHERE m.group_id = ? AND m.approved = 1 ORDER BY u.display_name`).all(g.id).map((m) => (isOwner ? m : { displayName: m.displayName, avatar: m.avatar })),
           // Eieren ser hvem som vil inn, og hvilken foresatt som spør, så hen kan sjekke at det er en fra klassen.
           pendingMembers: isOwner ? q(`SELECT u.id, u.display_name AS displayName, u.avatar FROM memberships m JOIN users u ON u.id = m.user_id
             WHERE m.group_id = ? AND m.approved = 0 ORDER BY u.display_name`).all(g.id).map((m) => {
@@ -1358,11 +1423,33 @@ export function createApp({
     res.json({ ok: true, pending: !approved });
   });
 
+  // Ny invitasjonskode for gruppa. Den gamle slutter å virke med en gang (for eksempel hvis den er spredt).
+  app.post("/api/groups/:groupId/code", parent, (req, res) => {
+    const g = q("SELECT id FROM groups WHERE id = ? AND owner_id = ?").get(req.params.groupId, req.user.id);
+    if (!g) fail(404, "Fant ikke gruppa");
+    const code = randomBytes(5).toString("hex").toUpperCase();
+    q("UPDATE groups SET invite_code = ? WHERE id = ?").run(code, g.id);
+    res.json({ inviteCode: code });
+  });
+
   // Eieren godkjenner eller avslår et barn som venter på å bli med.
-  app.post("/api/groups/:groupId/members/:userId", parent, (req, res) => {
+  app.post("/api/groups/:groupId/members/:userId", parent, async (req, res) => {
     const g = q("SELECT id FROM groups WHERE id = ? AND owner_id = ?").get(req.params.groupId, req.user.id);
     if (!g) fail(404, "Fant ikke gruppa");
     const action = req.body.action;
+    if (action === "remove") {
+      // Eieren tar et godkjent barn ut av gruppa. Barnet mister tilgangen med en gang, og foresatte får beskjed.
+      const { changes } = q("DELETE FROM memberships WHERE group_id = ? AND user_id = ? AND approved = 1").run(g.id, req.params.userId);
+      if (!changes) fail(404, "Fant ikke barnet i gruppa");
+      const kid = q("SELECT display_name FROM users WHERE id = ?").get(req.params.userId);
+      const name = q("SELECT name FROM groups WHERE id = ?").get(g.id).name;
+      for (const p of guardiansOf(Number(req.params.userId)).filter((x) => x.email)) {
+        await notifyAccount(p.email, `${kid.display_name} er tatt ut av ${name}`, `${kid.display_name} er tatt ut av ${name}`,
+          [`${req.user.display_name}, som eier gruppa ${name} i ${APP_NAME}, tok ${kid.display_name} ut av gruppa ${when(now())}. ${kid.display_name} ser ikke gruppa lenger.`,
+            `Lurer du på hvorfor, kan du skrive i voksenkontakten i en annen gruppe, eller kontakte ${req.user.display_name}.`]);
+      }
+      return res.json({ ok: true });
+    }
     if (action !== "approve" && action !== "reject") fail(400, "Ugyldig handling");
     const { changes } = action === "approve"
       ? q("UPDATE memberships SET approved = 1 WHERE group_id = ? AND user_id = ? AND approved = 0").run(g.id, req.params.userId)

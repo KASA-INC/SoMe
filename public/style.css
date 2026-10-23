@@ -875,3 +875,8 @@ main { width: 100%; }
 .sessions li > svg.icon { color: var(--text-2); flex: none; }
 .sessions .who { flex: 1; min-width: 0; }
 .sessions .badge { margin-left: 6px; }
+.members-list { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 4px; }
+.members-list summary { cursor: pointer; font-weight: 650; padding: 10px 0; min-height: var(--tap); display: flex; align-items: center; list-style: none; }
+.members-list summary::-webkit-details-marker { display: none; }
+.members-list summary::after { content: "+"; margin-left: auto; font-size: 1.3rem; font-weight: 500; color: var(--text-2); }
+.members-list[open] summary::after { content: "−"; }
