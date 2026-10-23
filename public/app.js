@@ -628,8 +628,8 @@ function showBlocked(err) {
     h("p", {}, err.message)),
   // Resten av appen er stengt, men barnet skal alltid kunne si fra og få hjelp.
   h("div", { class: "blocked-help" },
-    h("p", { class: "danger-now" }, h("strong", {}, "Er du i fare akkurat nå? Ring 112.")),
-    h("p", { class: "help-line" }, icon("phone"), h("span", {}, h("strong", {}, "116 111"), " · Alarmtelefonen, alltid åpen")),
+    danger(),
+    call("116 111", "Alarmtelefonen, alltid åpen"),
     h("p", {}, h("button", { type: "button", class: "link small", onclick: openSafety }, icon("flag"), "Si fra om noe annet"))));
 }
 
@@ -1009,14 +1009,19 @@ function categoryPicker() {
 }
 
 // Beskjed etterpå: hva som skjer nå, og hvor barnet kan få hjelp.
+// Telefonnumre barnet kan trykke på for å ringe. Telefonen spør alltid før den ringer.
+const call = (number, label) => h("a", { class: "help-line", href: `tel:${number.replaceAll(" ", "")}` },
+  icon("phone"), h("span", {}, h("strong", {}, number), ` · ${label}`));
+const danger = () => h("p", { class: "danger-now" }, h("strong", {}, "Er du i fare akkurat nå? ", h("a", { href: "tel:112" }, "Ring 112"), "."));
+
 function reportThanks(close, text) {
   return h("div", { class: "report-thanks" },
     h("div", { class: "end-icon" }, icon("check")),
     h("p", {}, text),
-    h("p", { class: "danger-now" }, h("strong", {}, "Er du i fare akkurat nå? Ring 112.")),
+    danger(),
     h("p", { class: "muted small" }, "Er du redd eller lei deg, snakk med en voksen du stoler på. Du kan også ringe Alarmtelefonen for barn og unge. Den er gratis og alltid åpen, og du trenger ikke si hvem du er. Vil du heller prate om hvordan du har det, kan du ringe eller chatte med Kors på halsen."),
-    h("p", { class: "help-line" }, icon("phone"), h("span", {}, h("strong", {}, "116 111"), " · Alarmtelefonen for barn og unge")),
-    h("p", { class: "help-line" }, icon("phone"), h("span", {}, h("strong", {}, "800 33 321"), " · Kors på halsen")),
+    call("116 111", "Alarmtelefonen for barn og unge"),
+    call("800 33 321", "Kors på halsen"),
     btn("Ferdig", close, "block"));
 }
 

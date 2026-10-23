@@ -362,6 +362,10 @@ select {
 .blocked { text-align: center; padding: 40px 20px; margin-top: 8vh; }
 .blocked p { color: var(--text-2); margin: 6px 0 0; }
 .blocked-help { text-align: center; margin-top: 20px; }
+a.help-line { color: var(--text); text-decoration: none; border: 1px solid var(--accent); min-height: 44px; }
+a.help-line:hover { background: var(--surface-3); }
+.blocked-help a.help-line { background: var(--surface); }
+.danger-now a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 .blocked-help .help-line { display: inline-flex; align-items: center; gap: 8px; margin: 4px 4px 12px; padding: 10px 16px; border-radius: var(--radius-pill); background: var(--surface-2); }
 .blocked-help .help-line svg.icon { width: 18px; height: 18px; }
 
