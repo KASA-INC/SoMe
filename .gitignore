@@ -1,2 +1,5 @@
 node_modules/
 data/
+
+# Bygget forhåndsvisning (node preview/build.mjs)
+preview/dist/

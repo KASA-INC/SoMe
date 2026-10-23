@@ -1,0 +1,554 @@
+{
+ "capturedAt": 1792489200000,
+ "signupInfo": {
+  "codeRequired": false
+ },
+ "child": {
+  "/me": {
+   "me": {
+    "id": 5,
+    "username": "ola",
+    "role": "child",
+    "displayName": "Ola",
+    "avatar": "c03",
+    "status": {
+     "open": true,
+     "openFrom": "07:00",
+     "openTo": "20:00",
+     "minutesLeft": 20,
+     "postsLeft": 5,
+     "postsToday": 0,
+     "postAllowance": 5,
+     "postsCarried": 0
+    },
+    "onboarded": false,
+    "groups": [
+     {
+      "id": 1,
+      "name": "6B"
+     },
+     {
+      "id": 2,
+      "name": "Skolekorpset"
+     }
+    ]
+   },
+   "kinds": {
+    "glad": "Glad for",
+    "laerte": "Lærte noe",
+    "takk": "Takk til",
+    "laget": "Har laget",
+    "sporsmal": "Spørsmål",
+    "tips": "Tips",
+    "gleder": "Gleder meg til",
+    "opplevd": "Har opplevd"
+   },
+   "colors": [
+    "lilla",
+    "bla",
+    "gronn",
+    "gul",
+    "oransje",
+    "rosa"
+   ],
+   "stickers": [
+    "",
+    "⚽",
+    "🏀",
+    "🎮",
+    "🎨",
+    "📚",
+    "🎵",
+    "🎬",
+    "🍕",
+    "🚲",
+    "🐶",
+    "☀️"
+   ],
+   "avatars": [
+    "c01",
+    "c02",
+    "c03",
+    "c04",
+    "c05",
+    "c06",
+    "c07",
+    "c08",
+    "c09",
+    "c10",
+    "c11",
+    "c12",
+    "c13",
+    "c14",
+    "c15",
+    "c16",
+    "c17",
+    "c18",
+    "c19",
+    "c20",
+    "c21",
+    "c22",
+    "c23",
+    "c24"
+   ],
+   "media": {
+    "videoSeconds": 30,
+    "videoMb": 50,
+    "imageMb": 8
+   }
+  },
+  "/feed": {
+   "posts": [
+    {
+     "id": 7,
+     "kind": "tips",
+     "text": "Tips: Biblioteket har fått mange nye tegneserier. Jeg anbefaler den om dragene.",
+     "sticker": "",
+     "color": "lilla",
+     "createdAt": 1792483020000,
+     "author": "Sara",
+     "avatar": "c07",
+     "groupId": 1,
+     "groupName": "6B",
+     "mine": false,
+     "media": null
+    },
+    {
+     "id": 6,
+     "kind": "takk",
+     "text": "Takk til Sara som hjalp meg med brøkene i matten i dag.",
+     "sticker": "",
+     "color": "lilla",
+     "createdAt": 1792411020000,
+     "author": "Ola",
+     "avatar": "c03",
+     "groupId": 1,
+     "groupName": "6B",
+     "mine": true,
+     "media": null
+    },
+    {
+     "id": 5,
+     "kind": "laget",
+     "text": "Jeg har bygget en fuglekasse med bestefar. Nå håper jeg noen flytter inn i vår.",
+     "sticker": "",
+     "color": "lilla",
+     "createdAt": 1792400220000,
+     "author": "Jonas",
+     "avatar": "c15",
+     "groupId": 1,
+     "groupName": "6B",
+     "mine": false,
+     "media": null
+    },
+    {
+     "id": 4,
+     "kind": "gleder",
+     "text": "Gleder meg til konserten på lørdag! Vi har øvd så mye på den nye låta.",
+     "sticker": "",
+     "color": "lilla",
+     "createdAt": 1792396020000,
+     "author": "Sara",
+     "avatar": "c07",
+     "groupId": 2,
+     "groupName": "Skolekorpset",
+     "mine": false,
+     "media": null
+    },
+    {
+     "id": 3,
+     "kind": "",
+     "text": "Matpakke, drikke og sitteunderlag tror jeg. Og regntøy hvis det regner.",
+     "sticker": "",
+     "color": "lilla",
+     "createdAt": 1792324020000,
+     "author": "Ola",
+     "avatar": "c03",
+     "groupId": 1,
+     "groupName": "6B",
+     "mine": true,
+     "media": null
+    },
+    {
+     "id": 2,
+     "kind": "sporsmal",
+     "text": "Er det noen som vet hva vi skal ha med på turdagen på fredag?",
+     "sticker": "",
+     "color": "lilla",
+     "createdAt": 1792323300000,
+     "author": "Jonas",
+     "avatar": "c15",
+     "groupId": 1,
+     "groupName": "6B",
+     "mine": false,
+     "media": null
+    },
+    {
+     "id": 1,
+     "kind": "opplevd",
+     "text": "Vi så en rev på vei hjem fra skolen i dag! Den løp over veien og inn i skogen.",
+     "sticker": "",
+     "color": "lilla",
+     "createdAt": 1792317600000,
+     "author": "Sara",
+     "avatar": "c07",
+     "groupId": 1,
+     "groupName": "6B",
+     "mine": false,
+     "media": null
+    }
+   ],
+   "status": {
+    "open": true,
+    "openFrom": "07:00",
+    "openTo": "20:00",
+    "minutesLeft": 20,
+    "postsLeft": 5,
+    "postsToday": 0,
+    "postAllowance": 5,
+    "postsCarried": 0
+   }
+  }
+ },
+ "parent": {
+  "/me": {
+   "me": {
+    "id": 1,
+    "username": "foresatt-333b64694e",
+    "role": "parent",
+    "displayName": "Kristin",
+    "avatar": "c08",
+    "email": "kristin@example.com",
+    "emailVerified": true,
+    "pendingEmail": ""
+   },
+   "kinds": {
+    "glad": "Glad for",
+    "laerte": "Lærte noe",
+    "takk": "Takk til",
+    "laget": "Har laget",
+    "sporsmal": "Spørsmål",
+    "tips": "Tips",
+    "gleder": "Gleder meg til",
+    "opplevd": "Har opplevd"
+   },
+   "colors": [
+    "lilla",
+    "bla",
+    "gronn",
+    "gul",
+    "oransje",
+    "rosa"
+   ],
+   "stickers": [
+    "",
+    "⚽",
+    "🏀",
+    "🎮",
+    "🎨",
+    "📚",
+    "🎵",
+    "🎬",
+    "🍕",
+    "🚲",
+    "🐶",
+    "☀️"
+   ],
+   "avatars": [
+    "c01",
+    "c02",
+    "c03",
+    "c04",
+    "c05",
+    "c06",
+    "c07",
+    "c08",
+    "c09",
+    "c10",
+    "c11",
+    "c12",
+    "c13",
+    "c14",
+    "c15",
+    "c16",
+    "c17",
+    "c18",
+    "c19",
+    "c20",
+    "c21",
+    "c22",
+    "c23",
+    "c24"
+   ],
+   "media": {
+    "videoSeconds": 30,
+    "videoMb": 50,
+    "imageMb": 8
+   }
+  },
+  "/children": {
+   "children": [
+    {
+     "id": 5,
+     "username": "ola",
+     "role": "child",
+     "displayName": "Ola",
+     "avatar": "c03",
+     "dailyMinutes": 20,
+     "openFrom": "07:00",
+     "openTo": "20:00",
+     "postsPerDay": 5,
+     "status": {
+      "open": true,
+      "openFrom": "07:00",
+      "openTo": "20:00",
+      "minutesLeft": 20,
+      "postsLeft": 5,
+      "postsToday": 0,
+      "postAllowance": 5,
+      "postsCarried": 0
+     },
+     "groups": [
+      {
+       "id": 1,
+       "name": "6B",
+       "pending": false
+      },
+      {
+       "id": 2,
+       "name": "Skolekorpset",
+       "pending": false
+      }
+     ]
+    }
+   ]
+  },
+  "/groups": {
+   "groups": [
+    {
+     "id": 1,
+     "name": "6B",
+     "isOwner": true,
+     "inviteCode": "CEBEB975B1",
+     "mediaReview": true,
+     "pendingMedia": 0,
+     "members": [
+      {
+       "displayName": "Jonas",
+       "avatar": "c15"
+      },
+      {
+       "displayName": "Ola",
+       "avatar": "c03"
+      },
+      {
+       "displayName": "Sara",
+       "avatar": "c07"
+      }
+     ],
+     "pendingMembers": [
+      {
+       "id": 8,
+       "displayName": "Mia",
+       "avatar": "c20",
+       "parentName": "Lars",
+       "parentEmail": "lars@example.com"
+      }
+     ],
+     "openReports": 0,
+     "adultUnread": 2
+    },
+    {
+     "id": 2,
+     "name": "Skolekorpset",
+     "isOwner": false,
+     "mediaReview": true,
+     "members": [
+      {
+       "displayName": "Ola",
+       "avatar": "c03"
+      },
+      {
+       "displayName": "Sara",
+       "avatar": "c07"
+      }
+     ],
+     "adultUnread": 0
+    }
+   ]
+  },
+  "/notify": {
+   "email": "soon",
+   "pushKey": "BME_hvmqyLuaDSBmLJ-L8PFPZppuKPNCQx8RHAmPnv5W6lasvFGvgszcQIC40uIkxhVe_60KREjcONTx7coNgR0"
+  },
+  "/groups/1/posts": {
+   "isOwner": true,
+   "posts": [
+    {
+     "id": 7,
+     "kind": "tips",
+     "text": "Tips: Biblioteket har fått mange nye tegneserier. Jeg anbefaler den om dragene.",
+     "sticker": "",
+     "color": "lilla",
+     "createdAt": 1792483020000,
+     "status": "visible",
+     "author": "Sara",
+     "avatar": "c07",
+     "groupId": 1,
+     "groupName": "6B",
+     "reports": 0,
+     "byMyChild": false,
+     "media": null
+    },
+    {
+     "id": 6,
+     "kind": "takk",
+     "text": "Takk til Sara som hjalp meg med brøkene i matten i dag.",
+     "sticker": "",
+     "color": "lilla",
+     "createdAt": 1792411020000,
+     "status": "visible",
+     "author": "Ola",
+     "avatar": "c03",
+     "groupId": 1,
+     "groupName": "6B",
+     "reports": 0,
+     "byMyChild": true,
+     "media": null
+    },
+    {
+     "id": 5,
+     "kind": "laget",
+     "text": "Jeg har bygget en fuglekasse med bestefar. Nå håper jeg noen flytter inn i vår.",
+     "sticker": "",
+     "color": "lilla",
+     "createdAt": 1792400220000,
+     "status": "visible",
+     "author": "Jonas",
+     "avatar": "c15",
+     "groupId": 1,
+     "groupName": "6B",
+     "reports": 0,
+     "byMyChild": false,
+     "media": null
+    },
+    {
+     "id": 3,
+     "kind": "",
+     "text": "Matpakke, drikke og sitteunderlag tror jeg. Og regntøy hvis det regner.",
+     "sticker": "",
+     "color": "lilla",
+     "createdAt": 1792324020000,
+     "status": "visible",
+     "author": "Ola",
+     "avatar": "c03",
+     "groupId": 1,
+     "groupName": "6B",
+     "reports": 0,
+     "byMyChild": true,
+     "media": null
+    },
+    {
+     "id": 2,
+     "kind": "sporsmal",
+     "text": "Er det noen som vet hva vi skal ha med på turdagen på fredag?",
+     "sticker": "",
+     "color": "lilla",
+     "createdAt": 1792323300000,
+     "status": "visible",
+     "author": "Jonas",
+     "avatar": "c15",
+     "groupId": 1,
+     "groupName": "6B",
+     "reports": 0,
+     "byMyChild": false,
+     "media": null
+    },
+    {
+     "id": 1,
+     "kind": "opplevd",
+     "text": "Vi så en rev på vei hjem fra skolen i dag! Den løp over veien og inn i skogen.",
+     "sticker": "",
+     "color": "lilla",
+     "createdAt": 1792317600000,
+     "status": "visible",
+     "author": "Sara",
+     "avatar": "c07",
+     "groupId": 1,
+     "groupName": "6B",
+     "reports": 0,
+     "byMyChild": false,
+     "media": null
+    }
+   ]
+  },
+  "/groups/1/adult": {
+   "group": {
+    "id": 1,
+    "name": "6B",
+    "isOwner": true
+   },
+   "messages": [
+    {
+     "id": 3,
+     "text": "Jeg kan kjøre, har plass til tre barn.",
+     "createdAt": 1792487400000,
+     "author": "Kristin",
+     "avatar": "c08",
+     "mine": true,
+     "imageId": null,
+     "canDelete": true
+    },
+    {
+     "id": 2,
+     "text": "Takk! Jeg kan ta med kake. Er det noen som kan kjøre til turdagen på fredag?",
+     "createdAt": 1792486920000,
+     "author": "Hanne",
+     "avatar": "c14",
+     "mine": false,
+     "imageId": null,
+     "canDelete": true
+    },
+    {
+     "id": 1,
+     "text": "Hei alle! Husk foreldremøtet tirsdag kl. 18 i klasserommet. Det blir kaffe og kake.",
+     "createdAt": 1792485420000,
+     "author": "Thomas",
+     "avatar": "c21",
+     "mine": false,
+     "imageId": null,
+     "canDelete": true
+    }
+   ]
+  },
+  "/groups/2/posts": {
+   "isOwner": false,
+   "posts": [
+    {
+     "id": 4,
+     "kind": "gleder",
+     "text": "Gleder meg til konserten på lørdag! Vi har øvd så mye på den nye låta.",
+     "sticker": "",
+     "color": "lilla",
+     "createdAt": 1792396020000,
+     "status": "visible",
+     "author": "Sara",
+     "avatar": "c07",
+     "groupId": 2,
+     "groupName": "Skolekorpset",
+     "reports": 0,
+     "byMyChild": false,
+     "media": null
+    }
+   ]
+  },
+  "/groups/2/adult": {
+   "group": {
+    "id": 2,
+    "name": "Skolekorpset",
+    "isOwner": false
+   },
+   "messages": []
+  }
+ }
+}
