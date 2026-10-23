@@ -72,6 +72,7 @@
         return ok;
       }
       if (p === "/posts" && method === "POST") return childPost(body);
+      if (p === "/safety") return ok;
       const del = p.match(/^\/posts\/(\d+)(\/report)?$/);
       if (del) { child["/feed"].posts = child["/feed"].posts.filter((x) => x.id !== Number(del[1])); return ok; }
       fail(404, "Finnes ikke i forhåndsvisningen");
@@ -89,6 +90,17 @@
       parent["/admin/log"].log.unshift({ action: m[2] === "suspend" ? "stengte" : "åpnet", target: u?.displayName || "", detail: body.reason || "", createdAt: Date.now(), admin: "Kristin" });
       return m[2] === "suspend" ? { ok: true, alsoSuspended: [] } : { ok: true, alsoOpened: [] };
     }
+    if ((m = p.match(/^\/admin\/safety\/(\d+)$/))) {
+      const r = parent["/admin/safety"].reports.find((x) => x.id === Number(m[1]));
+      if (r) Object.assign(r, { resolved: true, resolvedBy: "Kristin", note: body.note || "" });
+      return ok;
+    }
+    if ((m = p.match(/^\/invites\/([is][0-9a-f]{16})$/)) && method === "DELETE") {
+      parent["/invites"].links = parent["/invites"].links.filter((l) => l.id !== m[1]);
+      return ok;
+    }
+    if (p === "/sessions/others") return { ok: true, loggedOut: 0 };
+    if (p === "/me/export") return { merknad: "Forhåndsvisning: eksempeldata" };
     if ((m = p.match(/^\/admin\/posts\/(\d+)$/))) {
       parent["/admin/reports"].posts = parent["/admin/reports"].posts.filter((x) => x.id !== Number(m[1]));
       return ok;

@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDb } from "../server/db.js";
 import { createApp } from "../server/app.js";
+import { codeAt } from "../server/totp.js";
 
 // Fast klokke: en tirsdag kl. 12:00 i Oslo, så appen er åpen. Tidene flyttes til «nå» i nettleseren.
 let clock = Date.parse("2026-10-20T10:00:00Z");
@@ -89,6 +90,12 @@ await kristin(`/groups/${g6b}/adult`, { method: "POST", body: { text: "Jeg kan k
 const jonasFeed = await jonas.k("/feed");
 await jonas.k(`/posts/${jonasFeed.posts.find((p) => p.author === "Ola").id}/report`, { method: "POST" });
 db.prepare("UPDATE users SET is_admin = 1 WHERE email = 'kristin@example.com'").run();
+// To-trinns innlogging for administratoren i forhåndsvisningen.
+const mfa = await kristin("/admin/mfa/setup", { method: "POST" });
+await kristin("/admin/mfa/confirm", { method: "POST", body: { code: codeAt(mfa.secret, Math.floor(clock / 30000)) } });
+// Ola sier fra om noe annet, og Kristin har sendt en invitasjon som ikke er brukt.
+await ola.k("/safety", { method: "POST", body: { category: "mobbing", text: "Noen i 7A roper stygge ting etter meg i friminuttet" } });
+await kristin("/invites", { method: "POST", body: { emails: ["erik@example.com"], groupId: g6b } });
 app.locals.recordDailyStats();
 
 const capturedAt = clock;
@@ -100,6 +107,9 @@ const parentFix = {
   "/admin/stats": await kristin("/admin/stats"),
   "/admin/reports": await kristin("/admin/reports"),
   "/admin/log": await kristin("/admin/log"),
+  "/admin/safety": await kristin("/admin/safety"),
+  "/sessions": await kristin("/sessions"),
+  "/invites": await kristin("/invites"),
 };
 // Alle kontoene, til søket i administrasjonen (søket krever minst to tegn).
 const found = new Map();

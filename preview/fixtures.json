@@ -95,6 +95,28 @@
     "videoSeconds": 30,
     "videoMb": 50,
     "imageMb": 8
+   },
+   "reportCategories": {
+    "mobbing": {
+     "label": "Mobbing eller utestenging",
+     "serious": false
+    },
+    "trussel": {
+     "label": "Trusler eller vold",
+     "serious": true
+    },
+    "kontakt": {
+     "label": "Noen vil møte meg, ber om bilder eller er ekkel",
+     "serious": true
+    },
+    "bilde": {
+     "label": "Ekkelt eller farlig bilde eller video",
+     "serious": true
+    },
+    "annet": {
+     "label": "Noe annet",
+     "serious": false
+    }
    }
   },
   "/feed": {
@@ -200,7 +222,7 @@
   "/me": {
    "me": {
     "id": 1,
-    "username": "foresatt-12d036812d",
+    "username": "foresatt-82c6146d7e",
     "role": "parent",
     "displayName": "Kristin",
     "avatar": "c12",
@@ -271,6 +293,28 @@
     "videoSeconds": 30,
     "videoMb": 50,
     "imageMb": 8
+   },
+   "reportCategories": {
+    "mobbing": {
+     "label": "Mobbing eller utestenging",
+     "serious": false
+    },
+    "trussel": {
+     "label": "Trusler eller vold",
+     "serious": true
+    },
+    "kontakt": {
+     "label": "Noen vil møte meg, ber om bilder eller er ekkel",
+     "serious": true
+    },
+    "bilde": {
+     "label": "Ekkelt eller farlig bilde eller video",
+     "serious": true
+    },
+    "annet": {
+     "label": "Noe annet",
+     "serious": false
+    }
    }
   },
   "/children": {
@@ -324,19 +368,22 @@
      "id": 1,
      "name": "6B",
      "isOwner": true,
-     "inviteCode": "F8928E7CF1",
+     "inviteCode": "9CE8FF2DC3",
      "mediaReview": true,
      "pendingMedia": 0,
      "members": [
       {
+       "id": 7,
        "displayName": "Jonas",
        "avatar": "c15"
       },
       {
+       "id": 5,
        "displayName": "Ola",
        "avatar": "c03"
       },
       {
+       "id": 6,
        "displayName": "Sara",
        "avatar": "c07"
       }
@@ -375,7 +422,7 @@
   },
   "/notify": {
    "email": "soon",
-   "pushKey": "BEO_ODnMIgeRkv9pDS5iEz-35ijkwlDrYqI7pnsnT9qqDLbqtnQU_P-2ItLMrfi81PkfcaplX5KlRjCwcNas7vw"
+   "pushKey": "BF5VnJs6_kERtR3jkgsEo7OyWg-7KEHQb0ph-WS1VF3OUe28ccQ-cZKNvMAsaawHCzbrz2Oh8f5JZNW26BjWJG0"
   },
   "/admin/stats": {
    "totals": {
@@ -386,6 +433,7 @@
     "invitedParents": 0,
     "sharedChildren": 0,
     "openReports": 1,
+    "openSafety": 1,
     "suspended": 0,
     "pushDevices": 0
    },
@@ -437,19 +485,122 @@
      "authorSuspended": false,
      "reports": 1,
      "reportedAt": 1792489200000,
+     "categories": [
+      "annet"
+     ],
+     "hold": false,
+     "postStatus": "hidden",
+     "serious": false,
      "media": null
+    }
+   ],
+   "categories": {
+    "mobbing": {
+     "label": "Mobbing eller utestenging",
+     "serious": false
+    },
+    "trussel": {
+     "label": "Trusler eller vold",
+     "serious": true
+    },
+    "kontakt": {
+     "label": "Noen vil møte meg, ber om bilder eller er ekkel",
+     "serious": true
+    },
+    "bilde": {
+     "label": "Ekkelt eller farlig bilde eller video",
+     "serious": true
+    },
+    "annet": {
+     "label": "Noe annet",
+     "serious": false
+    }
+   }
+  },
+  "/admin/log": {
+   "log": [
+    {
+     "action": "slo på to-trinns innlogging",
+     "target": "Kristin",
+     "detail": "",
+     "createdAt": 1792489200000,
+     "admin": "Kristin"
     }
    ]
   },
-  "/admin/log": {
-   "log": []
+  "/admin/safety": {
+   "reports": [
+    {
+     "id": 1,
+     "category": "mobbing",
+     "serious": false,
+     "text": "Noen i 7A roper stygge ting etter meg i friminuttet",
+     "createdAt": 1792489200000,
+     "child": {
+      "id": 5,
+      "displayName": "Ola",
+      "username": "ola",
+      "guardians": [
+       "Kristin"
+      ]
+     },
+     "resolved": false,
+     "resolvedBy": "",
+     "note": ""
+    }
+   ],
+   "categories": {
+    "mobbing": {
+     "label": "Mobbing eller utestenging",
+     "serious": false
+    },
+    "trussel": {
+     "label": "Trusler eller vold",
+     "serious": true
+    },
+    "kontakt": {
+     "label": "Noen vil møte meg, ber om bilder eller er ekkel",
+     "serious": true
+    },
+    "bilde": {
+     "label": "Ekkelt eller farlig bilde eller video",
+     "serious": true
+    },
+    "annet": {
+     "label": "Noe annet",
+     "serious": false
+    }
+   }
+  },
+  "/sessions": {
+   "sessions": [
+    {
+     "id": "ed785fd182e4bf33",
+     "device": "Ukjent enhet",
+     "createdAt": 1792490400000,
+     "lastSeen": 1792490400000,
+     "current": true
+    }
+   ]
+  },
+  "/invites": {
+   "links": [
+    {
+     "id": "i0d06277bcc3c67f1",
+     "kind": "invite",
+     "email": "erik@example.com",
+     "group": "6B",
+     "createdAt": 1792489200000,
+     "expiresAt": 1793698800000
+    }
+   ]
   },
   "/admin/users": {
    "users": [
     {
      "id": 3,
      "role": "parent",
-     "username": "foresatt-f544cec1ee",
+     "username": "foresatt-d48da626cb",
      "displayName": "Hanne",
      "email": "hanne@example.com",
      "createdAt": 1792490400000,
@@ -463,7 +614,7 @@
     {
      "id": 1,
      "role": "parent",
-     "username": "foresatt-12d036812d",
+     "username": "foresatt-82c6146d7e",
      "displayName": "Kristin",
      "email": "kristin@example.com",
      "createdAt": 1792490400000,
@@ -477,7 +628,7 @@
     {
      "id": 4,
      "role": "parent",
-     "username": "foresatt-d5676554e3",
+     "username": "foresatt-d3075da682",
      "displayName": "Lars",
      "email": "lars@example.com",
      "createdAt": 1792490400000,
@@ -491,7 +642,7 @@
     {
      "id": 2,
      "role": "parent",
-     "username": "foresatt-34b586dec8",
+     "username": "foresatt-89d4273702",
      "displayName": "Thomas",
      "email": "thomas@example.com",
      "createdAt": 1792490400000,
@@ -683,7 +834,7 @@
      "text": "Takk! Jeg kan ta med kake. Er det noen som kan kjøre til turdagen på fredag?",
      "createdAt": 1792486920000,
      "author": "Hanne",
-     "avatar": "c09",
+     "avatar": "c18",
      "mine": false,
      "imageId": null,
      "canDelete": true
@@ -693,7 +844,7 @@
      "text": "Hei alle! Husk foreldremøtet tirsdag kl. 18 i klasserommet. Det blir kaffe og kake.",
      "createdAt": 1792485420000,
      "author": "Thomas",
-     "avatar": "c10",
+     "avatar": "c17",
      "mine": false,
      "imageId": null,
      "canDelete": true
