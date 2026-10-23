@@ -362,13 +362,28 @@ async function route() {
     history.replaceState(null, "", location.pathname);
     pendingInvite = invite[1];
   }
+  const share = location.hash.match(/^#barn=([0-9a-f]{64})$/);
+  if (share) {
+    history.replaceState(null, "", location.pathname);
+    pendingShare = share[1];
+  }
   try {
     config = await api("/me");
   } catch {
     config = null;
   }
   setHeader(config?.me.status);
-  if (!config) return location.hash === "#registrer" || pendingInvite ? showRegister() : showLogin();
+  if (!config) return location.hash === "#registrer" || pendingInvite || pendingShare ? showRegister() : showLogin();
+  if (pendingShare && config.me.role === "parent") {
+    // Innlogget foresatt som åpner en delingslenke: blir foresatt for barnet.
+    const token = pendingShare;
+    pendingShare = null;
+    try {
+      const { child } = await api(`/shares/${token}/accept`, { method: "POST" });
+      toast(`Du er nå foresatt for ${child}`);
+      parentTab = "barn";
+    } catch (err) { toast(err.message); }
+  }
   if (pendingInvite) {
     // Allerede innlogget: en gruppeinvitasjon tas imot, en vanlig invitasjon trengs ikke.
     const token = pendingInvite;
@@ -426,20 +441,32 @@ function showLogin() {
 
 // Invitasjon fra en annen foresatt (fra lenken #invitasjon=…). Gjelder til kontoen er laget.
 let pendingInvite = null;
+// Delingslenke for et barn (#barn=…). Tas imot når man lager konto eller logger inn.
+let pendingShare = null;
 
 async function showRegister() {
-  const [{ codeRequired }, invite] = await Promise.all([
+  const [{ codeRequired }, inv, shared] = await Promise.all([
     api("/signup-info").catch(() => ({ codeRequired: false })),
     pendingInvite ? api(`/invites/${pendingInvite}`).catch((err) => ({ error: err.message })) : null,
+    pendingShare ? api(`/shares/${pendingShare}`).catch((err) => ({ error: err.message })) : null,
   ]);
+  if (inv?.error) pendingInvite = null;
+  if (shared?.error) pendingShare = null;
+  // En delingslenke for et barn virker som en invitasjon.
+  const invite = shared && !shared.error
+    ? { inviter: shared.inviter, email: shared.email, share: shared.child }
+    : inv || (shared?.error ? shared : null);
   const invited = invite && !invite.error;
-  if (!invited) pendingInvite = null;
   const warning = warningBox();
   const needCode = codeRequired && !invited;
   const form = h("form", { class: "card" },
     invited && h("div", { class: "notice invited" }, icon("mail"),
-      h("div", {}, h("strong", {}, `${invite.inviter} har invitert deg`),
-        h("p", { class: "muted small" }, "Lag kontoen din her. Etterpå lager du kontoer til barna og ber om at de blir med i klassens gruppe."))),
+      h("div", {}, h("strong", {}, invite.share ? `${invite.inviter} vil dele ${invite.share} med deg` : `${invite.inviter} har invitert deg`),
+        h("p", { class: "muted small" }, invite.share
+          ? `Lag kontoen din her, så blir du foresatt for ${invite.share} med samme tilgang som ${invite.inviter}. Har du allerede konto, logger du inn i stedet.`
+          : invite.group
+            ? `Lag kontoen din her. Etterpå lager du en konto til barnet ditt og melder det inn i ${invite.group}, uten invitasjonskode.`
+            : "Lag kontoen din her. Etterpå lager du kontoer til barna og ber om at de blir med i klassens gruppe."))),
     field("Navnet ditt", h("input", { name: "displayName", required: true, maxlength: 20, autocomplete: "given-name" })),
     field("E-post (du logger inn med denne)", h("input", { name: "email", type: "email", autocomplete: "username", autocapitalize: "none", inputmode: "email", required: true, value: invited ? invite.email || null : null })),
     field("Passord (minst 8 tegn)", passwordInput({ name: "password", autocomplete: "new-password", required: true, minlength: 8 })),
@@ -454,8 +481,10 @@ async function showRegister() {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     try {
-      await api("/register", { method: "POST", body: { ...formData(form), invite: pendingInvite || undefined } });
+      await api("/register", { method: "POST", body: { ...formData(form), invite: pendingInvite || undefined, share: pendingShare || undefined } });
+      if (pendingShare) toast(`Du er nå foresatt for ${invite.share}`);
       pendingInvite = null;
+      pendingShare = null;
       start();
     } catch (err) { showWarning(warning, err.message); }
   });
@@ -1085,14 +1114,26 @@ function childCard(c, invitations = []) {
       h("div", { class: "full" }, field("Nytt passord (valgfritt)", passwordInput({ name: "password", autocomplete: "new-password", minlength: 8 })))),
     h("div", { class: "row between" },
       h("button", { class: "btn small" }, "Lagre"),
-      h("button", {
-        type: "button", class: "link danger small",
-        onclick: async () => {
-          if (!confirm(`Slette kontoen til ${c.displayName}? Alle innleggene slettes også.`)) return;
-          await api(`/children/${c.id}`, { method: "DELETE" });
-          showParent();
-        },
-      }, "Slett barnekontoen")),
+      // Med flere foresatte kan man bare fjerne seg selv. Barnekontoen slettes av den siste.
+      c.guardians.length > 1
+        ? h("button", {
+          type: "button", class: "link danger small",
+          onclick: async () => {
+            if (!confirm(`Fjerne deg som foresatt for ${c.displayName}? Du ser ikke barnet lenger, men de andre foresatte beholder tilgangen.`)) return;
+            try {
+              await api(`/children/${c.id}/leave`, { method: "POST" });
+              showParent();
+            } catch (err) { toast(err.message); }
+          },
+        }, "Fjern meg som foresatt")
+        : h("button", {
+          type: "button", class: "link danger small",
+          onclick: async () => {
+            if (!confirm(`Slette kontoen til ${c.displayName}? Alle innleggene slettes også.`)) return;
+            await api(`/children/${c.id}`, { method: "DELETE" });
+            showParent();
+          },
+        }, "Slett barnekontoen")),
     warning);
   settings.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1148,7 +1189,43 @@ function childCard(c, invitations = []) {
         onclick: (e) => { e.currentTarget.classList.add("hidden"); join.classList.remove("hidden"); join.querySelector("input").focus(); },
       }, icon("plus"), "Gruppe")),
     join,
+    h("div", { class: "subhead" }, "Foresatte"),
+    h("div", { class: "guardians" },
+      h("span", {}, c.guardians.map((g) => (g.me ? `${g.displayName} (deg)` : g.displayName)).join(" og ")),
+      btn("Del med en annen foresatt", () => openShareChild(c), "secondary small", "users")),
     settings);
+}
+
+// Gi en annen foresatt samme tilgang til barnet: en engangslenke på e-post eller til å dele selv.
+function openShareChild(c) {
+  openSheet(`Del ${c.displayName}`, () => {
+    const warning = warningBox();
+    const box = h("div", {});
+    const form = h("form", {},
+      h("p", { class: "muted small" }, `Den andre foresatte får samme tilgang som deg: ser innleggene og gruppene til ${c.displayName}, og kan endre grenser og passord. Ingen av dere kan fjerne den andre, og barnekontoen kan bare slettes når det er én foresatt igjen.`),
+      field("E-post til den andre foresatte (valgfritt)", h("input", { name: "email", type: "email", autocomplete: "off", autocapitalize: "none", inputmode: "email" })),
+      h("p", { class: "muted small" }, "Uten e-post får du en lenke du kan sende selv. Lenken virker i 7 dager og kan brukes én gang. Del den bare med den du mener."),
+      h("button", { class: "btn block" }, icon("users"), "Lag lenke"),
+      warning);
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const { email } = formData(form);
+      try {
+        const { url, status } = await api(`/children/${c.id}/share`, { method: "POST", body: { email: email || undefined } });
+        const share = navigator.share && btn("Del", () => navigator.share({ title: `${c.displayName} i ${APP_NAME}`, text: `Bli foresatt for ${c.displayName} i ${APP_NAME}:`, url }).catch(() => {}), "secondary small", "share");
+        box.replaceChildren(...[
+          status === "sent" && h("div", { class: "notice" }, icon("check"),
+            h("div", {}, h("strong", {}, "Lenken er sendt"), h("p", { class: "muted small" }, `Vi sendte den til ${email}. Du får en e-post når den er tatt i bruk.`))),
+          status === "not_sent" && h("p", { class: "warning" }, icon("alert"), h("span", {}, "E-posten ble ikke sendt. Kopier lenken og send den selv.")),
+          h("div", { class: "code-box invite-link" },
+            h("div", {}, h("div", { class: "label" }, "Delingslenke"), h("code", {}, url)),
+            h("div", { class: "row" }, btn("Kopier", () => copyText(url, "Lenken"), "secondary small", "copy"), share)),
+        ].filter(Boolean));
+        form.replaceWith(box);
+      } catch (err) { showWarning(warning, err.message); }
+    });
+    return form;
+  });
 }
 
 function openAddChild() {

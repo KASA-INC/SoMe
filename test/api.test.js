@@ -2,7 +2,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { openDb } from "../server/db.js";
 import { createApp } from "../server/app.js";
 import { checkText } from "../server/filter.js";
@@ -952,4 +952,67 @@ test("invitasjon til en gruppe: nye og eksisterende foresatte kan melde inn barn
   assert.equal((await fremmed("/groups")).body.invitations.length, 1);
   await fremmed(`/invitations/${a.groupId}`, { method: "DELETE" });
   assert.equal((await fremmed("/groups")).body.invitations.length, 0);
+});
+
+test("dele et barn: en annen foresatt får samme tilgang, og ingen kan fjerne den andre", async () => {
+  const a = await setupFamily("del"); // a.parent er første foresatt for Ola
+  const mor = a.parent;
+  // Delingslenke på e-post til en som ikke har konto. Lenken slipper registreringskoden og gir tilgang.
+  const share = await mor(`/children/${a.childId}/share`, { method: "POST", body: { email: "del-far@example.com" } });
+  assert.equal(share.status, 201);
+  assert.equal(share.body.status, "sent");
+  const token = share.body.url.match(/#barn=([0-9a-f]{64})/)[1];
+  assert.match(outbox.findLast((m) => m.to === "del-far@example.com").text, new RegExp(token));
+  const anon = client();
+  assert.deepEqual((await anon(`/shares/${token}`)).body, { inviter: "Mamma", child: "Ola", email: "del-far@example.com" });
+  const far = client();
+  assert.equal((await far("/register", { method: "POST", body: { displayName: "Pappa", email: "del-far@example.com", password: "hemmelig123", share: token } })).status, 201);
+  await verifyEmail("del-far@example.com");
+  // Mor får beskjed, og lenken er brukt opp.
+  assert.match(outbox.findLast((m) => m.to === "del@example.com").subject, /Pappa er nå foresatt for Ola/);
+  assert.equal((await anon(`/shares/${token}`)).status, 404);
+
+  // Far ser barnet, gruppa, innleggene og voksenkontakten, og kan endre grenser.
+  const { body: { children } } = await far("/children");
+  assert.deepEqual(children[0].guardians.map((g) => [g.displayName, g.me]), [["Mamma", false], ["Pappa", true]]);
+  assert.equal((await far("/groups")).body.groups[0].id, a.groupId);
+  assert.equal((await far(`/groups/${a.groupId}/posts`)).status, 200);
+  assert.equal((await far(`/groups/${a.groupId}/adult`)).status, 200);
+  assert.equal((await far(`/children/${a.childId}`, { method: "PATCH", body: { dailyMinutes: 30 } })).status, 200);
+  assert.equal((await mor("/children")).body.children[0].dailyMinutes, 30);
+
+  // Ingen av dem kan slette barnet mens det er to foresatte, og ingen kan fjerne den andre.
+  assert.equal((await far(`/children/${a.childId}`, { method: "DELETE" })).status, 409);
+  assert.equal((await mor(`/children/${a.childId}`, { method: "DELETE" })).status, 409);
+  // Mor fjerner seg selv. Far er nå eneste foresatt og kan slette.
+  assert.equal((await mor(`/children/${a.childId}/leave`, { method: "POST" })).status, 200);
+  assert.equal((await mor("/children")).body.children.length, 0);
+  assert.equal((await mor(`/children/${a.childId}`, { method: "PATCH", body: { dailyMinutes: 10 } })).status, 404);
+  assert.equal((await far(`/children/${a.childId}/leave`, { method: "POST" })).status, 409, "den siste kan ikke gå");
+
+  // En som allerede har konto, tar imot en lenke mens hen er innlogget. Sletter hen kontoen sin, beholdes barnet.
+  const ny = client();
+  await registerParent(ny, "del-ny@example.com", "Ny");
+  const link = await far(`/children/${a.childId}/share`, { method: "POST", body: {} });
+  assert.equal(link.body.status, null);
+  assert.equal((await ny(`/shares/${link.body.url.split("=")[1]}/accept`, { method: "POST" })).body.child, "Ola");
+  assert.equal((await far("/me", { method: "DELETE" })).status, 200);
+  assert.equal((await ny("/children")).body.children[0].displayName, "Ola");
+  assert.equal((await a.kid("/me")).status, 200, "barnet er ikke slettet");
+  // Fremmede kan ikke dele et barn som ikke er deres.
+  assert.equal((await mor(`/children/${a.childId}/share`, { method: "POST", body: {} })).status, 404);
+});
+
+test("migrering: barn fra før flere foresatte fantes, får den som laget dem som foresatt", () => {
+  const file = join(mkdtempSync(join(tmpdir(), "some-mig-")), "db.sqlite");
+  const old = openDb(file);
+  old.exec("DELETE FROM guardians; PRAGMA user_version = 4");
+  old.prepare("INSERT INTO users (id, username, password_hash, role, display_name, created_at) VALUES (1, 'p', 'x', 'parent', 'P', 0)").run();
+  old.prepare("INSERT INTO users (id, username, password_hash, role, display_name, parent_id, created_at) VALUES (2, 'c', 'x', 'child', 'C', 1, 0)").run();
+  old.close();
+  const db5 = openDb(file);
+  assert.deepEqual({ ...db5.prepare("SELECT child_id, parent_id FROM guardians").get() }, { child_id: 2, parent_id: 1 });
+  assert.equal(db5.prepare("PRAGMA user_version").get().user_version, 5);
+  db5.close();
+  rmSync(dirname(file), { recursive: true, force: true });
 });

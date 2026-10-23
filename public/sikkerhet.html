@@ -56,6 +56,7 @@
         <li><strong>Innloggingen er en tilfeldig nøkkel på 256 bit</strong> i en informasjonskapsel. Serveren lagrer bare en SHA-256-hash av den, så en lekket database gir ingen innlogginger. Nøkkelen varer i 30 dager.</li>
         <li><strong>Informasjonskapselen er låst ned:</strong> <code>HttpOnly</code> (skript kan ikke lese den), <code>Secure</code> (sendes bare over HTTPS) og <code>SameSite=Strict</code> (følger ikke med forespørsler fra andre nettsider).</li>
         <li><strong>Bremse mot gjetting.</strong> Etter fem feil passord for samme konto fra samme sted må man vente et kvarter.</li>
+        <li><strong>Flere foresatte, uten faste koder.</strong> En foresatt kan dele et barn med en annen foresatt med en engangslenke som virker i 7 dager. Barnet har ingen fast kode som kan komme på avveie. De andre foresatte får e-post når noen får tilgang, ingen kan fjerne en annen foresatt, og barnekontoen kan bare slettes når det er én foresatt igjen.</li>
         <li><strong>Bare inviterte.</strong> Nye foresatte kommer inn med en personlig invitasjon fra en annen foresatt, eller med registreringskoden. Invitasjonen virker i 14 dager og kan brukes én gang, og bare en hash av den lagres. Vi ser hvem som inviterte hvem.</li>
         <li><strong>Bekreftet e-post.</strong> Nye foresatte må åpne en lenke i e-posten før de kan lage barnekontoer. Ny e-postadresse tas først i bruk når lenken til den nye adressen er åpnet.</li>
         <li><strong>Trygg «Glemt passord».</strong> Lenken virker i én time og bare én gang, og bare en hash av den lagres. Koden ligger etter <code>#</code> i adressen, så den aldri havner i serverlogger. Svaret er det samme uansett om e-posten finnes, så ingen kan sjekke hvem som har konto. Når passordet byttes, blir alle andre enheter logget ut.</li>
@@ -103,7 +104,7 @@
         <li>quipu kjører hos Render i Frankfurt, innenfor EU.</li>
         <li>Vi samler bare inn det appen trenger: navn, e-post til foresatte, brukernavn til barn, innlegg og hvor mange minutter barnet har brukt i dag.</li>
         <li>Ingen data selges, deles eller brukes til reklame.</li>
-        <li>Sletter en foresatt kontoen sin, slettes også barnas kontoer, innlegg, bilder og videoer.</li>
+        <li>Sletter en foresatt kontoen sin, slettes også barnas kontoer, innlegg, bilder og videoer, med mindre barnet har en annen foresatt.</li>
       </ul>
     </section>
 

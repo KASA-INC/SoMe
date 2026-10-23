@@ -8,7 +8,7 @@ import { isJpeg, stripJpegMetadata, inspectVideo, MediaError } from "./media.js"
 import { createMailer } from "./mail.js";
 import { renderEmail } from "./email.js";
 import { createPushSender, createVapidKeys } from "./push.js";
-import { APP_NAME } from "./config.js";
+import { APP_NAME, CONTACT_EMAIL } from "./config.js";
 import {
   COOKIE, hashPassword, verifyPassword, createSession, destroySession, userFromToken,
   readCookie, sessionCookie, tooManyAttempts, recordFailure, clearFailures, sha256,
@@ -54,6 +54,8 @@ const VERIFY_HOURS = 48;
 const INVITE_DAYS = 14; // så lenge en invitasjon til en annen foresatt virker
 const INVITES_PER_DAY = 40;
 const INVITE_EMAILS_MAX = 30; // adresser i én invitasjon
+const SHARE_DAYS = 7; // så lenge en lenke for å dele et barn med en annen foresatt virker
+const SHARES_PER_DAY = 10;
 const CLEANUP_DAYS = 30;
 
 class HttpError extends Error {
@@ -326,7 +328,10 @@ export function createApp({
     // Med en invitasjon fra en annen foresatt trengs ikke registreringskoden.
     const invite = req.body.invite ? findInvite(req.body.invite) : undefined;
     if (req.body.invite && !invite) fail(400, INVITE_GONE);
-    if (!invite && registrationCode && !safeEqual(String(req.body.code || "").trim(), registrationCode)) {
+    // En delingslenke for et barn virker også som invitasjon.
+    const share = req.body.share ? findShare(req.body.share) : undefined;
+    if (req.body.share && !share) fail(400, SHARE_GONE);
+    if (!invite && !share && registrationCode && !safeEqual(String(req.body.code || "").trim(), registrationCode)) {
       fail(403, "Feil registreringskode. Be en foresatt som allerede bruker quipu, om en invitasjon.");
     }
     const displayName = validateDisplayName(req.body.displayName);
@@ -341,6 +346,7 @@ export function createApp({
       q("DELETE FROM parent_invites WHERE token_hash = ?").run(invite.token_hash);
       if (invite.group_id) rememberGroupInvite(lastInsertRowid, invite.group_id, invite.inviter_id, invite.group_owner);
     }
+    if (share) await addGuardian(share, { id: lastInsertRowid, display_name: displayName, email });
     const token = createSession(db, lastInsertRowid);
     await sendVerification({ id: lastInsertRowid, display_name: displayName }, email);
     res.set("Set-Cookie", sessionCookie(token, secureCookies)).status(201).json({ ok: true });
@@ -553,7 +559,12 @@ export function createApp({
   });
 
   // Foresatte kan slette sin egen konto. Barnekontoene og alt innholdet slettes også.
+  // Barn med andre foresatte beholdes (de får en ny første foresatt). Barn der du er eneste foresatt, slettes.
   app.delete("/api/me", parentAny, (req, res) => {
+    for (const { child_id } of q("SELECT child_id FROM guardians WHERE parent_id = ?").all(req.user.id)) {
+      if (guardiansOf(child_id).length > 1) leaveChild(child_id, req.user.id);
+      else q("DELETE FROM users WHERE id = ?").run(child_id);
+    }
     q("DELETE FROM users WHERE id = ?").run(req.user.id);
     sweepMedia();
     res.set("Set-Cookie", sessionCookie(null, secureCookies)).json({ ok: true });
@@ -683,6 +694,7 @@ export function createApp({
     q("DELETE FROM password_resets WHERE expires_at < ?").run(t);
     q("DELETE FROM email_verifications WHERE expires_at < ?").run(t);
     q("DELETE FROM parent_invites WHERE expires_at < ?").run(t);
+    q("DELETE FROM child_shares WHERE expires_at < ?").run(t);
     const cutoff = clock(t - CLEANUP_DAYS * 864e5).day;
     q("DELETE FROM usage WHERE day < ?").run(cutoff);
     q("DELETE FROM posts WHERE status = 'removed' AND created_at < ?").run(t - CLEANUP_DAYS * 864e5);
@@ -720,8 +732,8 @@ export function createApp({
   app.delete("/api/posts/:id", needUser(), (req, res) => {
     const post = q("SELECT * FROM posts WHERE id = ?").get(req.params.id);
     if (!post) fail(404, "Fant ikke innlegget");
-    const author = q("SELECT parent_id FROM users WHERE id = ?").get(post.author_id);
-    const allowed = post.author_id === req.user.id || author.parent_id === req.user.id;
+    const allowed = post.author_id === req.user.id
+      || !!q("SELECT 1 FROM guardians WHERE child_id = ? AND parent_id = ?").get(post.author_id, req.user.id);
     if (!allowed) fail(403, "Ikke tilgang");
     q("DELETE FROM posts WHERE id = ?").run(post.id);
     sweepMedia();
@@ -742,17 +754,23 @@ export function createApp({
 
   // ---------- Foresatte: barn ----------
   const ownChild = (req) => {
-    const c = q("SELECT * FROM users WHERE id = ? AND parent_id = ?").get(req.params.id ?? req.body.childId, req.user.id);
+    const c = q(`SELECT u.* FROM users u JOIN guardians gd ON gd.child_id = u.id AND gd.parent_id = ?
+      WHERE u.id = ? AND u.role = 'child'`).get(req.user.id, req.params.id ?? req.body.childId);
     if (!c) fail(404, "Fant ikke barnet");
     return c;
   };
+  const guardiansOf = (childId) => q(`SELECT u.id, u.display_name, u.email FROM guardians gd JOIN users u ON u.id = gd.parent_id
+    WHERE gd.child_id = ? ORDER BY gd.created_at, u.id`).all(childId);
 
   app.get("/api/children", parent, (req, res) => {
-    const children = q("SELECT * FROM users WHERE parent_id = ? ORDER BY display_name").all(req.user.id);
+    const children = q(`SELECT u.* FROM users u JOIN guardians gd ON gd.child_id = u.id AND gd.parent_id = ?
+      ORDER BY u.display_name`).all(req.user.id);
     res.json({
       children: children.map((c) => ({
         ...childSettings(c),
         status: childStatus(c),
+        // Alle foresatte har samme tilgang. Den innloggede står med «me».
+        guardians: guardiansOf(c.id).map((g) => ({ id: g.id, displayName: g.display_name, email: g.email, me: g.id === req.user.id })),
         groups: q(`SELECT g.id, g.name, (m.approved = 0) AS pending FROM groups g JOIN memberships m ON m.group_id = g.id
           WHERE m.user_id = ? ORDER BY g.name`).all(c.id).map((g) => ({ ...g, pending: !!g.pending })),
       })),
@@ -764,8 +782,9 @@ export function createApp({
     validateCredentials(username, password);
     const displayName = validateDisplayName(req.body.displayName);
     if (!AVATARS.includes(avatar)) fail(400, "Velg et profilbilde");
-    q(`INSERT INTO users (username, password_hash, role, display_name, avatar, parent_id, posts_per_day, created_at)
+    const { lastInsertRowid } = q(`INSERT INTO users (username, password_hash, role, display_name, avatar, parent_id, posts_per_day, created_at)
       VALUES (?, ?, 'child', ?, ?, ?, 5, ?)`).run(username, hashPassword(password), displayName, avatar, req.user.id, now());
+    q("INSERT INTO guardians (child_id, parent_id, created_at) VALUES (?, ?, ?)").run(lastInsertRowid, req.user.id, now());
     res.status(201).json({ ok: true });
   });
 
@@ -794,23 +813,126 @@ export function createApp({
     res.json({ ok: true });
   });
 
+  // Barnekontoen kan bare slettes når det er én foresatt igjen. Ellers må de andre først fjerne seg selv.
   app.delete("/api/children/:id", parent, (req, res) => {
-    q("DELETE FROM users WHERE id = ?").run(ownChild(req).id);
+    const c = ownChild(req);
+    if (guardiansOf(c.id).length > 1) fail(409, "Barnet har flere foresatte. Kontoen kan bare slettes når du er den eneste. De andre kan fjerne seg selv.");
+    q("DELETE FROM users WHERE id = ?").run(c.id);
     sweepMedia();
     res.json({ ok: true });
+  });
+
+  // Fjern seg selv som foresatt. Ingen kan fjerne andre foresatte.
+  function leaveChild(childId, parentId) {
+    const others = guardiansOf(childId).filter((g) => g.id !== parentId);
+    if (!others.length) fail(409, "Du er den eneste foresatte. Slett barnekontoen i stedet.");
+    q("DELETE FROM guardians WHERE child_id = ? AND parent_id = ?").run(childId, parentId);
+    // users.parent_id peker på en som fortsatt er foresatt (og slettes ikke med kontoen til den som gikk).
+    q("UPDATE users SET parent_id = ? WHERE id = ? AND parent_id = ?").run(others[0].id, childId, parentId);
+  }
+  app.post("/api/children/:id/leave", parent, (req, res) => {
+    leaveChild(ownChild(req).id, req.user.id);
+    res.json({ ok: true });
+  });
+
+  // ---------- Dele et barn med en annen foresatt ----------
+  const findShare = (token) => typeof token === "string" && /^[0-9a-f]{64}$/.test(token)
+    ? q(`SELECT s.*, u.display_name AS inviter_name, c.display_name AS child_name FROM child_shares s
+        JOIN users u ON u.id = s.inviter_id JOIN users c ON c.id = s.child_id
+        WHERE s.token_hash = ? AND s.expires_at > ?`).get(sha256(token), now())
+    : undefined;
+  const SHARE_GONE = "Lenken er brukt eller har gått ut. Be den andre foresatte om en ny.";
+
+  // Gir en foresatt tilgang til barnet og sier fra til de andre foresatte på e-post.
+  async function addGuardian(share, parentUser) {
+    const before = guardiansOf(share.child_id);
+    q("DELETE FROM child_shares WHERE token_hash = ?").run(share.token_hash);
+    if (before.some((g) => g.id === parentUser.id)) return;
+    q("INSERT INTO guardians (child_id, parent_id, created_at) VALUES (?, ?, ?)").run(share.child_id, parentUser.id, now());
+    for (const g of before.filter((x) => x.email)) {
+      try {
+        await mailer.send({
+          to: g.email,
+          subject: `${parentUser.display_name} er nå foresatt for ${share.child_name} i ${APP_NAME}`,
+          ...renderEmail({
+            preheader: "Sjekk at det stemmer.",
+            heading: `${parentUser.display_name} har fått tilgang til ${share.child_name}`,
+            paragraphs: [
+              `${parentUser.display_name} (${parentUser.email}) brukte en delingslenke fra ${share.inviter_name} og er nå foresatt for ${share.child_name} i ${APP_NAME}, med samme tilgang som deg.`,
+              `Stemmer ikke dette, skriv til ${CONTACT_EMAIL} med en gang.`,
+            ],
+            button: { label: `Åpne ${APP_NAME}`, url: appUrl },
+          }),
+        });
+      } catch (err) {
+        console.error("Klarte ikke å sende e-post:", err.message);
+      }
+    }
+  }
+
+  app.post("/api/children/:id/share", parent, async (req, res) => {
+    const c = ownChild(req);
+    const email = req.body.email ? String(req.body.email).trim().toLowerCase() : null;
+    if (email && !EMAIL.test(email)) fail(400, "Skriv inn en gyldig e-postadresse");
+    if (email && email === req.user.email) fail(400, "Det er din egen adresse");
+    const recent = q("SELECT COUNT(*) AS n FROM child_shares WHERE inviter_id = ? AND created_at > ?").get(req.user.id, now() - 864e5).n;
+    if (recent >= SHARES_PER_DAY) fail(429, `Du kan lage ${SHARES_PER_DAY} delingslenker i døgnet. Prøv igjen i morgen.`);
+    const token = randomBytes(32).toString("hex");
+    q("INSERT INTO child_shares (token_hash, child_id, inviter_id, email, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(sha256(token), c.id, req.user.id, email, now(), now() + SHARE_DAYS * 864e5);
+    const url = `${appUrl.replace(/\/$/, "")}/#barn=${token}`;
+    let status = null;
+    if (email) {
+      const existing = q("SELECT 1 FROM users WHERE email = ? AND role = 'parent'").get(email);
+      try {
+        await mailer.send({
+          to: email,
+          subject: `${req.user.display_name} vil dele ${c.display_name} med deg i ${APP_NAME}`,
+          ...renderEmail({
+            preheader: `Bli foresatt for ${c.display_name} i ${APP_NAME}.`,
+            heading: `Bli foresatt for ${c.display_name}`,
+            paragraphs: [
+              `${req.user.display_name} (${req.user.email}) vil at du også skal være foresatt for ${c.display_name} i ${APP_NAME}. Da ser du det samme som ${req.user.display_name}: innleggene, gruppene og grensene, og dere kan begge endre dem.`,
+              existing ? "Trykk på knappen og logg inn med kontoen din." : "Trykk på knappen og lag en foresatt-konto. Du trenger ingen registreringskode.",
+            ],
+            button: { label: "Bli foresatt", url },
+            note: `Lenken virker i ${SHARE_DAYS} dager og kan brukes én gang. Kjenner du ikke ${req.user.display_name}, kan du se bort fra denne e-posten.`,
+          }),
+        });
+        status = mailer.configured === false ? "not_sent" : "sent";
+      } catch (err) {
+        console.error("Klarte ikke å sende e-post:", err.message);
+        status = "not_sent";
+      }
+    }
+    res.status(201).json({ url, status });
+  });
+
+  // Lenken viser hvem som deler hvilket barn. Krever ikke innlogging, så den kan åpnes før man har konto.
+  app.get("/api/shares/:token", (req, res) => {
+    const share = findShare(req.params.token);
+    if (!share) fail(404, SHARE_GONE);
+    res.json({ inviter: share.inviter_name, child: share.child_name, email: share.email || "" });
+  });
+
+  app.post("/api/shares/:token/accept", parentAny, async (req, res) => {
+    const share = findShare(req.params.token);
+    if (!share) fail(404, SHARE_GONE);
+    await addGuardian(share, req.user);
+    res.json({ ok: true, child: share.child_name });
   });
 
   // ---------- Foresatte: grupper ----------
   // En foresatt kan se en gruppe hvis hen eier den, eller har et barn som er med.
   const visibleGroup = (userId, groupId) => q(`SELECT g.*, (g.owner_id = ?) AS isOwner FROM groups g
     WHERE g.id = ? AND (g.owner_id = ? OR EXISTS (
-      SELECT 1 FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.group_id = g.id AND m.approved = 1 AND u.parent_id = ?))`)
+      SELECT 1 FROM memberships m JOIN guardians gd ON gd.child_id = m.user_id WHERE m.group_id = g.id AND m.approved = 1 AND gd.parent_id = ?))`)
     .get(userId, groupId, userId, userId);
 
   app.get("/api/groups", parent, (req, res) => {
     const groups = q(`SELECT DISTINCT g.* FROM groups g LEFT JOIN memberships m ON m.group_id = g.id AND m.approved = 1
-      LEFT JOIN users u ON u.id = m.user_id
-      WHERE g.owner_id = ? OR u.parent_id = ? ORDER BY g.name`).all(req.user.id, req.user.id);
+      LEFT JOIN guardians gd ON gd.child_id = m.user_id
+      WHERE g.owner_id = ? OR gd.parent_id = ? ORDER BY g.name`).all(req.user.id, req.user.id);
     res.json({
       groups: groups.map((g) => {
         const isOwner = g.owner_id === req.user.id;
@@ -825,10 +947,11 @@ export function createApp({
           members: q(`SELECT u.display_name AS displayName, u.avatar FROM memberships m JOIN users u ON u.id = m.user_id
             WHERE m.group_id = ? AND m.approved = 1 ORDER BY u.display_name`).all(g.id),
           // Eieren ser hvem som vil inn, og hvilken foresatt som spør, så hen kan sjekke at det er en fra klassen.
-          pendingMembers: isOwner ? q(`SELECT u.id, u.display_name AS displayName, u.avatar,
-              p.display_name AS parentName, p.email AS parentEmail
-            FROM memberships m JOIN users u ON u.id = m.user_id JOIN users p ON p.id = u.parent_id
-            WHERE m.group_id = ? AND m.approved = 0 ORDER BY u.display_name`).all(g.id) : undefined,
+          pendingMembers: isOwner ? q(`SELECT u.id, u.display_name AS displayName, u.avatar FROM memberships m JOIN users u ON u.id = m.user_id
+            WHERE m.group_id = ? AND m.approved = 0 ORDER BY u.display_name`).all(g.id).map((m) => {
+            const gs = guardiansOf(m.id);
+            return { ...m, parentName: gs.map((x) => x.display_name).join(" og "), parentEmail: gs.map((x) => x.email).filter(Boolean).join(", ") };
+          }) : undefined,
           openReports: isOwner ? q(`SELECT COUNT(DISTINCT r.post_id) AS n FROM reports r JOIN posts p ON p.id = r.post_id
             WHERE p.group_id = ? AND r.resolved = 0`).get(g.id).n : undefined,
           // Voksenkontakten finnes for eieren og foresatte med godkjente barn i gruppa.
@@ -931,10 +1054,10 @@ export function createApp({
     if (!g) fail(404, "Fant ikke gruppa");
     const posts = q(`SELECT ${POST_FIELDS},
         (SELECT COUNT(*) FROM reports r WHERE r.post_id = p.id AND r.resolved = 0) AS reports,
-        (u.parent_id = ?) AS byMyChild
+        EXISTS (SELECT 1 FROM guardians gd WHERE gd.child_id = u.id AND gd.parent_id = ?) AS byMyChild
       ${POST_JOINS}
       WHERE p.group_id = ? AND (p.status = 'visible' OR (? AND p.status = 'hidden'))
-        AND (md.id IS NULL OR md.approved = 1 OR ? OR u.parent_id = ?)
+        AND (md.id IS NULL OR md.approved = 1 OR ? OR EXISTS (SELECT 1 FROM guardians gd WHERE gd.child_id = u.id AND gd.parent_id = ?))
       ORDER BY (p.status = 'hidden') DESC, (md.approved = 0) DESC, p.created_at DESC LIMIT 100`)
       .all(req.user.id, g.id, g.isOwner ? 1 : 0, g.isOwner ? 1 : 0, req.user.id);
     res.json({ isOwner: !!g.isOwner, posts: posts.map((p) => withMedia({ ...p, byMyChild: !!p.byMyChild })) });
@@ -948,7 +1071,7 @@ export function createApp({
     const since = Number(req.query.since) || 0;
     const { n } = q(`SELECT COUNT(*) AS n ${POST_JOINS}
       WHERE p.group_id = ? AND p.id > ? AND (p.status = 'visible' OR (? AND p.status = 'hidden'))
-        AND (md.id IS NULL OR md.approved = 1 OR ? OR u.parent_id = ?)`)
+        AND (md.id IS NULL OR md.approved = 1 OR ? OR EXISTS (SELECT 1 FROM guardians gd WHERE gd.child_id = u.id AND gd.parent_id = ?))`)
       .get(g.id, since, g.isOwner ? 1 : 0, g.isOwner ? 1 : 0, req.user.id);
     res.json({ count: n });
   });
@@ -956,7 +1079,7 @@ export function createApp({
   // ---------- Voksenkontakt ----------
   // Meldinger mellom foresatte i en gruppe: eieren og foresatte med et godkjent barn i gruppa. Barna ser det aldri.
   const canTalk = (userId, g) => g.owner_id === userId || !!q(`SELECT 1 FROM memberships m JOIN users u ON u.id = m.user_id
-    WHERE m.group_id = ? AND m.approved = 1 AND u.parent_id = ?`).get(g.id, userId);
+    WHERE m.group_id = ? AND m.approved = 1 AND EXISTS (SELECT 1 FROM guardians gd WHERE gd.child_id = u.id AND gd.parent_id = ?)`).get(g.id, userId);
   const unreadAdult = (userId, groupId) => q(`SELECT COUNT(*) AS n FROM adult_messages
     WHERE group_id = ? AND author_id != ? AND id > COALESCE((SELECT last_id FROM adult_reads WHERE group_id = ? AND user_id = ?), 0)`)
     .get(groupId, userId, groupId, userId).n;
@@ -1006,7 +1129,7 @@ export function createApp({
 
   // Foresatte som har tilgang til voksenkontakten i gruppa (eieren og foresatte med godkjente barn).
   const adultsInGroup = (g) => q(`SELECT u.* FROM users u WHERE u.role = 'parent' AND (u.id = ? OR EXISTS (
-      SELECT 1 FROM memberships m JOIN users c ON c.id = m.user_id WHERE m.group_id = ? AND m.approved = 1 AND c.parent_id = u.id))`)
+      SELECT 1 FROM memberships m JOIN guardians gd ON gd.child_id = m.user_id WHERE m.group_id = ? AND m.approved = 1 AND gd.parent_id = u.id))`)
     .all(g.owner_id, g.id);
 
   async function pushAdultMessage(g, author, text) {
@@ -1035,8 +1158,8 @@ export function createApp({
     const parents = q("SELECT * FROM users WHERE role = 'parent' AND email_verified = 1 AND notify_email != 'off'").all();
     for (const p of parents) {
       if (p.notify_email === "daily" && (hm < DAILY_AT || p.notify_daily_day === day)) continue;
-      const groups = q(`SELECT g.* FROM groups g WHERE g.owner_id = ? OR EXISTS (SELECT 1 FROM memberships m JOIN users c ON c.id = m.user_id
-        WHERE m.group_id = g.id AND m.approved = 1 AND c.parent_id = ?) ORDER BY g.name`).all(p.id, p.id);
+      const groups = q(`SELECT g.* FROM groups g WHERE g.owner_id = ? OR EXISTS (SELECT 1 FROM memberships m JOIN guardians gd ON gd.child_id = m.user_id
+        WHERE m.group_id = g.id AND m.approved = 1 AND gd.parent_id = ?) ORDER BY g.name`).all(p.id, p.id);
       const sections = groups.map((g) => {
         const r = q("SELECT last_id, notified_id FROM adult_reads WHERE group_id = ? AND user_id = ?").get(g.id, p.id);
         const since = Math.max(r?.last_id || 0, r?.notified_id || 0);

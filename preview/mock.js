@@ -123,6 +123,10 @@
       if (body.displayName) parent["/me"].me.displayName = body.displayName;
       return ok;
     }
+    if ((m = p.match(/^\/children\/(\d+)\/share$/))) {
+      const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
+      return { url: `https://www.quipu.no/#barn=${token}`, status: body.email ? "sent" : null };
+    }
     if (p === "/invites" && method === "POST") {
       const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
       const url = `https://www.quipu.no/#invitasjon=${token}`;

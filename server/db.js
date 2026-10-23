@@ -139,6 +139,26 @@ CREATE TABLE IF NOT EXISTS parent_invites (
   expires_at INTEGER NOT NULL
 );
 
+-- Foresatte for et barn. Den som laget barnekontoen, står også i users.parent_id (første foresatt).
+-- Flere foresatte kommer til med en delingslenke fra en som allerede er foresatt, og alle har samme tilgang.
+CREATE TABLE IF NOT EXISTS guardians (
+  child_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  parent_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (child_id, parent_id)
+);
+CREATE INDEX IF NOT EXISTS guardians_parent ON guardians (parent_id);
+
+-- Engangslenker for å dele et barn med en annen foresatt. Bare en hash av koden lagres.
+CREATE TABLE IF NOT EXISTS child_shares (
+  token_hash TEXT PRIMARY KEY,
+  child_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  inviter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email TEXT,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+
 -- Foresatte som er invitert til en gruppe. Med invitasjonen kan de melde inn barnet uten invitasjonskode.
 -- Har eieren av gruppa invitert, slipper barnet rett inn (auto_approve). Ellers må eieren godkjenne som vanlig.
 CREATE TABLE IF NOT EXISTS group_invitations (
@@ -233,5 +253,10 @@ function migrate(db) {
   if (db.prepare("PRAGMA user_version").get().user_version < 4) {
     db.exec(`UPDATE users SET avatar = printf('c%02d', (id % 24) + 1) WHERE role = 'parent' AND avatar NOT GLOB 'c[0-9][0-9]';
       PRAGMA user_version = 4`);
+  }
+  // Versjon 5: et barn kan ha flere foresatte. Den som laget kontoen, blir første foresatt.
+  if (db.prepare("PRAGMA user_version").get().user_version < 5) {
+    db.exec(`INSERT OR IGNORE INTO guardians (child_id, parent_id, created_at)
+      SELECT id, parent_id, created_at FROM users WHERE role = 'child' AND parent_id IS NOT NULL; PRAGMA user_version = 5`);
   }
 }

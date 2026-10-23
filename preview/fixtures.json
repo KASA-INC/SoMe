@@ -214,10 +214,10 @@
   "/me": {
    "me": {
     "id": 1,
-    "username": "foresatt-333b64694e",
+    "username": "foresatt-9c849e0038",
     "role": "parent",
     "displayName": "Kristin",
-    "avatar": "c08",
+    "avatar": "c13",
     "email": "kristin@example.com",
     "emailVerified": true,
     "pendingEmail": ""
@@ -308,6 +308,14 @@
       "postAllowance": 5,
       "postsCarried": 0
      },
+     "guardians": [
+      {
+       "id": 1,
+       "displayName": "Kristin",
+       "email": "kristin@example.com",
+       "me": true
+      }
+     ],
      "groups": [
       {
        "id": 1,
@@ -329,7 +337,7 @@
      "id": 1,
      "name": "6B",
      "isOwner": true,
-     "inviteCode": "CEBEB975B1",
+     "inviteCode": "363691140D",
      "mediaReview": true,
      "pendingMedia": 0,
      "members": [
@@ -375,11 +383,12 @@
      ],
      "adultUnread": 0
     }
-   ]
+   ],
+   "invitations": []
   },
   "/notify": {
    "email": "soon",
-   "pushKey": "BME_hvmqyLuaDSBmLJ-L8PFPZppuKPNCQx8RHAmPnv5W6lasvFGvgszcQIC40uIkxhVe_60KREjcONTx7coNgR0"
+   "pushKey": "BFyjHgnyumOEwjQ3ZoitRzVy2XqdQ5MTnVd9OKs6s7MHgkHea8Tkx_2AdiqBjwy5Utsh8dORtEQzZHHxTlffua8"
   },
   "/groups/1/posts": {
    "isOwner": true,
@@ -494,7 +503,7 @@
      "text": "Jeg kan kjøre, har plass til tre barn.",
      "createdAt": 1792487400000,
      "author": "Kristin",
-     "avatar": "c08",
+     "avatar": "c13",
      "mine": true,
      "imageId": null,
      "canDelete": true
@@ -504,7 +513,7 @@
      "text": "Takk! Jeg kan ta med kake. Er det noen som kan kjøre til turdagen på fredag?",
      "createdAt": 1792486920000,
      "author": "Hanne",
-     "avatar": "c14",
+     "avatar": "c24",
      "mine": false,
      "imageId": null,
      "canDelete": true
@@ -514,7 +523,7 @@
      "text": "Hei alle! Husk foreldremøtet tirsdag kl. 18 i klasserommet. Det blir kaffe og kake.",
      "createdAt": 1792485420000,
      "author": "Thomas",
-     "avatar": "c21",
+     "avatar": "c20",
      "mine": false,
      "imageId": null,
      "canDelete": true

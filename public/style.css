@@ -528,6 +528,7 @@ body.auth-page .topbar { display: none; }
 .invite-results small { color: var(--text-2); }
 .notice.invitation .row { margin-top: 10px; }
 .notice.invitation .btn svg.icon { color: currentColor; margin-top: 0; }
+.guardians { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; font-size: 0.925rem; }
 .chip.add.invited { border-style: solid; background: var(--accent-soft); color: var(--accent-soft-ink); }
 .code-box code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.08em; user-select: all; -webkit-user-select: all; }
 
