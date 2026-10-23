@@ -609,6 +609,33 @@ test("innlegg og meldinger slettes etter 60 dager, med bilder, men ikke bevis el
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM adult_messages WHERE group_id = ?").get(a.groupId).n, 0);
 });
 
+test("nattpause: minst 10 timer stengt, og alltid mellom 23 og 06", async () => {
+  const a = await setupFamily("natt");
+  const hours = (openFrom, openTo) => a.parent(`/children/${a.childId}`, { method: "PATCH", body: { openFrom, openTo } });
+  assert.match((await hours("05:00", "15:00")).body.error, /tidligst åpne kl\. 06:00/);
+  assert.match((await hours("10:00", "23:30")).body.error, /senest kl\. 23:00/);
+  assert.match((await hours("06:00", "21:00")).body.error, /minst 10 timer.*senest kl\. 20:00/);
+  assert.equal((await hours("22:00", "02:00")).status, 400, "kan ikke være åpen over midnatt");
+  assert.equal((await hours("07:00", "21:00")).status, 200);
+  assert.equal((await hours("09:00", "23:00")).status, 200);
+  assert.equal((await a.parent("/children")).body.children[0].openTo, "23:00");
+
+  // Kontoer med for kort pause fra før settes til standard 07–20 når databasen oppdateres.
+  const dir = mkdtempSync(join(tmpdir(), "some-natt-"));
+  try {
+    const file = join(dir, "d.db");
+    const old = openDb(file);
+    old.prepare(`INSERT INTO users (role, username, display_name, password_hash, created_at, open_from, open_to)
+      VALUES ('child', 'sen', 'Sen', 'x', 0, '06:00', '23:59'), ('child', 'grei', 'Grei', 'x', 0, '08:00', '21:30')`).run();
+    old.exec("PRAGMA user_version = 5");
+    old.close();
+    const rows = openDb(file).prepare("SELECT username, open_from, open_to FROM users ORDER BY username").all().map((r) => ({ ...r }));
+    assert.deepEqual(rows, [{ username: "grei", open_from: "08:00", open_to: "21:30" }, { username: "sen", open_from: "07:00", open_to: "20:00" }]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("eieren kan avslå en forespørsel", async () => {
   const a = await setupFamily("g2");
   const b = client();
@@ -1088,7 +1115,7 @@ test("migrering: barn fra før flere foresatte fantes, får den som laget dem so
   old.close();
   const db5 = openDb(file);
   assert.deepEqual({ ...db5.prepare("SELECT child_id, parent_id FROM guardians").get() }, { child_id: 2, parent_id: 1 });
-  assert.equal(db5.prepare("PRAGMA user_version").get().user_version, 5);
+  assert.equal(db5.prepare("PRAGMA user_version").get().user_version, 6);
   db5.close();
   rmSync(dirname(file), { recursive: true, force: true });
 });

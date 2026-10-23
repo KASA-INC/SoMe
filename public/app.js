@@ -1209,6 +1209,7 @@ function childCard(c, invitations = []) {
       h("p", { class: "muted small" }, "Ubrukte innlegg fra i går kan brukes i dag, men aldri mer enn dobbelt så mange som dagsgrensen."),
       field("Åpen fra", time("openFrom", c.openFrom)),
       field("Åpen til", time("openTo", c.openTo)),
+      h("p", { class: "muted small" }, `${APP_NAME} er stengt minst 10 timer hver natt, og alltid mellom kl. 23 og 06, så barnet får en ordentlig pause og sover godt.`),
       h("div", { class: "full" }, field("Nytt passord (valgfritt)", passwordInput({ name: "password", autocomplete: "new-password", minlength: 8 })))),
     h("div", { class: "row between" },
       h("button", { class: "btn small" }, "Lagre"),

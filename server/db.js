@@ -366,4 +366,11 @@ function migrate(db) {
     db.exec(`INSERT OR IGNORE INTO guardians (child_id, parent_id, created_at)
       SELECT id, parent_id, created_at FROM users WHERE role = 'child' AND parent_id IS NOT NULL; PRAGMA user_version = 5`);
   }
+  // Nattpause: åpningstider som gir under 10 timers pause, eller er åpne mellom 23 og 06, settes til standard 07–20.
+  if (db.prepare("PRAGMA user_version").get().user_version < 6) {
+    db.exec(`UPDATE users SET open_from = '07:00', open_to = '20:00' WHERE role = 'child' AND (open_from < '06:00' OR open_to > '23:00'
+      OR (CAST(substr(open_to, 1, 2) AS INTEGER) * 60 + CAST(substr(open_to, 4, 2) AS INTEGER))
+       - (CAST(substr(open_from, 1, 2) AS INTEGER) * 60 + CAST(substr(open_from, 4, 2) AS INTEGER)) > 840);
+      PRAGMA user_version = 6`);
+  }
 }

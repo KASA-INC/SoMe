@@ -56,6 +56,19 @@ const FEED_MAX = 30;
 const TZ = process.env.TZ_APP || "Europe/Oslo";
 
 const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
+// Barn skal ha en ordentlig pause fra quipu hver natt: appen er stengt minst 10 timer i strekk,
+// og alltid mellom kl. 23 og 06. Foresatte kan flytte åpningstiden, men ikke korte ned pausen.
+export const OPEN_EARLIEST = "06:00", CLOSE_LATEST = "23:00", MIN_PAUSE_HOURS = 10;
+const minutesOf = (hm) => Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3));
+export function pauseProblem(from, to) {
+  if (!HM.test(from) || !HM.test(to) || from >= to) return "Ugyldige åpningstider";
+  if (from < OPEN_EARLIEST) return `${APP_NAME} kan tidligst åpne kl. ${OPEN_EARLIEST}.`;
+  if (to > CLOSE_LATEST) return `${APP_NAME} må stenge senest kl. ${CLOSE_LATEST}.`;
+  if (minutesOf(to) - minutesOf(from) > (24 - MIN_PAUSE_HOURS) * 60) {
+    return `${APP_NAME} må være stengt minst ${MIN_PAUSE_HOURS} timer i døgnet. Med åpning kl. ${from} må den stenge senest kl. ${String(Math.floor((minutesOf(from) + (24 - MIN_PAUSE_HOURS) * 60) / 60)).padStart(2, "0")}:${from.slice(3)}.`;
+  }
+  return null;
+}
 const USERNAME = /^[a-z0-9._-]{3,24}$/i;
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
 const RESET_MINUTES = 60;
@@ -1342,7 +1355,8 @@ export function createApp({
     };
     if (!Number.isInteger(next.daily_minutes) || next.daily_minutes < 0 || next.daily_minutes > 120) fail(400, "Tidsgrense må være 0–120 minutter");
     if (!Number.isInteger(next.posts_per_day) || next.posts_per_day < 0 || next.posts_per_day > 10) fail(400, "Innlegg per dag må være 0–10");
-    if (!HM.test(next.open_from) || !HM.test(next.open_to) || next.open_from >= next.open_to) fail(400, "Ugyldige åpningstider");
+    const pause = pauseProblem(next.open_from, next.open_to);
+    if (pause) fail(400, pause);
     if (b.avatar !== undefined && !AVATARS.includes(b.avatar)) fail(400, "Ugyldig profilbilde");
     q(`UPDATE users SET daily_minutes = ?, open_from = ?, open_to = ?, posts_per_day = ?, avatar = ?, display_name = ? WHERE id = ?`)
       .run(next.daily_minutes, next.open_from, next.open_to, next.posts_per_day, next.avatar, next.display_name, c.id);
