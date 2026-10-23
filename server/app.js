@@ -463,6 +463,17 @@ export function createApp({
     res.json({ posts: posts.map(({ status, ...p }) => withMedia({ ...p, mine: !!p.mine })), status: req.limits });
   });
 
+  // Feeden spør jevnlig om det er kommet noe nytt fra de andre siden innlegget med id «since».
+  // Bare et tall, så barnet selv velger når de nye innleggene skal vises.
+  app.get("/api/feed/new", child, (req, res) => {
+    const since = Number(req.query.since) || 0;
+    const { n } = q(`SELECT COUNT(*) AS n ${POST_JOINS}
+      WHERE p.id > ? AND p.author_id != ? AND p.status = 'visible' AND p.created_at >= ?
+        AND p.group_id IN (SELECT group_id FROM memberships WHERE user_id = ? AND approved = 1)
+        AND (md.id IS NULL OR md.approved = 1)`).get(since, req.user.id, now() - FEED_DAYS * 864e5, req.user.id);
+    res.json({ count: n });
+  });
+
   // ---------- Bilder og video ----------
   const maxUploadBytes = Math.max(mediaLimits.videoMb, mediaLimits.imageMb) * 1024 * 1024;
 

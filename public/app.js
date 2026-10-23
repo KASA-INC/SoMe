@@ -8,6 +8,7 @@ import { fillFooter } from "./footer.js";
 const view = document.getElementById("view");
 let config = null; // { me, kinds, colors, stickers, avatars, media }
 let heartbeatTimer = null;
+let newPostsTimer = null;
 let parentTab = "barn";
 
 // ---------- Hjelpere ----------
@@ -325,7 +326,7 @@ function updateTimeLeft(minutesLeft) {
 async function logout() {
   await api("/logout", { method: "POST" }).catch(() => {});
   config = null;
-  clearInterval(heartbeatTimer);
+  stopTimers();
   start();
 }
 
@@ -544,7 +545,7 @@ function showVerifyEmail() {
 
 // ---------- Barn ----------
 function showBlocked(err) {
-  clearInterval(heartbeatTimer);
+  stopTimers();
   setHeader();
   const closed = err.code === "CLOSED";
   render(h("div", { class: "card blocked" },
@@ -556,6 +557,12 @@ function showBlocked(err) {
 function handleChildError(err) {
   if (err.code === "CLOSED" || err.code === "TIME_UP") showBlocked(err);
   else toast(err.message);
+}
+
+function stopTimers() {
+  clearInterval(heartbeatTimer);
+  clearInterval(newPostsTimer);
+  document.removeEventListener("visibilitychange", checkNewPosts);
 }
 
 function startHeartbeat() {
@@ -636,11 +643,13 @@ async function showChild() {
     data = await api("/feed");
   } catch (err) { return handleChildError(err); }
   startHeartbeat();
+  watchNewPosts(Math.max(0, ...data.posts.map((p) => p.id)));
   const { status } = data;
   const groups = config.me.groups;
   setHeader(status);
 
   render(
+    newPostsBar,
     composePrompt(groups, status),
     ...data.posts.map((p) => postCard(p)),
     h("div", { class: "feed-end" },
@@ -652,6 +661,31 @@ async function showChild() {
         h("button", { type: "button", class: "link small", onclick: () => showIntro({ again: true }) }, `Slik fungerer ${APP_NAME}`),
         " · ",
         h("button", { type: "button", class: "link small", onclick: openAvatarSheet }, "Bytt profilbilde"))));
+}
+
+// Nye innlegg mens feeden er åpen: en rolig knapp øverst, ingen lyd og ingen varsler utenfor appen.
+// Innleggene settes ikke inn av seg selv, så teksten barnet leser, ikke hopper. Sjekker bare når appen vises.
+const NEW_POSTS_EVERY = 20000;
+let newPostsSince = 0;
+const newPostsBar = h("button", { type: "button", class: "new-posts hidden", onclick: () => { window.scrollTo({ top: 0 }); showChild(); } });
+
+function watchNewPosts(since) {
+  newPostsSince = since;
+  newPostsBar.classList.add("hidden");
+  clearInterval(newPostsTimer);
+  newPostsTimer = setInterval(checkNewPosts, NEW_POSTS_EVERY);
+  document.addEventListener("visibilitychange", checkNewPosts);
+}
+
+async function checkNewPosts() {
+  if (document.visibilityState !== "visible") return;
+  try {
+    const { count } = await api(`/feed/new?since=${newPostsSince}`);
+    newPostsBar.replaceChildren(icon("refresh"), count === 1 ? "1 nytt innlegg" : `${count} nye innlegg`);
+    newPostsBar.classList.toggle("hidden", !count);
+  } catch (err) {
+    if (err.code === "CLOSED" || err.code === "TIME_UP") handleChildError(err);
+  }
 }
 
 function composePrompt(groups, status) {

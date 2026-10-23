@@ -609,3 +609,25 @@ test("gamle emoji-profilbilder blir til figurer", () => {
   db2.close();
   rmSync(dir, { recursive: true, force: true });
 });
+
+test("feeden kan spørre om det er kommet nye innlegg fra de andre", async () => {
+  const a = await setupFamily("fersk");
+  const b = client();
+  await registerParent(b, "fersk-far@example.com", "Pappa");
+  await b("/children", { method: "POST", body: { username: "fersk-siri", password: "siri1234", displayName: "Siri", avatar: "c05" } });
+  const { body: { children: [siri] } } = await b("/children");
+  await b("/groups/join", { method: "POST", body: { code: a.code, childId: siri.id } });
+  await a.parent(`/groups/${a.groupId}/members/${siri.id}`, { method: "POST", body: { action: "approve" } });
+  const kid2 = client();
+  await kid2("/login", { method: "POST", body: { username: "fersk-siri", password: "siri1234" } });
+
+  await post(a.kid, a.groupId, "Første");
+  const { body: { posts } } = await a.kid("/feed");
+  const since = posts[0].id;
+  assert.equal((await a.kid(`/feed/new?since=${since}`)).body.count, 0);
+  await post(a.kid, a.groupId, "Mitt eget teller ikke");
+  assert.equal((await a.kid(`/feed/new?since=${since}`)).body.count, 0);
+  await post(kid2, a.groupId, "Hei fra Siri");
+  await post(kid2, a.groupId, "Og en til");
+  assert.equal((await a.kid(`/feed/new?since=${since}`)).body.count, 2);
+});

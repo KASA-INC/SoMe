@@ -856,3 +856,12 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 .site-footer-cookie a { color: var(--on-bg); text-decoration: underline; text-underline-offset: 3px; }
 .site-footer-copy { margin: 12px 0 0; font-size: 0.8rem; }
 @media (min-width: 560px) { .site-footer-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* ---------- Nye innlegg ---------- */
+.new-posts {
+  position: sticky; top: calc(64px + var(--safe-top)); z-index: 5;
+  display: flex; width: fit-content; align-items: center; gap: 6px; margin: 0 auto 12px; padding: 8px 16px;
+  border: none; border-radius: 999px; background: var(--bubble); color: var(--bubble-ink);
+  font: inherit; font-size: 0.9rem; font-weight: 650; cursor: pointer; box-shadow: var(--shadow);
+}
+.new-posts svg.icon { width: 16px; height: 16px; }
