@@ -586,6 +586,29 @@ test("barn må godkjennes av gruppeeieren før de ser noe i gruppa", async () =>
   assert.equal((await b("/children")).body.children[0].groups[0].pending, false);
 });
 
+test("innlegg og meldinger slettes etter 60 dager, med bilder, men ikke bevis eller meldte innlegg", async () => {
+  const a = await setupFamily("sexti");
+  const up = await upload(a.kid, jpegWithExif());
+  const idOf = (text) => db.prepare("SELECT id FROM posts WHERE text = ?").get(text).id;
+  await post(a.kid, a.groupId, "Gammelt med bilde", up.body.id);
+  for (const text of ["Gammelt og meldt", "Gammelt og bevart", "Nytt"]) await post(a.kid, a.groupId, text);
+  const [old, reported, held, fresh] = ["Gammelt med bilde", "Gammelt og meldt", "Gammelt og bevart", "Nytt"].map(idOf);
+  assert.equal((await a.parent(`/groups/${a.groupId}/adult`, { method: "POST", body: { text: "Husk turdag" } })).status, 201);
+  const kidId = db.prepare("SELECT id FROM users WHERE username = 'sexti-ola'").get().id;
+  db.prepare("INSERT INTO reports (post_id, reporter_id, created_at) VALUES (?, ?, ?)").run(reported, kidId, clock);
+  db.prepare("UPDATE posts SET hold = 1 WHERE id = ?").run(held);
+  const longAgo = clock - 61 * 864e5;
+  db.prepare("UPDATE posts SET created_at = ? WHERE id IN (?, ?, ?)").run(longAgo, old, reported, held);
+  db.prepare("UPDATE adult_messages SET created_at = ? WHERE group_id = ?").run(longAgo, a.groupId);
+  assert.ok(readdirSync(mediaDir).includes(up.body.id));
+
+  app.locals.cleanup();
+  const left = db.prepare("SELECT id FROM posts WHERE id IN (?, ?, ?, ?) ORDER BY id").all(old, reported, held, fresh).map((r) => r.id);
+  assert.deepEqual(left, [reported, held, fresh]);
+  assert.equal(readdirSync(mediaDir).includes(up.body.id), false, "bildet er slettet fra disken");
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM adult_messages WHERE group_id = ?").get(a.groupId).n, 0);
+});
+
 test("eieren kan avslå en forespørsel", async () => {
   const a = await setupFamily("g2");
   const b = client();

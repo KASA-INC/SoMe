@@ -66,6 +66,9 @@ const INVITE_EMAILS_MAX = 30; // adresser i én invitasjon
 const SHARE_DAYS = 7; // så lenge en lenke for å dele et barn med en annen foresatt virker
 const SHARES_PER_DAY = 10;
 const CLEANUP_DAYS = 30;
+// Innlegg og meldinger i voksenkontakten, med bilder og video, slettes etter 60 dager. Det er lenge nok til at
+// foresatte rekker å se dem og barn rekker å si fra, og barna etterlater seg ikke et arkiv.
+const KEEP_DAYS = 60;
 // Administratorloggen, alvorlige saker med varsler og behandlede meldinger fra barn slettes etter ett år.
 const ADMIN_RETENTION_DAYS = 365;
 
@@ -1210,6 +1213,10 @@ export function createApp({
     const cutoff = clock(t - CLEANUP_DAYS * 864e5).day;
     q("DELETE FROM usage WHERE day < ?").run(cutoff);
     q("DELETE FROM posts WHERE status = 'removed' AND hold = 0 AND created_at < ?").run(t - CLEANUP_DAYS * 864e5);
+    // Unntak: innlegg som er bevart som dokumentasjon, eller som er meldt og ikke ferdig behandlet.
+    q(`DELETE FROM posts WHERE created_at < ? AND hold = 0
+      AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.post_id = posts.id AND r.resolved = 0)`).run(t - KEEP_DAYS * 864e5);
+    q("DELETE FROM adult_messages WHERE created_at < ?").run(t - KEEP_DAYS * 864e5);
     const yearAgo = t - ADMIN_RETENTION_DAYS * 864e5;
     q("DELETE FROM admin_log WHERE created_at < ?").run(yearAgo);
     q("DELETE FROM incidents WHERE acked_at IS NOT NULL AND acked_at < ?").run(yearAgo); // varslene slettes med saken

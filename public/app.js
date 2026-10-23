@@ -661,7 +661,7 @@ const INTRO = [
     icon: "eye",
     title: "Voksne kan se det du deler",
     text: ["Foreldrene dine, og foreldrene til de andre i gruppa, kan lese alt som blir delt i gruppa. Det gjelder også innleggene dine.",
-      "Bilder og videoer blir som regel sett av en voksen før de andre i gruppa får se dem.",
+      "Bilder og videoer blir som regel sett av en voksen før de andre i gruppa får se dem. Alt som deles, slettes av seg selv etter 60 dager.",
       "Det er for å passe på at alle har det bra her. Det du skriver, blir ikke sendt før du trykker «Del»."],
   },
   {
@@ -2118,7 +2118,8 @@ async function showGroupPosts(g) {
       const n = note(p);
       if (n) card.querySelector(".actions").before(n);
       return card;
-    }));
+    }),
+    h("p", { class: "muted small center" }, "Innlegg, bilder og videoer slettes av seg selv etter 60 dager."));
 }
 
 // ---------- Voksenkontakt ----------
