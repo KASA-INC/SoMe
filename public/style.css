@@ -762,12 +762,13 @@ main { width: 100%; }
 .site-footer-col h2 { margin: 0 0 6px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text); }
 .site-footer-col a { display: block; padding: 6px 0; color: var(--text-2); text-decoration: none; }
 .site-footer-col a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
-/* Under lenkene: cookie-linja midtstilt, så logoen i kremhvitt og © helt nederst. */
+/* Under lenkene: cookie-linja midtstilt, så logoen og © helt nederst. */
 .site-footer-cookie { margin: 0 auto; max-width: 62ch; text-align: center; font-size: 1rem; line-height: 1.55; color: var(--text); }
 .site-footer-cookie svg.icon { width: 1.15em; height: 1.15em; vertical-align: -0.2em; margin-right: 0.35em; }
 .site-footer-cookie a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 .site-footer-brand { justify-self: center; }
-.footer-lockup { font-size: 36px; text-decoration: none; color: var(--cream); }
+/* Logoen har samme farge som teksten i bunnteksten: nesten svart i lys modus, kremhvit i mørk. */
+.footer-lockup { font-size: 36px; text-decoration: none; color: var(--text); }
 .site-footer-copy { margin: -12px 0 0; text-align: center; font-size: 0.8rem; }
 @media (min-width: 560px) { .site-footer-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 /* PC: lenkene i tre midtstilte kolonner og logoen litt større. */

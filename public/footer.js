@@ -69,7 +69,7 @@ export function fillFooter(el) {
   cookie.append(cookieIcon(), `Vi liker ikke cookies. ${APP_NAME} bruker bare én, og den holder deg innlogget. Ingen sporing og ingen reklame, og derfor ingen cookie-banner. `, more);
   const brand = make("div", "site-footer-brand");
   brand.append(logo());
-  // Rekkefølge: lenkene, cookie-linja, logoen i kremhvitt og © helt nederst.
+  // Rekkefølge: lenkene, cookie-linja, logoen og © helt nederst.
   const inner = make("div", "site-footer-inner");
   inner.append(cols, cookie, brand, make("p", "site-footer-copy", `© ${new Date().getFullYear()} ${APP_NAME}`));
   el.replaceChildren(inner);
