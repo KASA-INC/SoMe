@@ -672,7 +672,7 @@ const INTRO = [
     title: "Hvis noe føles feil",
     text: ["Trykk «Si fra» på innlegget. Da blir det skjult, og en voksen ser på det. Den voksne som har ansvar for gruppa, og de som passer på quipu, kan lese innlegg som noen har sagt fra om.",
       "Er det noe annet, eller gjelder det en voksen, trykker du «Si fra om noe annet» nederst i feeden. Det leser bare de som passer på quipu.",
-      "Snakk gjerne med en voksen du stoler på, eller ring Kors på halsen på 116 111. Det er gratis.",
+      "Snakk gjerne med en voksen du stoler på, eller ring Alarmtelefonen for barn og unge på 116 111. Den er gratis og alltid åpen.",
       `${APP_NAME} har en tidsgrense og stenger om kvelden. Det er meningen – det er mye annet gøy å gjøre også.`],
   },
 ];
@@ -986,8 +986,9 @@ function reportThanks(close, text) {
   return h("div", { class: "report-thanks" },
     h("div", { class: "end-icon" }, icon("check")),
     h("p", {}, text),
-    h("p", { class: "muted small" }, "Er du redd eller lei deg, snakk med en voksen du stoler på. Du kan også ringe eller chatte med Kors på halsen. Det er gratis, og du trenger ikke si hvem du er."),
-    h("p", { class: "help-line" }, icon("phone"), h("span", {}, h("strong", {}, "116 111"), " · Kors på halsen")),
+    h("p", { class: "muted small" }, "Er du redd eller lei deg, snakk med en voksen du stoler på. Du kan også ringe Alarmtelefonen for barn og unge. Den er gratis og alltid åpen, og du trenger ikke si hvem du er. Vil du heller prate om hvordan du har det, kan du ringe eller chatte med Kors på halsen."),
+    h("p", { class: "help-line" }, icon("phone"), h("span", {}, h("strong", {}, "116 111"), " · Alarmtelefonen for barn og unge")),
+    h("p", { class: "help-line" }, icon("phone"), h("span", {}, h("strong", {}, "800 33 321"), " · Kors på halsen")),
     btn("Ferdig", close, "block"));
 }
 

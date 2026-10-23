@@ -1141,7 +1141,7 @@ export function createApp({
     const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
     if (text.length < 3 || text.length > 1000) fail(400, "Skriv litt om hva som har skjedd (3–1000 tegn)");
     const recent = q("SELECT COUNT(*) AS n FROM safety_reports WHERE reporter_id = ? AND created_at > ?").get(req.user.id, now() - 864e5).n;
-    if (recent >= 5) fail(429, "Du har sagt fra mange ganger i dag. Snakk med en voksen du stoler på, eller ring Kors på halsen på 116 111.");
+    if (recent >= 5) fail(429, "Du har sagt fra mange ganger i dag. Snakk med en voksen du stoler på, eller ring Alarmtelefonen for barn og unge på 116 111.");
     q("INSERT INTO safety_reports (reporter_id, category, text, created_at) VALUES (?, ?, ?, ?)").run(req.user.id, category, text, now());
     res.status(201).json({ ok: true });
   });

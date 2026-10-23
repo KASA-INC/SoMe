@@ -222,7 +222,7 @@
   "/me": {
    "me": {
     "id": 1,
-    "username": "foresatt-82c6146d7e",
+    "username": "foresatt-b845f7da10",
     "role": "parent",
     "displayName": "Kristin",
     "avatar": "c12",
@@ -368,7 +368,7 @@
      "id": 1,
      "name": "6B",
      "isOwner": true,
-     "inviteCode": "9CE8FF2DC3",
+     "inviteCode": "2362F6DCB4",
      "mediaReview": true,
      "pendingMedia": 0,
      "members": [
@@ -422,7 +422,7 @@
   },
   "/notify": {
    "email": "soon",
-   "pushKey": "BF5VnJs6_kERtR3jkgsEo7OyWg-7KEHQb0ph-WS1VF3OUe28ccQ-cZKNvMAsaawHCzbrz2Oh8f5JZNW26BjWJG0"
+   "pushKey": "BMBgbwkHY6wi3QPOV8PdVWqxCv3b5-pliZnoWXI_ynaQ577J-ughqBWJttM9sDh-h7rc9ikPpueOr_CA4Uluu-M"
   },
   "/admin/stats": {
    "totals": {
@@ -575,7 +575,7 @@
   "/sessions": {
    "sessions": [
     {
-     "id": "ed785fd182e4bf33",
+     "id": "2a0004372408608d",
      "device": "Ukjent enhet",
      "createdAt": 1792490400000,
      "lastSeen": 1792490400000,
@@ -586,7 +586,7 @@
   "/invites": {
    "links": [
     {
-     "id": "i0d06277bcc3c67f1",
+     "id": "i5f144d107196fe51",
      "kind": "invite",
      "email": "erik@example.com",
      "group": "6B",
@@ -600,7 +600,7 @@
     {
      "id": 3,
      "role": "parent",
-     "username": "foresatt-d48da626cb",
+     "username": "foresatt-61ecbfea2d",
      "displayName": "Hanne",
      "email": "hanne@example.com",
      "createdAt": 1792490400000,
@@ -614,7 +614,7 @@
     {
      "id": 1,
      "role": "parent",
-     "username": "foresatt-82c6146d7e",
+     "username": "foresatt-b845f7da10",
      "displayName": "Kristin",
      "email": "kristin@example.com",
      "createdAt": 1792490400000,
@@ -628,7 +628,7 @@
     {
      "id": 4,
      "role": "parent",
-     "username": "foresatt-d3075da682",
+     "username": "foresatt-adbac1776d",
      "displayName": "Lars",
      "email": "lars@example.com",
      "createdAt": 1792490400000,
@@ -642,7 +642,7 @@
     {
      "id": 2,
      "role": "parent",
-     "username": "foresatt-89d4273702",
+     "username": "foresatt-688475f3ce",
      "displayName": "Thomas",
      "email": "thomas@example.com",
      "createdAt": 1792490400000,
@@ -834,7 +834,7 @@
      "text": "Takk! Jeg kan ta med kake. Er det noen som kan kjøre til turdagen på fredag?",
      "createdAt": 1792486920000,
      "author": "Hanne",
-     "avatar": "c18",
+     "avatar": "c01",
      "mine": false,
      "imageId": null,
      "canDelete": true
@@ -844,7 +844,7 @@
      "text": "Hei alle! Husk foreldremøtet tirsdag kl. 18 i klasserommet. Det blir kaffe og kake.",
      "createdAt": 1792485420000,
      "author": "Thomas",
-     "avatar": "c17",
+     "avatar": "c01",
      "mine": false,
      "imageId": null,
      "canDelete": true
