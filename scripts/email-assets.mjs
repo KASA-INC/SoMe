@@ -27,7 +27,7 @@ await shoot(`<svg width="${H + 9 + wordW}" height="${H}" style="display:block">
 
 // Knapper: korall med nesten svart tekst, som i appens mørke modus.
 for (const [label, file] of Object.entries(EMAIL_BUTTONS)) {
-  await shoot(`<div style="background:${CORAL};color:${INK};border-radius:12px;padding:14px 26px;
+  await shoot(`<div style="background:${CORAL};color:${INK};border-radius:999px;padding:14px 28px;
     font:600 16px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;white-space:nowrap">${label}</div>`, file);
 }
 await browser.close();

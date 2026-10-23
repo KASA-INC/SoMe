@@ -258,7 +258,7 @@ select {
   background: var(--accent);
   color: var(--accent-ink);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 999px; /* helt runde kortsider på alle knapper */
   padding: 12px 20px;
   cursor: pointer;
   user-select: none;
@@ -267,7 +267,7 @@ select {
   text-decoration: none;
 }
 .btn.block { width: 100%; }
-.btn.small { min-height: 40px; font-size: 0.9rem; padding: 8px 14px; border-radius: 10px; }
+.btn.small { min-height: 40px; font-size: 0.9rem; padding: 8px 16px; border-radius: 999px; }
 .btn.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--surface-3); }
 .btn.soft { background: var(--accent-soft); color: var(--accent-soft-ink); }
 .btn.danger { background: var(--danger-soft); color: var(--danger); }
@@ -513,7 +513,7 @@ select {
 
 .picker { margin-top: 10px; padding: 10px; border-radius: var(--radius-sm); background: var(--surface-2); }
 .stickers { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
-.stickers button { min-height: 44px; border: none; border-radius: 10px; background: transparent; font-size: 1.4rem; cursor: pointer; min-width: 0; }
+.stickers button { min-height: 44px; border: none; border-radius: 999px; background: transparent; font-size: 1.4rem; cursor: pointer; min-width: 0; }
 .stickers button.selected { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
 .stickers button .icon { color: var(--text-3); }
 .colors { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -534,8 +534,8 @@ progress::-moz-progress-bar { background: var(--accent); }
 .warning svg.icon { width: 18px; height: 18px; margin-top: 1px; }
 
 /* ---------- Foresatte ---------- */
-.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: 14px; background: var(--surface-3); margin-bottom: 16px; }
-.tabs button { min-height: 40px; border: none; border-radius: 10px; background: transparent; color: var(--text-2); font-weight: 600; font-size: 0.925rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: 999px; background: var(--surface-3); margin-bottom: 16px; }
+.tabs button { min-height: 40px; border: none; border-radius: 999px; background: transparent; color: var(--text-2); font-weight: 600; font-size: 0.925rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .tabs button.selected { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 .tabs .count { background: var(--danger); color: var(--danger-ink); border-radius: 999px; font-size: 0.7rem; padding: 1px 6px; }
 

@@ -78,7 +78,7 @@ export function renderEmail({ preheader, heading, paragraphs, button, note }) {
     const img = EMAIL_BUTTONS[button.label] && embed(EMAIL_BUTTONS[button.label], "button@quipu");
     const inner = img
       ? `<img src="cid:${img.cid}" width="${img.width}" height="${img.height}" alt="${escape(button.label)}" style="display:block;border:0">`
-      : `<span style="display:inline-block;padding:14px 26px;border-radius:12px;${lockedBg(C.button)};color:${C.buttonInk};font-size:16px;font-weight:600">${escape(button.label)}</span>`;
+      : `<span style="display:inline-block;padding:14px 28px;border-radius:999px;${lockedBg(C.button)};color:${C.buttonInk};font-size:16px;font-weight:600">${escape(button.label)}</span>`;
     buttonHtml = `
           <tr><td style="padding:8px 0 20px"><a href="${escape(button.url)}" style="text-decoration:none">${inner}</a></td></tr>
           <tr><td>${keepText(`<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:${C.text}">Virker ikke knappen? Kopier denne lenken inn i nettleseren:<br>${link(button.url)}</p>`)}</td></tr>`;
