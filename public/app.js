@@ -670,8 +670,9 @@ const INTRO = [
   {
     icon: "shield",
     title: "Hvis noe føles feil",
-    text: ["Trykk «Si fra» på innlegget. Da blir det skjult, og en voksen ser på det.",
-      "Snakk gjerne med en voksen du stoler på.",
+    text: ["Trykk «Si fra» på innlegget. Da blir det skjult, og en voksen ser på det. Den voksne som har ansvar for gruppa, og de som passer på quipu, kan lese innlegg som noen har sagt fra om.",
+      "Er det noe annet, eller gjelder det en voksen, trykker du «Si fra om noe annet» nederst i feeden. Det leser bare de som passer på quipu.",
+      "Snakk gjerne med en voksen du stoler på, eller ring Kors på halsen på 116 111. Det er gratis.",
       `${APP_NAME} har en tidsgrense og stenger om kvelden. Det er meningen – det er mye annet gøy å gjøre også.`],
   },
 ];
@@ -725,7 +726,8 @@ async function showChild() {
       h("p", {},
         h("button", { type: "button", class: "link small", onclick: () => showIntro({ again: true }) }, `Slik fungerer ${APP_NAME}`),
         " · ",
-        h("button", { type: "button", class: "link small", onclick: openAvatarSheet }, "Bytt profilbilde"))));
+        h("button", { type: "button", class: "link small", onclick: openAvatarSheet }, "Bytt profilbilde")),
+      h("p", {}, h("button", { type: "button", class: "link small", onclick: openSafety }, icon("flag"), "Si fra om noe annet"))));
 }
 
 // Nye innlegg mens feeden er åpen: en rolig knapp øverst, ingen lyd og ingen varsler utenfor appen.
@@ -865,7 +867,10 @@ function composer(groups, close) {
       ? h("video", { src: localUrl, controls: true, playsinline: true, muted: true, preload: "metadata" })
       : h("img", { src: localUrl, alt: "Bildet du har valgt" });
     preview.replaceChildren(media, h("div", { class: "upload-row" }, status, bar,
-      h("button", { type: "button", class: "link danger small", onclick: clearAttachment }, "Fjern")));
+      h("button", { type: "button", class: "link danger small", onclick: clearAttachment }, "Fjern")),
+      // Ingen automatisk sjekk av bildet, så barnet minnes på det selv.
+      h("p", { class: "media-tip muted small" }, icon("eye"),
+        h("span", {}, `Sjekk før du deler: Viser ${isVideo ? "videoen" : "bildet"} adresse, skolen din eller andre barn? Spør dem først, og del aldri noe som viser hvor du bor.`)));
     preview.classList.remove("hidden");
 
     uploading = true;
@@ -962,11 +967,74 @@ function childActions(p) {
       await api(`/posts/${p.id}`, { method: "DELETE" }).then(showChild, handleChildError);
     }, "ghost", "trash");
   }
-  return btn("Si fra", async () => {
-    if (!confirm("Vil du skjule innlegget og si fra til en voksen?")) return;
-    await api(`/posts/${p.id}/report`, { method: "POST" })
-      .then(() => { toast("Takk for at du sa fra. En voksen ser på det."); showChild(); }, handleChildError);
-  }, "ghost", "flag");
+  return btn("Si fra", () => openReport(p), "ghost", "flag");
+}
+
+// ---------- Si fra ----------
+// Velg hva det gjelder, så alvorlige saker kommer først hos de voksne.
+function categoryPicker() {
+  const cats = config.reportCategories || { annet: { label: "Noe annet" } };
+  const group = h("div", { class: "report-cats", role: "radiogroup", "aria-label": "Hva gjelder det?" });
+  for (const [key, c] of Object.entries(cats)) {
+    group.append(h("label", { class: "report-cat" }, h("input", { type: "radio", name: "category", value: key, required: true }), h("span", {}, c.label)));
+  }
+  return group;
+}
+
+// Beskjed etterpå: hva som skjer nå, og hvor barnet kan få hjelp.
+function reportThanks(close, text) {
+  return h("div", { class: "report-thanks" },
+    h("div", { class: "end-icon" }, icon("check")),
+    h("p", {}, text),
+    h("p", { class: "muted small" }, "Er du redd eller lei deg, snakk med en voksen du stoler på. Du kan også ringe eller chatte med Kors på halsen. Det er gratis, og du trenger ikke si hvem du er."),
+    h("p", { class: "help-line" }, icon("phone"), h("span", {}, h("strong", {}, "116 111"), " · Kors på halsen")),
+    btn("Ferdig", close, "block"));
+}
+
+function openReport(p) {
+  openSheet("Si fra om innlegget", (close) => {
+    const warning = warningBox();
+    const form = h("form", {},
+      h("p", { class: "muted small" }, "Innlegget blir skjult for de andre med en gang. Den voksne som har ansvar for gruppa, og de som passer på quipu, ser på det. Den som skrev det, får ikke vite at det var du."),
+      h("p", { class: "field-label" }, "Hva gjelder det?"),
+      categoryPicker(),
+      h("button", { class: "btn block" }, icon("flag"), "Si fra"),
+      warning);
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        await api(`/posts/${p.id}/report`, { method: "POST", body: { category: formData(form).category } });
+        form.replaceWith(reportThanks(() => { close(); showChild(); }, "Takk for at du sa fra. Innlegget er skjult, og en voksen ser på det."));
+      } catch (err) {
+        if (err.code === "CLOSED" || err.code === "TIME_UP") { close(); return handleChildError(err); }
+        showWarning(warning, err.message);
+      }
+    });
+    return form;
+  });
+}
+
+// Si fra om noe som ikke står i et innlegg, eller som gjelder en voksen. Bare de som passer på quipu, leser det.
+function openSafety() {
+  openSheet("Si fra om noe annet", (close) => {
+    const warning = warningBox();
+    const text = h("textarea", { name: "text", required: true, minlength: 3, maxlength: 1000, rows: 4, placeholder: "Skriv hva som har skjedd, og hvem det gjelder" });
+    const form = h("form", {},
+      h("p", { class: "muted small" }, "Dette leser bare de som passer på quipu, ikke de andre i gruppa, og ikke foreldrene dine. Bruk det hvis noe er ekkelt eller skummelt, også hvis det gjelder en voksen."),
+      h("p", { class: "field-label" }, "Hva gjelder det?"),
+      categoryPicker(),
+      field("Hva har skjedd?", text),
+      h("button", { class: "btn block" }, icon("flag"), "Send"),
+      warning);
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        await api("/safety", { method: "POST", body: formData(form) });
+        form.replaceWith(reportThanks(close, "Takk for at du sa fra. En voksen som passer på quipu, leser det du skrev."));
+      } catch (err) { showWarning(warning, err.message); }
+    });
+    return form;
+  });
 }
 
 // ---------- Opplasting ----------
@@ -1483,32 +1551,126 @@ function accountTab() {
 // ---------- Administrasjon (bare for den som drifter quipu) ----------
 // Statistikk som tall, meldte innlegg fra alle grupper, og utestenging. Alt som gjøres, logges på serveren.
 function adminTab() {
-  const stats = h("div", {}, h("p", { class: "muted" }, "Henter tall …"));
+  // Først sjekkes to-trinns innloggingen. Serveren sier fra om den mangler eller koden må skrives inn.
+  const body = h("div", {}, h("p", { class: "muted" }, "Henter …"));
+  api("/admin/stats").then((data) => body.replaceChildren(...adminSections(data)), (err) => {
+    if (err.code === "MFA_SETUP") body.replaceChildren(mfaSetupCard());
+    else if (err.code === "MFA_REQUIRED") body.replaceChildren(mfaCodeCard());
+    else body.replaceChildren(h("p", { class: "warning" }, icon("alert"), h("span", {}, err.message)));
+  });
+  return [
+    h("div", { class: "section-title" }, h("h2", {}, "Admin")),
+    h("p", { class: "muted small admin-note" }, `Bare for drift av ${APP_NAME}. Statistikken er tall uten navn. Du ser bare innlegg som noen har meldt, og det barn sender med «Si fra om noe annet». Alt du gjør her, logges.`),
+    body,
+  ];
+}
+
+function adminSections(statsData) {
+  const stats = h("div", {});
+  const safety = h("div", {});
   const reports = h("div", {});
   const users = h("div", {});
   const log = h("div", {});
-  loadAdminStats(stats);
+  loadAdminStats(stats, statsData);
+  loadAdminSafety(safety);
   loadAdminReports(reports);
   loadAdminLog(log);
   const search = h("input", { id: "admin-search", type: "search", placeholder: "Navn, brukernavn eller e-post", autocomplete: "off", autocapitalize: "none" });
   let timer;
   search.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => loadAdminUsers(users, search.value), 300); });
   return [
-    h("div", { class: "section-title" }, h("h2", {}, "Admin")),
-    h("p", { class: "muted small admin-note" }, `Bare for drift av ${APP_NAME}. Statistikken er tall uten navn. Du ser bare innlegg som noen har meldt, og alt du gjør her, logges.`),
     h("section", { class: "card" }, h("h3", {}, "Bruk"), stats),
+    h("section", { class: "card" }, h("h3", {}, "Meldinger fra barn"), safety),
     h("section", { class: "card" }, h("h3", {}, "Meldte innlegg"), reports),
     h("section", { class: "card" }, h("h3", {}, "Kontoer"), field("Søk etter en konto", search), users),
     h("section", { class: "card" }, h("h3", {}, "Logg"), log),
   ];
 }
 
+const codeInput = () => h("input", { name: "code", inputmode: "numeric", autocomplete: "one-time-code", pattern: "[0-9 ]{6,7}", maxlength: 7, required: true, placeholder: "123456" });
+
+// Første gang: koble en autentiseringsapp til kontoen.
+function mfaSetupCard() {
+  let start;
+  const box = h("section", { class: "card" }, h("h3", {}, "Slå på to-trinns innlogging"),
+    h("p", { class: "muted small" }, "Administrasjonen viser meldte innlegg og kan stenge kontoer. Derfor kreves en engangskode fra en app i tillegg til passordet. Bruk for eksempel Google Authenticator, Microsoft Authenticator, 1Password eller Passord-appen på iPhone."),
+    start = btn("Lag nøkkel", async () => {
+      try {
+        const { secret, uri } = await api("/admin/mfa/setup", { method: "POST" });
+        const warning = warningBox();
+        const code = codeInput();
+        const form = h("form", {},
+          h("ol", { class: "steps" },
+            h("li", {}, "Åpne autentiseringsappen og legg til en ny konto. På telefonen kan du trykke ", h("a", { class: "link", href: uri }, "Åpne i appen"), "."),
+            h("li", {}, "Eller skriv inn nøkkelen for hånd:", h("div", { class: "code-box" }, h("code", {}, secret.match(/.{1,4}/g).join(" ")), btn("Kopier", () => copyText(secret, "Nøkkelen"), "secondary small", "copy"))),
+            h("li", {}, "Skriv inn koden appen viser nå.")),
+          field("Kode fra appen", code),
+          h("button", { class: "btn block" }, icon("lock"), "Slå på"),
+          warning);
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          try {
+            await api("/admin/mfa/confirm", { method: "POST", body: { code: code.value } });
+            toast("To-trinns innlogging er slått på");
+            showParent();
+          } catch (err) { showWarning(warning, err.message); }
+        });
+        start.replaceWith(form);
+      } catch (err) { toast(err.message); }
+    }, "", "lock"),
+    h("p", { class: "muted small" }, "Mister du telefonen, slår du det av på serveren med «npm run admin -- <e-post> nullstill»."));
+  return box;
+}
+
+// Hver enhet må skrive inn en kode, og på nytt etter 12 timer.
+function mfaCodeCard() {
+  const warning = warningBox();
+  const code = codeInput();
+  const form = h("form", { class: "card" }, h("h3", {}, "Skriv inn koden"),
+    h("p", { class: "muted small" }, "Koden fra autentiseringsappen trengs på hver enhet, og igjen etter 12 timer."),
+    field("Kode fra appen", code),
+    h("button", { class: "btn block" }, icon("lock"), "Fortsett"),
+    warning);
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/admin/mfa", { method: "POST", body: { code: code.value } });
+      showParent();
+    } catch (err) { showWarning(warning, err.message); }
+  });
+  return form;
+}
+
+async function loadAdminSafety(box) {
+  try {
+    const { reports, categories } = await api("/admin/safety");
+    if (!reports.length) return box.replaceChildren(h("p", { class: "muted small" }, "Ingen meldinger."));
+    box.replaceChildren(...reports.map((r) => {
+      const note = h("input", { placeholder: "Hva ble gjort (lagres i loggen)", maxlength: 500, "aria-label": "Notat" });
+      return h("div", { class: `admin-report${r.resolved ? " done" : ""}` },
+        h("div", { class: "meta" }, h("strong", {}, r.child.displayName), ` @${r.child.username} · foresatte: ${r.child.guardians.join(", ") || "ingen"} · ${fmtTime(r.createdAt)}`,
+          h("span", { class: `badge${r.serious ? "" : " warn"}` }, categories[r.category]?.label || r.category),
+          r.resolved && h("span", { class: "badge done" }, `behandlet${r.resolvedBy ? ` av ${r.resolvedBy}` : ""}`)),
+        h("p", { class: "text" }, r.text),
+        r.resolved
+          ? r.note && h("p", { class: "muted small" }, `Notat: ${r.note}`)
+          : h("div", { class: "row" }, note, btn("Ferdig", async () => {
+            try {
+              await api(`/admin/safety/${r.id}`, { method: "POST", body: { note: note.value } });
+              loadAdminSafety(box);
+              loadAdminLog(document.querySelector(".admin-log-box") || h("div"));
+            } catch (err) { toast(err.message); }
+          }, "secondary small", "check")));
+    }));
+  } catch (err) { box.replaceChildren(h("p", { class: "warning" }, icon("alert"), h("span", {}, err.message))); }
+}
+
 const fmtDay = (day) => new Date(`${day}T12:00:00`).toLocaleDateString("nb-NO", { weekday: "short", day: "numeric", month: "short" });
 const fmtTime = (t) => new Date(t).toLocaleString("nb-NO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
-async function loadAdminStats(box) {
+async function loadAdminStats(box, preloaded) {
   try {
-    const { totals: t, today, days } = await api("/admin/stats");
+    const { totals: t, today, days } = preloaded || await api("/admin/stats");
     const tile = (label, value, sub) => h("div", { class: "stat" }, h("div", { class: "value" }, String(value)), h("div", { class: "label" }, label), sub && h("div", { class: "sub" }, sub));
     const avg = (d) => (d.activeChildren ? Math.round(d.minutes / d.activeChildren) : 0);
     box.replaceChildren(
@@ -1517,7 +1679,7 @@ async function loadAdminStats(box) {
         tile("Barn", t.children, `${t.sharedChildren} med flere foresatte`),
         tile("Grupper", t.groups),
         tile("Aktive barn i dag", today.activeChildren, `${today.minutes} min · ${today.posts} innlegg`),
-        tile("Åpne meldinger", t.openReports),
+        tile("Åpne meldinger", t.openReports + (t.openSafety || 0), `${t.openReports} innlegg · ${t.openSafety || 0} fra barn`),
         tile("Stengte kontoer", t.suspended),
         tile("Enheter med push", t.pushDevices)),
       days.length
@@ -1533,25 +1695,29 @@ async function loadAdminStats(box) {
 
 async function loadAdminReports(box) {
   try {
-    const { posts } = await api("/admin/reports");
+    const { posts, categories } = await api("/admin/reports");
     if (!posts.length) return box.replaceChildren(h("p", { class: "muted small" }, "Ingen meldte innlegg akkurat nå."));
     const act = (p, action) => async () => {
       try {
         await api(`/admin/posts/${p.id}`, { method: "POST", body: { action } });
-        toast(action === "remove" ? "Innlegget er fjernet" : "Innlegget vises igjen");
+        toast({ remove: "Innlegget er fjernet", restore: "Innlegget vises igjen", hold: "Innlegget er bevart og skjult", release: "Innlegget bevares ikke lenger" }[action]);
         loadAdminReports(box);
         loadAdminLog(document.querySelector(".admin-log-box") || h("div"));
       } catch (err) { toast(err.message); }
     };
     box.replaceChildren(...posts.map((p) => h("div", { class: "admin-report" },
       h("div", { class: "meta" }, h("strong", {}, p.author), ` @${p.username} · ${p.groupName} · ${timeAgo(p.createdAt)}`,
-        h("span", { class: "badge" }, `${p.reports} ${p.reports === 1 ? "melding" : "meldinger"}`),
+        ...p.categories.map((c) => h("span", { class: `badge${categories[c]?.serious ? "" : " warn"}` }, categories[c]?.label || c)),
+        p.reports > 1 && h("span", { class: "badge warn" }, `${p.reports} meldinger`),
+        p.hold && h("span", { class: "badge done" }, "bevart"),
         p.authorSuspended && h("span", { class: "badge warn" }, "stengt")),
       h("p", { class: "text" }, p.text),
       p.media && mediaView(p),
       h("div", { class: "row" },
         btn("Fjern innlegget", act(p, "remove"), "danger small", "trash"),
-        btn("Vis igjen", act(p, "restore"), "secondary small", "eye"),
+        !p.hold && btn("Vis igjen", act(p, "restore"), "secondary small", "eye"),
+        // Bevar som dokumentasjon i alvorlige saker: skjult for barna, men slettes ikke av oppryddingen.
+        btn(p.hold ? "Slutt å bevare" : "Bevar som dokumentasjon", act(p, p.hold ? "release" : "hold"), "ghost small", "lock"),
         !p.authorSuspended && btn(`Steng @${p.username}`, () => suspendForm(box, { id: p.authorId, displayName: p.author, role: "child" }, () => loadAdminReports(box)), "ghost small", "lock")))));
   } catch (err) { box.replaceChildren(h("p", { class: "warning" }, icon("alert"), h("span", {}, err.message))); }
 }

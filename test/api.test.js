@@ -7,6 +7,7 @@ import { openDb } from "../server/db.js";
 import { createApp } from "../server/app.js";
 import { checkText } from "../server/filter.js";
 import { createVapidKeys, encryptPayload, vapidHeader } from "../server/push.js";
+import { codeAt } from "../server/totp.js";
 import { createECDH, createDecipheriv, createPublicKey, hkdfSync, randomBytes, verify } from "node:crypto";
 
 const fixture = (name) => readFileSync(new URL(`fixtures/${name}`, import.meta.url));
@@ -705,6 +706,14 @@ async function secondParent(a, prefix) {
   await a.parent(`/groups/${a.groupId}/members/${tor.id}`, { method: "POST", body: { action: "approve" } });
   return b;
 }
+// Gjør en foresatt til administrator med to-trinns innlogging, slik det gjøres i appen.
+async function makeAdmin(c, email) {
+  db.prepare("UPDATE users SET is_admin = 1 WHERE email = ?").run(email);
+  const { body } = await c("/admin/mfa/setup", { method: "POST" });
+  const res = await c("/admin/mfa/confirm", { method: "POST", body: { code: codeAt(body.secret, Math.floor(clock / 30000)) } });
+  assert.equal(res.status, 200);
+  return body.secret;
+}
 const fakeSub = (name) => ({ endpoint: `https://push.example.com/${name}`, keys: { p256dh: "B".repeat(87), auth: "A".repeat(22) } });
 
 test("push: innholdet krypteres slik at bare enheten kan lese det (RFC 8291)", () => {
@@ -1022,12 +1031,13 @@ test("admin: bare administratoren slipper inn, og statistikken er bare tall", as
   const sjef = client();
   await registerParent(sjef, "adm-sjef@example.com", "Sjef");
   assert.equal((await sjef("/admin/stats")).status, 404, "vanlige foresatte ser ikke at admin finnes");
-  db.prepare("UPDATE users SET is_admin = 1 WHERE email = ?").run("adm-sjef@example.com");
+  const secret = await makeAdmin(sjef, "adm-sjef@example.com");
   assert.equal((await sjef("/me")).body.me.isAdmin, true);
   await post(a.kid, a.groupId, "Hei fra statistikken");
   const start = clock;
   clock += 864e5; // neste dag: i går blir en dagssum
   try {
+    await sjef("/admin/mfa", { method: "POST", body: { code: codeAt(secret, Math.floor(clock / 30000)) } }); // ny kode etter 12 timer
     const { body } = await sjef("/admin/stats");
     assert.ok(body.totals.children >= 1 && body.totals.groups >= 1);
     const yesterday = body.days.find((d) => d.day === "2026-10-20");
@@ -1045,7 +1055,7 @@ test("admin: ser meldte innlegg og kan fjerne dem eller vise dem igjen", async (
   const b = await secondParent(a, "admr");
   const sjef = client();
   await registerParent(sjef, "admr-sjef@example.com", "Sjef");
-  db.prepare("UPDATE users SET is_admin = 1 WHERE email = ?").run("admr-sjef@example.com");
+  await makeAdmin(sjef, "admr-sjef@example.com");
   const { body: { posts: [p] } } = await (await post(a.kid, a.groupId, "Et innlegg som blir meldt"), a.kid("/feed"));
   // Innlegg som ikke er meldt, ser ikke administratoren.
   assert.equal((await sjef("/admin/reports")).body.posts.some((x) => x.id === p.id), false);
@@ -1066,7 +1076,7 @@ test("admin: utestenging av foresatt stenger barn uten annen foresatt, og e-post
   const a = await setupFamily("ban"); // mor med Ola
   const sjef = client();
   await registerParent(sjef, "ban-sjef@example.com", "Sjef");
-  db.prepare("UPDATE users SET is_admin = 1 WHERE email = ?").run("ban-sjef@example.com");
+  await makeAdmin(sjef, "ban-sjef@example.com");
   // Lise har to barn: Kari (bare Lise) og Ola deles med mor.
   const lise = client();
   await registerParent(lise, "ban-lise@example.com", "Lise");
@@ -1098,4 +1108,70 @@ test("admin: utestenging av foresatt stenger barn uten annen foresatt, og e-post
   assert.equal((await client()("/login", { method: "POST", body: { username: "ban-kari", password: "kari12345" } })).status, 200);
   assert.equal((await client()("/login", { method: "POST", body: { login: "ban-lise@example.com", password: "hemmelig123" } })).status, 200);
   assert.deepEqual((await sjef("/admin/log")).body.log.slice(0, 2).map((l) => l.action), ["åpnet", "stengte"]);
+});
+
+test("admin: to-trinns innlogging kreves, og en kode kan ikke brukes to ganger", async () => {
+  const sjef = client();
+  await registerParent(sjef, "mfa-sjef@example.com", "Sjef");
+  db.prepare("UPDATE users SET is_admin = 1 WHERE email = ?").run("mfa-sjef@example.com");
+  assert.equal((await sjef("/admin/stats")).body.code, "MFA_SETUP");
+  const { body: setup } = await sjef("/admin/mfa/setup", { method: "POST" });
+  assert.match(setup.uri, /^otpauth:\/\/totp\/quipu/);
+  assert.equal((await sjef("/admin/mfa/confirm", { method: "POST", body: { code: "000000" } })).status, 400);
+  const step = Math.floor(clock / 30000);
+  assert.equal((await sjef("/admin/mfa/confirm", { method: "POST", body: { code: codeAt(setup.secret, step) } })).status, 200);
+  assert.equal((await sjef("/admin/stats")).status, 200);
+  // En ny enhet må skrive inn kode. Samme kode som ble brukt i stad, godtas ikke.
+  const annen = client();
+  await annen("/login", { method: "POST", body: { login: "mfa-sjef@example.com", password: "hemmelig123" } });
+  assert.equal((await annen("/admin/stats")).body.code, "MFA_REQUIRED");
+  assert.equal((await annen("/admin/mfa", { method: "POST", body: { code: codeAt(setup.secret, step) } })).status, 400);
+  const start = clock;
+  clock += 30000;
+  try {
+    assert.equal((await annen("/admin/mfa", { method: "POST", body: { code: codeAt(setup.secret, step + 1) } })).status, 200);
+    assert.equal((await annen("/admin/stats")).status, 200);
+    // Etter 12 timer må koden skrives inn igjen.
+    clock += 13 * 3600e3;
+    assert.equal((await annen("/admin/stats")).body.code, "MFA_REQUIRED");
+  } finally {
+    clock = start;
+  }
+});
+
+test("barn kan si fra med kategori, og om noe annet direkte til administrator", async () => {
+  const a = await setupFamily("sf");
+  const b = await secondParent(a, "sf");
+  const sjef = client();
+  await registerParent(sjef, "sf-sjef@example.com", "Sjef");
+  await makeAdmin(sjef, "sf-sjef@example.com");
+  await post(a.kid, a.groupId, "Kom til parken alene i kveld");
+  const { body: { posts: [p] } } = await a.kid("/feed");
+  const tor = client();
+  await tor("/login", { method: "POST", body: { username: "sf-tor", password: "tor12345" } });
+  await tor(`/posts/${p.id}/report`, { method: "POST", body: { category: "kontakt" } });
+  const rep = await sjef("/admin/reports");
+  assert.equal(rep.status, 200, JSON.stringify(rep.body));
+  const reported = rep.body.posts.find((x) => x.id === p.id);
+  assert.deepEqual(reported.categories, ["kontakt"]);
+  assert.equal(reported.serious, true);
+  // Forfatteren sletter innlegget, men det er meldt: det skjules og blir liggende. Administrator bevarer det.
+  await a.kid(`/posts/${p.id}`, { method: "DELETE" });
+  assert.equal(db.prepare("SELECT status FROM posts WHERE id = ?").get(p.id).status, "removed");
+  await sjef(`/admin/posts/${p.id}`, { method: "POST", body: { action: "hold" } });
+  db.prepare("UPDATE posts SET created_at = created_at - ? WHERE id = ?").run(40 * 864e5, p.id); // eldre enn 30 dager
+  app.locals.cleanup();
+  assert.ok(db.prepare("SELECT 1 FROM posts WHERE id = ?").get(p.id), "bevart innlegg slettes ikke");
+  assert.equal((await sjef("/admin/reports")).body.posts.find((x) => x.id === p.id).hold, true);
+
+  // «Si fra om noe annet» går bare til administrator.
+  assert.equal((await tor("/safety", { method: "POST", body: { category: "kontakt", text: "En voksen sendte meg rare meldinger" } })).status, 201);
+  assert.equal((await b("/admin/safety")).status, 404);
+  const { body: { reports } } = await sjef("/admin/safety");
+  const mine = reports.find((r) => r.text === "En voksen sendte meg rare meldinger");
+  assert.equal(mine.child.username, "sf-tor");
+  assert.equal(mine.serious, true);
+  await sjef(`/admin/safety/${mine.id}`, { method: "POST", body: { note: "Snakket med foresatt" } });
+  assert.equal((await sjef("/admin/safety")).body.reports.find((r) => r.id === mine.id).resolved, true);
+  assert.equal((await b("/safety", { method: "POST", body: { text: "hei" } })).status, 403, "bare barn");
 });

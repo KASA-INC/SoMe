@@ -8,6 +8,7 @@ import { isJpeg, stripJpegMetadata, inspectVideo, MediaError } from "./media.js"
 import { createMailer } from "./mail.js";
 import { renderEmail } from "./email.js";
 import { createPushSender, createVapidKeys } from "./push.js";
+import { newSecret, verifyCode, otpauthUri } from "./totp.js";
 import { APP_NAME, CONTACT_EMAIL } from "./config.js";
 import {
   COOKIE, hashPassword, verifyPassword, createSession, destroySession, userFromToken,
@@ -27,6 +28,14 @@ export const KINDS = {
 };
 // Bakgrunnsfarge per innlegg velges ikke lenger i appen (alle meldinger er like bobler),
 // men feltet godtas fortsatt og lagres for eldre innlegg og klienter.
+// Hva barnet kan si fra om. Alvorlige saker vises først for administrator.
+export const REPORT_CATEGORIES = {
+  mobbing: { label: "Mobbing eller utestenging", serious: false },
+  trussel: { label: "Trusler eller vold", serious: true },
+  kontakt: { label: "Noen vil møte meg, ber om bilder eller er ekkel", serious: true },
+  bilde: { label: "Ekkelt eller farlig bilde eller video", serious: true },
+  annet: { label: "Noe annet", serious: false },
+};
 export const COLORS = ["lilla", "bla", "gronn", "gul", "oransje", "rosa"];
 export const STICKERS = ["", "⚽", "🏀", "🎮", "🎨", "📚", "🎵", "🎬", "🍕", "🚲", "🐶", "☀️"];
 // Profilbilder til barna: «Critters» fra DiceBear (CC0), farget med paletten. Filene ligger i public/avatars/
@@ -131,7 +140,9 @@ export function createApp({
   });
 
   app.use("/api", (req, res, next) => {
-    req.user = userFromToken(db, readCookie(req, COOKIE));
+    const token = readCookie(req, COOKIE);
+    req.user = userFromToken(db, token);
+    req.sessionHash = token ? sha256(token) : null;
     // En utestengt konto regnes som utlogget (øktene slettes også når den stenges).
     if (req.user?.suspended_at) req.user = null;
     next();
@@ -403,7 +414,7 @@ export function createApp({
       me.groups = q(`SELECT g.id, g.name FROM groups g JOIN memberships m ON m.group_id = g.id AND m.approved = 1
         WHERE m.user_id = ? ORDER BY g.name`).all(req.user.id);
     }
-    res.json({ me, kinds: KINDS, colors: COLORS, stickers: STICKERS, avatars: AVATARS, media: mediaLimits });
+    res.json({ me, kinds: KINDS, colors: COLORS, stickers: STICKERS, avatars: AVATARS, media: mediaLimits, reportCategories: REPORT_CATEGORIES });
   });
 
   // Barnet bytter profilbilde selv.
@@ -704,10 +715,52 @@ export function createApp({
 
   // ---------- Administrasjon ----------
   // Bare for den som drifter quipu: statistikk som tall, meldte innlegg og utestenging.
-  const admin = [parent, (req, res, next) => {
+  // Administrator må ha to-trinns innlogging, og skrive inn en engangskode på hver enhet minst hver 12. time.
+  const MFA_HOURS = 12;
+  const isAdmin = (req, res, next) => {
     if (!req.user.is_admin) fail(404, "Finnes ikke");
     next();
+  };
+  const admin = [parent, isAdmin, (req, res, next) => {
+    if (!req.user.totp_secret) fail(403, "Slå på to-trinns innlogging for å bruke administrasjonen.", "MFA_SETUP");
+    const s = q("SELECT mfa_at FROM sessions WHERE token_hash = ?").get(req.sessionHash);
+    if (!s?.mfa_at || now() - s.mfa_at > MFA_HOURS * 3600e3) fail(403, "Skriv inn koden fra autentiseringsappen.", "MFA_REQUIRED");
+    next();
   }];
+  const markMfa = (req, step) => {
+    q("UPDATE sessions SET mfa_at = ? WHERE token_hash = ?").run(now(), req.sessionHash);
+    q("UPDATE users SET totp_last_step = ? WHERE id = ?").run(step, req.user.id);
+  };
+
+  // Ny nøkkel til autentiseringsappen. Den tas i bruk først når en kode fra appen er bekreftet.
+  app.post("/api/admin/mfa/setup", parent, isAdmin, (req, res) => {
+    if (req.user.totp_secret) fail(409, "To-trinns innlogging er allerede slått på.");
+    const secret = newSecret();
+    q("UPDATE users SET totp_pending = ? WHERE id = ?").run(secret, req.user.id);
+    res.json({ secret, uri: otpauthUri(secret, req.user.email, APP_NAME) });
+  });
+  app.post("/api/admin/mfa/confirm", parent, isAdmin, (req, res) => {
+    const pending = q("SELECT totp_pending FROM users WHERE id = ?").get(req.user.id).totp_pending;
+    if (!pending) fail(400, "Start på nytt.");
+    const step = verifyCode(pending, req.body.code, now());
+    if (step === null) fail(400, "Feil kode. Sjekk at klokka på telefonen stemmer, og prøv koden som vises nå.");
+    q("UPDATE users SET totp_secret = ?, totp_pending = NULL WHERE id = ?").run(pending, req.user.id);
+    markMfa(req, step);
+    adminLog(req, "slo på to-trinns innlogging", req.user.display_name);
+    res.json({ ok: true });
+  });
+  app.post("/api/admin/mfa", parent, isAdmin, (req, res) => {
+    const key = `mfa|${req.user.id}`;
+    if (tooManyAttempts(key)) fail(429, "For mange forsøk. Vent litt og prøv igjen.");
+    const step = req.user.totp_secret && verifyCode(req.user.totp_secret, req.body.code, now(), req.user.totp_last_step);
+    if (step === null || step === undefined || step === false) {
+      recordFailure(key);
+      fail(400, "Feil kode. Prøv koden som vises nå.");
+    }
+    clearFailures(key);
+    markMfa(req, step);
+    res.json({ ok: true });
+  });
   const adminLog = (req, action, target, detail = "") =>
     q("INSERT INTO admin_log (admin_id, action, target, detail, created_at) VALUES (?, ?, ?, ?, ?)").run(req.user.id, action, target, detail, now());
 
@@ -743,6 +796,7 @@ export function createApp({
         invitedParents: count("SELECT COUNT(*) AS n FROM users WHERE invited_by IS NOT NULL"),
         sharedChildren: count("SELECT COUNT(*) AS n FROM (SELECT child_id FROM guardians GROUP BY child_id HAVING COUNT(*) > 1)"),
         openReports: count("SELECT COUNT(DISTINCT post_id) AS n FROM reports WHERE resolved = 0"),
+        openSafety: count("SELECT COUNT(*) AS n FROM safety_reports WHERE resolved_at IS NULL"),
         suspended: count("SELECT COUNT(*) AS n FROM users WHERE suspended_at IS NOT NULL"),
         pushDevices: count("SELECT COUNT(*) AS n FROM push_subscriptions"),
       },
@@ -763,20 +817,57 @@ export function createApp({
   app.get("/api/admin/reports", admin, (req, res) => {
     const posts = q(`SELECT ${POST_FIELDS}, u.username, u.id AS authorId, u.suspended_at AS authorSuspended,
         (SELECT COUNT(*) FROM reports r WHERE r.post_id = p.id AND r.resolved = 0) AS reports,
-        (SELECT MIN(created_at) FROM reports r WHERE r.post_id = p.id AND r.resolved = 0) AS reportedAt
+        (SELECT MIN(created_at) FROM reports r WHERE r.post_id = p.id) AS reportedAt,
+        (SELECT group_concat(DISTINCT category) FROM reports r WHERE r.post_id = p.id) AS categories,
+        p.hold, p.status AS postStatus
       ${POST_JOINS}
-      WHERE EXISTS (SELECT 1 FROM reports r WHERE r.post_id = p.id AND r.resolved = 0) AND p.status != 'removed'
-      ORDER BY reportedAt LIMIT 100`).all();
-    res.json({ posts: posts.map((p) => withMedia({ ...p, authorSuspended: !!p.authorSuspended })) });
+      WHERE (EXISTS (SELECT 1 FROM reports r WHERE r.post_id = p.id AND r.resolved = 0) AND p.status != 'removed') OR p.hold = 1
+      LIMIT 200`).all().map((p) => {
+      const categories = (p.categories || "annet").split(",");
+      return withMedia({ ...p, authorSuspended: !!p.authorSuspended, hold: !!p.hold, categories, serious: categories.some((c) => REPORT_CATEGORIES[c]?.serious) });
+    });
+    // Alvorlige saker først, så de eldste.
+    posts.sort((a, b) => (b.serious - a.serious) || (a.reportedAt - b.reportedAt));
+    res.json({ posts, categories: REPORT_CATEGORIES });
   });
 
   app.post("/api/admin/posts/:id", admin, (req, res) => {
     const post = q("SELECT * FROM posts WHERE id = ?").get(req.params.id);
     if (!post) fail(404, "Fant ikke innlegget");
-    if (!["remove", "restore"].includes(req.body.action)) fail(400, "Ugyldig valg");
-    q("UPDATE posts SET status = ? WHERE id = ?").run(req.body.action === "remove" ? "removed" : "visible", post.id);
+    const action = req.body.action;
+    if (!["remove", "restore", "hold", "release"].includes(action)) fail(400, "Ugyldig valg");
+    if (action === "hold" || action === "release") {
+      // Bevar som dokumentasjon i en alvorlig sak. Innlegget skjules for barna, men slettes ikke.
+      q("UPDATE posts SET hold = ?, status = CASE WHEN ? THEN 'removed' ELSE status END WHERE id = ?").run(action === "hold" ? 1 : 0, action === "hold" ? 1 : 0, post.id);
+      adminLog(req, action === "hold" ? "bevarte innlegg" : "sluttet å bevare innlegg", `innlegg ${post.id}`, post.text.slice(0, 80));
+      return res.json({ ok: true });
+    }
+    q("UPDATE posts SET status = ? WHERE id = ?").run(action === "remove" ? "removed" : "visible", post.id);
     q("UPDATE reports SET resolved = 1 WHERE post_id = ?").run(post.id);
-    adminLog(req, req.body.action === "remove" ? "fjernet innlegg" : "viste innlegg igjen", `innlegg ${post.id}`, post.text.slice(0, 80));
+    adminLog(req, action === "remove" ? "fjernet innlegg" : "viste innlegg igjen", `innlegg ${post.id}`, post.text.slice(0, 80));
+    res.json({ ok: true });
+  });
+
+  // «Si fra om noe annet» fra barn. Alvorlige først, og åpne før behandlede.
+  app.get("/api/admin/safety", admin, (req, res) => {
+    const rows = q(`SELECT s.*, u.display_name AS childName, u.username, r.display_name AS resolvedBy FROM safety_reports s
+      JOIN users u ON u.id = s.reporter_id LEFT JOIN users r ON r.id = s.resolved_by
+      ORDER BY s.resolved_at IS NOT NULL, s.created_at DESC LIMIT 100`).all();
+    res.json({
+      reports: rows.map((s) => ({
+        id: s.id, category: s.category, serious: !!REPORT_CATEGORIES[s.category]?.serious, text: s.text, createdAt: s.created_at,
+        child: { id: s.reporter_id, displayName: s.childName, username: s.username, guardians: guardiansOf(s.reporter_id).map((g) => g.display_name) },
+        resolved: !!s.resolved_at, resolvedBy: s.resolvedBy || "", note: s.note,
+      })).sort((a, b) => (a.resolved - b.resolved) || (b.serious - a.serious)),
+      categories: REPORT_CATEGORIES,
+    });
+  });
+  app.post("/api/admin/safety/:id", admin, (req, res) => {
+    const row = q("SELECT * FROM safety_reports WHERE id = ?").get(req.params.id);
+    if (!row) fail(404, "Fant ikke meldingen");
+    const note = String(req.body.note || "").trim().slice(0, 500);
+    q("UPDATE safety_reports SET resolved_at = ?, resolved_by = ?, note = ? WHERE id = ?").run(now(), req.user.id, note, row.id);
+    adminLog(req, "behandlet melding fra barn", `melding ${row.id}`, note);
     res.json({ ok: true });
   });
 
@@ -868,7 +959,7 @@ export function createApp({
     q("DELETE FROM child_shares WHERE expires_at < ?").run(t);
     const cutoff = clock(t - CLEANUP_DAYS * 864e5).day;
     q("DELETE FROM usage WHERE day < ?").run(cutoff);
-    q("DELETE FROM posts WHERE status = 'removed' AND created_at < ?").run(t - CLEANUP_DAYS * 864e5);
+    q("DELETE FROM posts WHERE status = 'removed' AND hold = 0 AND created_at < ?").run(t - CLEANUP_DAYS * 864e5);
     sweepMedia();
   }
   app.locals.cleanup = cleanup;
@@ -906,7 +997,10 @@ export function createApp({
     const allowed = post.author_id === req.user.id
       || !!q("SELECT 1 FROM guardians WHERE child_id = ? AND parent_id = ?").get(post.author_id, req.user.id);
     if (!allowed) fail(403, "Ikke tilgang");
-    q("DELETE FROM posts WHERE id = ?").run(post.id);
+    // Et innlegg noen har sagt fra om, slettes ikke med en gang: det skjules og ryddes bort etter 30 dager,
+    // så den som vurderer saken, fortsatt kan se det (og administrator kan bevare det).
+    if (post.hold || q("SELECT 1 FROM reports WHERE post_id = ?").get(post.id)) q("UPDATE posts SET status = 'removed' WHERE id = ?").run(post.id);
+    else q("DELETE FROM posts WHERE id = ?").run(post.id);
     sweepMedia();
     res.json({ ok: true });
   });
@@ -916,11 +1010,24 @@ export function createApp({
     const post = q(`SELECT p.* FROM posts p JOIN memberships m ON m.group_id = p.group_id AND m.user_id = ? AND m.approved = 1
       WHERE p.id = ?`).get(req.user.id, req.params.id);
     if (!post) fail(404, "Fant ikke innlegget");
+    const category = Object.hasOwn(REPORT_CATEGORIES, req.body.category) ? req.body.category : "annet";
     if (!q("SELECT 1 FROM reports WHERE post_id = ? AND reporter_id = ?").get(post.id, req.user.id)) {
-      q("INSERT INTO reports (post_id, reporter_id, created_at) VALUES (?, ?, ?)").run(post.id, req.user.id, now());
+      q("INSERT INTO reports (post_id, reporter_id, category, created_at) VALUES (?, ?, ?, ?)").run(post.id, req.user.id, category, now());
     }
     if (post.status === "visible") q("UPDATE posts SET status = 'hidden' WHERE id = ?").run(post.id);
     res.json({ ok: true });
+  });
+
+  // Barnet sier fra om noe direkte til dem som drifter quipu, utenom gruppa og foresatte.
+  // Brukes når problemet ikke står i et innlegg, eller gjelder en voksen.
+  app.post("/api/safety", needUser("child"), (req, res) => {
+    const category = Object.hasOwn(REPORT_CATEGORIES, req.body.category) ? req.body.category : "annet";
+    const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
+    if (text.length < 3 || text.length > 1000) fail(400, "Skriv litt om hva som har skjedd (3–1000 tegn)");
+    const recent = q("SELECT COUNT(*) AS n FROM safety_reports WHERE reporter_id = ? AND created_at > ?").get(req.user.id, now() - 864e5).n;
+    if (recent >= 5) fail(429, "Du har sagt fra mange ganger i dag. Snakk med en voksen du stoler på, eller ring Kors på halsen på 116 111.");
+    q("INSERT INTO safety_reports (reporter_id, category, text, created_at) VALUES (?, ?, ?, ?)").run(req.user.id, category, text, now());
+    res.status(201).json({ ok: true });
   });
 
   // ---------- Foresatte: barn ----------

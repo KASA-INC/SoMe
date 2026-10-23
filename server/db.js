@@ -186,6 +186,19 @@ CREATE TABLE IF NOT EXISTS admin_log (
   created_at INTEGER NOT NULL
 );
 
+-- Barn kan si fra om noe direkte til dem som drifter quipu, utenom gruppa og foresatte
+-- (for eksempel når problemet er en voksen). Bare administrator ser disse.
+CREATE TABLE IF NOT EXISTS safety_reports (
+  id INTEGER PRIMARY KEY,
+  reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  category TEXT NOT NULL,
+  text TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  resolved_at INTEGER,
+  resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  note TEXT NOT NULL DEFAULT ''
+);
+
 -- Foresatte som er invitert til en gruppe. Med invitasjonen kan de melde inn barnet uten invitasjonskode.
 -- Har eieren av gruppa invitert, slipper barnet rett inn (auto_approve). Ellers må eieren godkjenne som vanlig.
 CREATE TABLE IF NOT EXISTS group_invitations (
@@ -256,6 +269,22 @@ function migrate(db) {
     db.exec("ALTER TABLE users ADD COLUMN suspended_at INTEGER");
     db.exec("ALTER TABLE users ADD COLUMN suspended_reason TEXT");
     db.exec("ALTER TABLE users ADD COLUMN suspended_cause TEXT");
+  }
+  if (!columns("users").includes("totp_secret")) {
+    // To-trinns innlogging (engangskode fra en app) for administrator.
+    db.exec("ALTER TABLE users ADD COLUMN totp_secret TEXT");
+    db.exec("ALTER TABLE users ADD COLUMN totp_pending TEXT");
+    db.exec("ALTER TABLE users ADD COLUMN totp_last_step INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!columns("sessions").includes("mfa_at")) {
+    db.exec("ALTER TABLE sessions ADD COLUMN mfa_at INTEGER"); // når engangskoden sist ble skrevet inn på denne enheten
+  }
+  if (!columns("reports").includes("category")) {
+    db.exec("ALTER TABLE reports ADD COLUMN category TEXT NOT NULL DEFAULT 'annet'");
+  }
+  if (!columns("posts").includes("hold")) {
+    // Bevart som dokumentasjon i en alvorlig sak: slettes ikke av oppryddingen før administrator slipper det.
+    db.exec("ALTER TABLE posts ADD COLUMN hold INTEGER NOT NULL DEFAULT 0");
   }
   if (!columns("parent_invites").includes("group_id")) {
     db.exec("ALTER TABLE parent_invites ADD COLUMN group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE");
