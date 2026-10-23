@@ -144,7 +144,9 @@ Tjenesten bruker planen *Starter* med en disk på 1 GB i Frankfurt (EU), fordi d
 
 Nye endringer på grenen publiseres når testene i GitHub har gått gjennom (`autoDeployTrigger: checksPass`). Er tjenesten laget uten Blueprint, velg **Settings → Build & Deploy → Auto-Deploy: After CI Checks Pass** i Render. Testene ligger i `.github/workflows/test.yml` og kjører `npm test` og `npm audit` ved hver push.
 
-`/healthz` svarer med feil hvis databasen ikke svarer, eller hvis varslingen av alvorlige saker ikke har kjørt på 5 minutter. Da starter Render appen på nytt. `.github/workflows/overvaking.yml` sjekker `https://www.quipu.no/healthz` hvert tiende minutt og sender e-post fra GitHub hvis den feiler. GitHub kjører planlagte jobber bare fra standardgrenen, så overvåkingen starter først når koden er flettet dit.
+`/healthz` svarer med feil hvis databasen ikke svarer, eller hvis varslingen av alvorlige saker ikke har kjørt på 5 minutter. Da starter Render appen på nytt. `.github/workflows/overvaking.yml` sjekker `https://www.quipu.no/healthz` hvert tiende minutt og sender e-post fra GitHub hvis den feiler. GitHub kjører planlagte jobber bare fra standardgrenen, og kan forsinke dem noen minutter.
+
+Dependabot (`.github/dependabot.yml`) lager forslag til oppdatering av kodepakker og GitHub Actions hver uke, og med en gang når en kjent sårbarhet blir kjent.
 
 ## Drift på annen server
 
