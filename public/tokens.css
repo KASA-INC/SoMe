@@ -64,6 +64,7 @@
   --radius: 16px;
   --radius-bubble: 26px;
   --radius-pill: 999px;
+  --font-display: "Visby CF", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
   color-scheme: light;
