@@ -658,7 +658,19 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 .info-grid.checks li::before {
   background: #145b5e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f8f8f4' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 11px no-repeat;
 }
+/* Om-siden: minus foran det vi har valgt bort, pluss foran det vi har valgt. */
+.info-grid.minus li::before {
+  background: var(--coral) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23161619' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E") center / 10px no-repeat;
+}
+.info-cards.plus h3 { display: flex; align-items: center; gap: 10px; }
+.info-cards.plus h3::before {
+  content: ""; flex: none; width: 18px; height: 18px; border-radius: 50%;
+  background: #145b5e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f8f8f4' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M12 6v12M6 12h12'/%3E%3C/svg%3E") center / 10px no-repeat;
+}
 @media (prefers-color-scheme: dark) {
+  .info-cards.plus h3::before {
+    background: #f3785b url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23161619' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M12 6v12M6 12h12'/%3E%3C/svg%3E") center / 10px no-repeat;
+  }
   .info-grid.checks li::before {
     background: #f3785b url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23161619' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 11px no-repeat;
   }
