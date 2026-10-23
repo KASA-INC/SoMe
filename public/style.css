@@ -500,6 +500,12 @@ body.auth-page .topbar { display: none; }
 
 .code-box { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 6px 6px 14px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px dashed var(--surface-3); margin-top: 12px; }
 .code-box .label { font-size: 0.75rem; color: var(--text-3); font-weight: 600; }
+/* Invitasjonslenken er lang: den brytes, og knappene står under på smale skjermer. */
+.code-box.invite-link { flex-wrap: wrap; padding: 10px 10px 10px 14px; margin: 12px 0; }
+.code-box.invite-link > div:first-child { flex: 1 1 220px; min-width: 0; }
+.code-box.invite-link code { display: block; font-size: 0.8rem; letter-spacing: 0; overflow-wrap: anywhere; }
+.notice.invited { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.code-help > p { margin: 4px 0 8px; }
 .code-box code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.08em; user-select: all; -webkit-user-select: all; }
 
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--surface-2); cursor: pointer; font-size: 0.925rem; }

@@ -128,6 +128,16 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   created_at INTEGER NOT NULL
 );
 
+-- Invitasjoner fra en foresatt til en annen. Lenken lar den inviterte lage konto uten registreringskode.
+-- Bare en hash av koden lagres. Raden slettes når invitasjonen er brukt eller har gått ut.
+CREATE TABLE IF NOT EXISTS parent_invites (
+  token_hash TEXT PRIMARY KEY,
+  inviter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email TEXT,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+
 -- Innstillinger for tjenesten, f.eks. nøklene til push-varsler.
 CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,
@@ -181,6 +191,10 @@ function migrate(db) {
     db.exec("ALTER TABLE media ADD COLUMN adult_message_id INTEGER REFERENCES adult_messages(id) ON DELETE CASCADE");
   }
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS media_adult_message ON media (adult_message_id) WHERE adult_message_id IS NOT NULL");
+  if (!columns("users").includes("invited_by")) {
+    // Hvem som inviterte en foresatt, så man kan se hvem som har kommet inn gjennom hvem.
+    db.exec("ALTER TABLE users ADD COLUMN invited_by INTEGER REFERENCES users(id) ON DELETE SET NULL");
+  }
   if (!columns("memberships").includes("approved")) {
     db.exec("ALTER TABLE memberships ADD COLUMN approved INTEGER NOT NULL DEFAULT 1");
   }

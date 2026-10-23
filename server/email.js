@@ -20,6 +20,7 @@ export const EMAIL_BUTTONS = {
   "Åpne Grupper": "button-groups.png",
   [`Åpne ${APP_NAME}`]: "button-open.png",
   "Åpne voksenkontakten": "button-adult.png",
+  "Lag konto": "button-invite.png",
 };
 
 const C = { bg: "#145b5e", text: "#f8f8f4", button: "#f3785b", buttonInk: "#161619" };

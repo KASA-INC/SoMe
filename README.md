@@ -9,6 +9,7 @@ En ekte, men rolig sosial kanal for barn (laget for mellomtrinnet), og det motsa
 - **Laget for lite bruk.** Feeden viser bare de siste tre dagene og tar slutt («Du har sett alt som er nytt!»). Det er ingen uendelig scrolling og ingen varsler. Mens feeden er åpen, sjekker appen hvert 20. sekund om de andre har delt noe nytt, og viser da en rolig knapp øverst («2 nye innlegg»). Innleggene settes ikke inn av seg selv, så teksten ikke hopper, og det sjekkes bare når appen vises på skjermen. Foresatte får det samme når de ser på innleggene i en gruppe. Foresatte bestemmer daglig tidsgrense (standard 20 min), åpningstider (standard 07–20) og antall innlegg per dag (standard 5, 0–10). Ubrukte innlegg fra i går kan brukes dagen etter, men aldri mer enn dobbelt så mange som dagsgrensen på én dag. Alt dette håndheves på serveren.
 - **Bilder og video.** Hver video kan være maks 30 sekunder og 50 MB. Grensene kan endres, se under. GPS-posisjon og annen metadata fjernes fra både bilder og video. Som standard må gruppeeieren godkjenne bilder og video før de andre barna ser dem. Videoer spiller aldri av automatisk.
 - **Lukkede grupper.** Barn ser bare innlegg fra gruppene sine, for eksempel klassen eller en vennegjeng. Det finnes ingen søk, ingen profiler å bla i og ingen direktemeldinger.
+- **Bare inviterte foresatte.** Under **Konto** trykker en foresatt «Inviter foresatt» og får en personlig lenke, sendt på e-post eller delt selv. Med lenken lager den inviterte konto uten registreringskode. Den virker i 14 dager og kan brukes én gang, og serveren husker hvem som inviterte hvem. Registreringskoden (`REGISTRATION_CODE`) trengs bare for dem som starter uten invitasjon.
 - **Godkjente medlemmer.** Med invitasjonskoden ber en foresatt om at barnet får bli med. Eieren av gruppa får en e-post, ser barnets navn og navnet og e-posten til den foresatte, og godkjenner eller avslår under **Grupper**. Barnet ser ingenting i gruppa før det er godkjent. Eierens egne barn slipper rett inn.
 - **Bekreftet e-post.** Nye foresatte får en lenke på e-post (gyldig i 48 timer) og må åpne den før de kan lage barnekontoer eller grupper. Ny e-postadresse på en bekreftet konto tas først i bruk når lenken til den nye adressen er åpnet.
 
@@ -154,7 +155,7 @@ Miljøvariabler:
 | `MAX_VIDEO_SECONDS` | `30` | Maks lengde per video i sekunder |
 | `MAX_VIDEO_MB` | `50` | Maks størrelse per video i MB |
 | `MAX_IMAGE_MB` | `8` | Maks størrelse per bilde i MB |
-| `REGISTRATION_CODE` | – | Hvis satt, må foresatte oppgi denne koden for å lage konto |
+| `REGISTRATION_CODE` | – | Hvis satt, må foresatte uten invitasjon oppgi denne koden for å lage konto |
 | `APP_URL` | `RENDER_EXTERNAL_URL` eller `http://localhost:3000` | Adressen som brukes i lenker på e-post |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | – | E-post, se «Sende e-post» |
 

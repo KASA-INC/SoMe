@@ -56,6 +56,7 @@
     if (p === "/register" && method === "POST") { setSession("parent"); return ok; }
     if (p === "/logout") { setSession(null); return ok; }
     if (p.startsWith("/password/") || p === "/email/verify") return ok;
+    if (/^\/invites\/[0-9a-f]{64}$/.test(p)) return { inviter: "Kristin", email: "" };
     if (!session) fail(401, "Du må logge inn");
 
     if (session === "child") {
@@ -121,6 +122,10 @@
     if (p === "/me" && method === "PATCH") {
       if (body.displayName) parent["/me"].me.displayName = body.displayName;
       return ok;
+    }
+    if (p === "/invites" && method === "POST") {
+      const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
+      return { url: `https://www.quipu.no/#invitasjon=${token}`, expiresAt: Date.now() + 14 * 864e5, emailed: !!body.email };
     }
     if (p.startsWith("/push/")) fail(400, "Push-varsler virker ikke i forhåndsvisningen");
     return ok;

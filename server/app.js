@@ -51,6 +51,8 @@ const USERNAME = /^[a-z0-9._-]{3,24}$/i;
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
 const RESET_MINUTES = 60;
 const VERIFY_HOURS = 48;
+const INVITE_DAYS = 14; // så lenge en invitasjon til en annen foresatt virker
+const INVITES_PER_DAY = 20;
 const CLEANUP_DAYS = 30;
 
 class HttpError extends Error {
@@ -210,12 +212,65 @@ export function createApp({
 
   app.get("/api/signup-info", (req, res) => res.json({ codeRequired: !!registrationCode }));
 
+  // Invitasjon fra en annen foresatt: gyldig, ubrukt og ikke utløpt.
+  const findInvite = (token) => typeof token === "string" && /^[0-9a-f]{64}$/.test(token)
+    ? q(`SELECT i.*, u.display_name AS inviter_name FROM parent_invites i JOIN users u ON u.id = i.inviter_id
+        WHERE i.token_hash = ? AND i.expires_at > ?`).get(sha256(token), now())
+    : undefined;
+  const INVITE_GONE = "Invitasjonen er brukt eller har gått ut. Be den som inviterte deg om en ny.";
+
+  // Registreringssiden viser hvem som har invitert deg. Krever ikke innlogging.
+  app.get("/api/invites/:token", (req, res) => {
+    const invite = findInvite(req.params.token);
+    if (!invite) fail(404, INVITE_GONE);
+    res.json({ inviter: invite.inviter_name, email: invite.email || "" });
+  });
+
+  // En foresatt inviterer en annen. Lenken kan sendes på e-post fra appen, eller deles som melding.
+  app.post("/api/invites", parent, async (req, res) => {
+    const email = req.body.email ? validateEmail(req.body.email) : null;
+    const recent = q("SELECT COUNT(*) AS n FROM parent_invites WHERE inviter_id = ? AND created_at > ?").get(req.user.id, now() - 864e5).n;
+    if (recent >= INVITES_PER_DAY) fail(429, `Du kan lage ${INVITES_PER_DAY} invitasjoner i døgnet. Prøv igjen i morgen.`);
+    const token = randomBytes(32).toString("hex");
+    const expiresAt = now() + INVITE_DAYS * 864e5;
+    q("INSERT INTO parent_invites (token_hash, inviter_id, email, created_at, expires_at) VALUES (?, ?, ?, ?, ?)")
+      .run(sha256(token), req.user.id, email, now(), expiresAt);
+    // Koden ligger etter # så den aldri havner i serverlogger.
+    const url = `${appUrl.replace(/\/$/, "")}/#invitasjon=${token}`;
+    let emailed = false;
+    if (email) {
+      try {
+        await mailer.send({
+          to: email,
+          subject: `${req.user.display_name} inviterer deg til ${APP_NAME}`,
+          ...renderEmail({
+            preheader: "Lag en foresatt-konto med lenken.",
+            heading: `${req.user.display_name} inviterer deg til ${APP_NAME}`,
+            paragraphs: [
+              `${APP_NAME} er en rolig sosial app for klassen, uten likes, reklame og sporing. Foresatte lager kontoer til barna og bestemmer hvilke grupper de er med i.`,
+              `${req.user.display_name} (${req.user.email}) har invitert deg til å lage en foresatt-konto.`,
+            ],
+            button: { label: "Lag konto", url },
+            note: `Invitasjonen virker i ${INVITE_DAYS} dager og kan brukes én gang. Kjenner du ikke ${req.user.display_name}, kan du se bort fra denne e-posten.`,
+          }),
+        });
+        emailed = mailer.configured !== false; // uten SMTP havner e-posten bare i serverloggen
+      } catch (err) {
+        console.error("Klarte ikke å sende e-post:", err.message);
+      }
+    }
+    res.status(201).json({ url, expiresAt, emailed });
+  });
+
   // Foresatte logger inn med e-post. Brukernavnet lages automatisk og vises ikke,
   // men databasen krever et unikt brukernavn på alle kontoer (barna bruker sitt).
   app.post("/api/register", async (req, res) => {
     const { password } = req.body;
-    if (registrationCode && !safeEqual(String(req.body.code || "").trim(), registrationCode)) {
-      fail(403, "Feil registreringskode. Spør den som inviterte deg.");
+    // Med en invitasjon fra en annen foresatt trengs ikke registreringskoden.
+    const invite = req.body.invite ? findInvite(req.body.invite) : undefined;
+    if (req.body.invite && !invite) fail(400, INVITE_GONE);
+    if (!invite && registrationCode && !safeEqual(String(req.body.code || "").trim(), registrationCode)) {
+      fail(403, "Feil registreringskode. Be en foresatt som allerede bruker quipu, om en invitasjon.");
     }
     const displayName = validateDisplayName(req.body.displayName);
     const email = validateEmail(req.body.email);
@@ -223,8 +278,9 @@ export function createApp({
     let username;
     do username = `foresatt-${randomBytes(5).toString("hex")}`;
     while (q("SELECT 1 FROM users WHERE username = ?").get(username));
-    const { lastInsertRowid } = q(`INSERT INTO users (username, password_hash, role, display_name, email, avatar, created_at)
-      VALUES (?, ?, 'parent', ?, ?, ?, ?)`).run(username, hashPassword(password), displayName, email, AVATARS[randomInt(AVATARS.length)], now());
+    const { lastInsertRowid } = q(`INSERT INTO users (username, password_hash, role, display_name, email, avatar, invited_by, created_at)
+      VALUES (?, ?, 'parent', ?, ?, ?, ?, ?)`).run(username, hashPassword(password), displayName, email, AVATARS[randomInt(AVATARS.length)], invite?.inviter_id ?? null, now());
+    if (invite) q("DELETE FROM parent_invites WHERE token_hash = ?").run(invite.token_hash);
     const token = createSession(db, lastInsertRowid);
     await sendVerification({ id: lastInsertRowid, display_name: displayName }, email);
     res.set("Set-Cookie", sessionCookie(token, secureCookies)).status(201).json({ ok: true });
@@ -566,6 +622,7 @@ export function createApp({
     q("DELETE FROM sessions WHERE expires_at < ?").run(t);
     q("DELETE FROM password_resets WHERE expires_at < ?").run(t);
     q("DELETE FROM email_verifications WHERE expires_at < ?").run(t);
+    q("DELETE FROM parent_invites WHERE expires_at < ?").run(t);
     const cutoff = clock(t - CLEANUP_DAYS * 864e5).day;
     q("DELETE FROM usage WHERE day < ?").run(cutoff);
     q("DELETE FROM posts WHERE status = 'removed' AND created_at < ?").run(t - CLEANUP_DAYS * 864e5);

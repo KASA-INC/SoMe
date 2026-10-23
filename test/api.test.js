@@ -845,3 +845,65 @@ test("voksenkontakt: foresatte kan dele bilder, som bare foresatte i gruppa ser"
   assert.equal((await a.parent(`/media/${up.body.id}`)).status, 404);
   assert.equal(readdirSync(mediaDir).includes(up.body.id), false);
 });
+
+test("invitasjon: en foresatt inviterer en annen, som slipper registreringskoden", async () => {
+  const sent = [];
+  const db2 = openDb();
+  const app2 = createApp({ db: db2, mediaDir, registrationCode: "hemmelig-kode", now: () => clock, appUrl: "https://some.example",
+    mailer: { send: async (m) => { sent.push(m); } } });
+  const srv = app2.listen(0);
+  await new Promise((r) => srv.once("listening", r));
+  const url = `http://localhost:${srv.address().port}/api`;
+  const call = (cookie = "") => async (path, { method = "GET", body } = {}) => {
+    const res = await fetch(url + path, { method, headers: { cookie, ...(method === "GET" ? {} : { "Content-Type": "application/json" }) }, body: method === "GET" ? undefined : JSON.stringify(body || {}) });
+    return { status: res.status, cookie: (res.headers.get("set-cookie") || "").split(";")[0], body: await res.json().catch(() => ({})) };
+  };
+  const anon = call();
+  try {
+    // Første foresatt kommer inn med koden og bekrefter e-posten.
+    const reg = await anon("/register", { method: "POST", body: { displayName: "Kristin", email: "inv-kristin@example.com", password: "hemmelig123", code: "hemmelig-kode" } });
+    assert.equal(reg.status, 201);
+    const kristin = call(reg.cookie);
+    assert.equal((await kristin("/invites", { method: "POST" })).status, 403, "e-posten må være bekreftet først");
+    const verify = sent.findLast((m) => m.to === "inv-kristin@example.com").text.match(/#verify=([0-9a-f]{64})/)[1];
+    await anon("/email/verify", { method: "POST", body: { token: verify } });
+
+    // Invitasjon på e-post. Lenken har koden etter #.
+    const inv = await kristin("/invites", { method: "POST", body: { email: "inv-thomas@example.com" } });
+    assert.equal(inv.status, 201);
+    assert.equal(inv.body.emailed, true);
+    const mail = sent.findLast((m) => m.to === "inv-thomas@example.com");
+    assert.match(mail.subject, /Kristin inviterer deg/);
+    const token = mail.text.match(/#invitasjon=([0-9a-f]{64})/)[1];
+    assert.equal(inv.body.url, `https://some.example/#invitasjon=${token}`);
+    assert.deepEqual((await anon(`/invites/${token}`)).body, { inviter: "Kristin", email: "inv-thomas@example.com" });
+
+    // Med invitasjonen trengs ikke koden, og den kan bare brukes én gang.
+    const thomas = await anon("/register", { method: "POST", body: { displayName: "Thomas", email: "inv-thomas@example.com", password: "hemmelig123", invite: token } });
+    assert.equal(thomas.status, 201);
+    assert.equal(db2.prepare("SELECT invited_by FROM users WHERE email = ?").get("inv-thomas@example.com").invited_by,
+      db2.prepare("SELECT id FROM users WHERE email = ?").get("inv-kristin@example.com").id);
+    assert.equal((await anon(`/invites/${token}`)).status, 404);
+    const again = await anon("/register", { method: "POST", body: { displayName: "Hanne", email: "inv-hanne@example.com", password: "hemmelig123", invite: token } });
+    assert.equal(again.status, 400);
+    assert.match(again.body.error, /brukt eller har gått ut/);
+
+    // Lenke uten e-post går ut etter 14 dager.
+    const link = await kristin("/invites", { method: "POST", body: {} });
+    assert.equal(link.body.emailed, false);
+    const linkToken = link.body.url.split("=")[1];
+    const start = clock;
+    clock += 15 * 864e5;
+    try {
+      assert.equal((await anon(`/invites/${linkToken}`)).status, 404);
+      app2.locals.cleanup();
+      assert.equal(db2.prepare("SELECT COUNT(*) AS n FROM parent_invites").get().n, 0);
+    } finally {
+      clock = start;
+    }
+    // Uten innlogging kan man ikke invitere.
+    assert.equal((await anon("/invites", { method: "POST" })).status, 401);
+  } finally {
+    srv.close();
+  }
+});
