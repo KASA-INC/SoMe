@@ -66,6 +66,8 @@ const INVITE_EMAILS_MAX = 30; // adresser i én invitasjon
 const SHARE_DAYS = 7; // så lenge en lenke for å dele et barn med en annen foresatt virker
 const SHARES_PER_DAY = 10;
 const CLEANUP_DAYS = 30;
+// Administratorloggen, alvorlige saker med varsler og behandlede meldinger fra barn slettes etter ett år.
+const ADMIN_RETENTION_DAYS = 365;
 
 class HttpError extends Error {
   constructor(status, message, code) {
@@ -102,11 +104,11 @@ export function createApp({
     return device;
   }
   // Kort e-post om noe som har skjedd med kontoen. Ingen lenker med koder.
-  async function notifyAccount(to, subject, heading, paragraphs) {
+  async function notifyAccount(to, subject, heading, paragraphs, { notYou = true } = {}) {
     if (!to) return;
     try {
-      await mailer.send({ to, subject, ...renderEmail({ preheader: subject, heading, paragraphs: [...paragraphs,
-        `Var det ikke deg? Bytt passord med en gang under Konto eller med «Glemt passord», og skriv til ${CONTACT_EMAIL}.`] }) });
+      await mailer.send({ to, subject, ...renderEmail({ preheader: subject, heading, paragraphs: notYou ? [...paragraphs,
+        `Var det ikke deg? Bytt passord med en gang under Konto eller med «Glemt passord», og skriv til ${CONTACT_EMAIL}.`] : paragraphs }) });
     } catch (err) {
       console.error("Klarte ikke å sende e-post:", err.message);
     }
@@ -121,6 +123,7 @@ export function createApp({
   };
 
   const q = (sql) => db.prepare(sql);
+  let lastEscalation = null; // når varslingsjobben sist kjørte ferdig (null til den har kjørt én gang)
 
   // Nøklene til push-varsler lages første gang og lagres i databasen, så ingenting må settes opp.
   function vapidKeys() {
@@ -246,8 +249,12 @@ export function createApp({
   }
 
   // Brukes av Render (og andre) for å sjekke at appen kjører.
+  // Svarer 503 hvis varslingen av alvorlige saker har stoppet opp, så Render starter appen på nytt.
   app.get("/healthz", (req, res) => {
     q("SELECT 1").get();
+    if (lastEscalation !== null && now() - lastEscalation > 5 * 60e3) {
+      return res.status(503).json({ ok: false, error: "Varslingen av alvorlige saker har ikke kjørt på over 5 minutter" });
+    }
     res.json({ ok: true });
   });
 
@@ -896,6 +903,7 @@ export function createApp({
       q("UPDATE incidents SET step = ?, next_at = ? WHERE id = ?").run(step, now() + ackMinutes * 60e3, inc.id);
       await alertStep(inc, step);
     }
+    lastEscalation = now(); // /healthz sjekker at jobben går
   }
   app.locals.escalateIncidents = escalateIncidents;
 
@@ -1144,6 +1152,20 @@ export function createApp({
     }
     adminLog(req, "stengte", `${u.role === "child" ? "barn" : "foresatt"} ${u.display_name} (${u.id})`,
       reason + (alsoSuspended.length ? ` · også stengt: ${alsoSuspended.join(", ")}` : ""));
+    // Begrunnelse og klagemulighet: til den foresatte selv, eller til foresatte til et barn som er stengt.
+    const appeal = `Mener du dette er feil, kan du klage. Skriv til ${CONTACT_EMAIL} og fortell hvorfor, så ser vi på saken på nytt.`;
+    if (u.role === "parent") {
+      notifyAccount(u.email, `Kontoen din i ${APP_NAME} er stengt`, "Kontoen din er stengt", [
+        `Hei ${u.display_name}! Kontoen din i ${APP_NAME} ble stengt ${when(now())}.`, `Grunn: ${reason}`,
+        ...(alsoSuspended.length ? [`Barnekontoer der du er eneste foresatt, er også stengt: ${alsoSuspended.join(", ")}.`] : []),
+        appeal], { notYou: false });
+    } else {
+      for (const p of q(`SELECT p.email, p.display_name FROM guardians gd JOIN users p ON p.id = gd.parent_id
+        WHERE gd.child_id = ? AND p.suspended_at IS NULL`).all(u.id)) {
+        notifyAccount(p.email, `Barnekontoen til ${u.display_name} i ${APP_NAME} er stengt`, "En barnekonto er stengt", [
+          `Hei ${p.display_name}! Barnekontoen til ${u.display_name} ble stengt ${when(now())}.`, `Grunn: ${reason}`, appeal], { notYou: false });
+      }
+    }
     res.json({ ok: true, alsoSuspended });
   });
 
@@ -1186,6 +1208,10 @@ export function createApp({
     const cutoff = clock(t - CLEANUP_DAYS * 864e5).day;
     q("DELETE FROM usage WHERE day < ?").run(cutoff);
     q("DELETE FROM posts WHERE status = 'removed' AND hold = 0 AND created_at < ?").run(t - CLEANUP_DAYS * 864e5);
+    const yearAgo = t - ADMIN_RETENTION_DAYS * 864e5;
+    q("DELETE FROM admin_log WHERE created_at < ?").run(yearAgo);
+    q("DELETE FROM incidents WHERE acked_at IS NOT NULL AND acked_at < ?").run(yearAgo); // varslene slettes med saken
+    q("DELETE FROM safety_reports WHERE resolved_at IS NOT NULL AND resolved_at < ?").run(yearAgo);
     sweepMedia();
   }
   app.locals.cleanup = cleanup;

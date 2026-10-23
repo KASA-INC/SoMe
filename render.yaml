@@ -9,7 +9,8 @@ services:
     buildCommand: npm ci
     startCommand: npm start
     healthCheckPath: /healthz
-    autoDeploy: true
+    # Deploy bare når testene i GitHub (.github/workflows/test.yml) har gått gjennom.
+    autoDeployTrigger: checksPass
     disk:
       name: some-data
       mountPath: /var/data

@@ -74,6 +74,8 @@ Legg inn disse miljøvariablene (i Render: tjenesten → **Environment**):
 
 Sjekk oppsettet ved å åpne **Shell** i Render og kjøre `npm run test-mail -- din@epost.no`.
 
+For at e-postene ikke skal havne i søppelpost, og for at ingen andre skal kunne sende e-post som ser ut til å komme fra quipu.no, må domenet ha **SPF**, **DKIM** og **DMARC** i DNS (hos Domene.no). SPF og DKIM slås som regel på i cPanel under **Email Deliverability**. Legg så til en TXT-post `_dmarc.quipu.no` med for eksempel `v=DMARC1; p=quarantine; rua=mailto:hei@quipu.no`. Sjekk resultatet ved å sende en e-post til en Gmail-konto og velge **Vis original**: SPF, DKIM og DMARC skal stå som `PASS`.
+
 E-postene sendes som HTML (petrol bakgrunn, kremhvit logo og tekst, korall knapp) og med en ren tekstversjon for e-postprogrammer uten HTML. Malen ligger i `server/email.js`. Gmail på iPhone snur fargene i mørk modus, så bakgrunnen er låst med en gradient, teksten beskyttes med blandingsmoduser, og logo og knapper er bilder (`server/assets/`, lages med `scripts/email-assets.mjs`). Bildene legges ved inni e-posten, så de vises selv om bilder fra nettet er blokkert.
 
 Uten `SMTP_HOST` sendes ingen e-post. Lenken skrives i stedet til serverloggen (Render → **Logs**). Det gjelder også bekreftelseslenker til nye foresatte, så e-post bør være satt opp før appen åpnes for flere. Kom lenken ikke fram, kan den som drifter tjenesten bekrefte adressen i Shell med `npm run verify-email -- foresatt@epost.no`. Lenkene peker til `APP_URL`, eller til `RENDER_EXTERNAL_URL`, som Render setter automatisk.
@@ -138,7 +140,11 @@ Repoet har en ferdig `render.yaml`:
 3. Render leser `render.yaml` og ber deg fylle inn **REGISTRATION_CODE**. Velg en kode som du gir til foresatte som skal teste.
 4. Trykk **Apply**. Etter noen minutter får du en adresse som `https://some-kids.onrender.com`.
 
-Tjenesten bruker planen *Starter* med en disk på 1 GB i Frankfurt (EU), fordi databasen og bildene må overleve omstarter. Gratisplanen har ikke disk. Render tar daglige øyeblikksbilder av disken. Nye endringer på grenen publiseres automatisk.
+Tjenesten bruker planen *Starter* med en disk på 1 GB i Frankfurt (EU), fordi databasen og bildene må overleve omstarter. Gratisplanen har ikke disk. Render tar daglige øyeblikksbilder av disken.
+
+Nye endringer på grenen publiseres når testene i GitHub har gått gjennom (`autoDeployTrigger: checksPass`). Er tjenesten laget uten Blueprint, velg **Settings → Build & Deploy → Auto-Deploy: After CI Checks Pass** i Render. Testene ligger i `.github/workflows/test.yml` og kjører `npm test` og `npm audit` ved hver push.
+
+`/healthz` svarer med feil hvis databasen ikke svarer, eller hvis varslingen av alvorlige saker ikke har kjørt på 5 minutter. Da starter Render appen på nytt. `.github/workflows/overvaking.yml` sjekker `https://www.quipu.no/healthz` hvert tiende minutt og sender e-post fra GitHub hvis den feiler. GitHub kjører planlagte jobber bare fra standardgrenen, så overvåkingen starter først når koden er flettet dit.
 
 ## Drift på annen server
 

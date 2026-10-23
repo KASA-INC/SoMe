@@ -57,7 +57,11 @@ function verifyEmail(email) {
 // Gjør en foresatt til administrator (eller tar det bort med «av»). Finnes bare her, aldri i appen,
 // så ingen kan gjøre seg selv til administrator.
 function setAdmin(email, on) {
-  const { changes } = db.prepare("UPDATE users SET is_admin = ? WHERE email = ? AND role = 'parent'").run(on ? 1 : 0, email.trim().toLowerCase());
+  // Tas rollen bort, slettes også nøkkelen til to-trinns innlogging og plassen på vaktlisten.
+  const { changes } = db.prepare(on ? "UPDATE users SET is_admin = 1 WHERE email = ? AND role = 'parent'"
+    : `UPDATE users SET is_admin = 0, totp_secret = NULL, totp_pending = NULL, totp_last_step = 0, oncall_rank = NULL
+      WHERE email = ? AND role = 'parent'`).run(email.trim().toLowerCase());
+  if (!on) db.prepare("UPDATE sessions SET mfa_at = NULL WHERE user_id = (SELECT id FROM users WHERE email = ?)").run(email.trim().toLowerCase());
   if (!changes) {
     console.error(`Fant ingen foresatt med «${email}».`);
     process.exit(1);

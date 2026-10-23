@@ -27,7 +27,10 @@ setInterval(app.locals.sweepMedia, 15 * 60 * 1000).unref();
 setInterval(() => app.locals.emailAdultMessages().catch((err) => console.error(err)), 5 * 60 * 1000).unref();
 
 // Alvorlige saker uten kvittering varsles videre på vaktlisten. Sjekkes hvert minutt.
-setInterval(() => app.locals.escalateIncidents().catch((err) => console.error(err)), 60 * 1000).unref();
+// Stopper jobben opp, svarer /healthz med feil, og Render starter appen på nytt.
+const escalate = () => app.locals.escalateIncidents().catch((err) => console.error(err));
+escalate();
+setInterval(escalate, 60 * 1000).unref();
 
 // Slett gamle tekniske data én gang i døgnet (og ved oppstart).
 app.locals.cleanup();

@@ -349,7 +349,7 @@ test("registreringskode kreves når den er satt", async () => {
     assert.equal((await register()).status, 403);
     assert.equal((await register("feil")).status, 403);
     assert.equal((await register("hemmelig-kode")).status, 201);
-    assert.equal((await fetch(`${url}/healthz`)).status, 200);
+    assert.equal((await fetch(`${url.replace(/\/api$/, "")}/healthz`)).status, 200);
   } finally {
     srv.close();
   }
@@ -1098,6 +1098,12 @@ test("admin: utestenging av foresatt stenger barn uten annen foresatt, og e-post
   assert.equal((await sjef(`/admin/users/${found[0].id}/suspend`, { method: "POST", body: {} })).status, 400, "grunn kreves");
   const res = await sjef(`/admin/users/${found[0].id}/suspend`, { method: "POST", body: { reason: "Truende meldinger" } });
   assert.deepEqual(res.body.alsoSuspended, ["Kari"]);
+  // Lise får begrunnelsen og hvordan hun kan klage. Mor får ingen e-post, for Ola er ikke stengt.
+  const banMail = outbox.findLast((m) => m.to === "ban-lise@example.com");
+  assert.match(banMail.subject, /er stengt/);
+  assert.match(banMail.text, /Truende meldinger/);
+  assert.match(banMail.text, /klage/);
+  assert.match(banMail.text, /Kari/);
   // Lise og Kari er logget ut og kommer ikke inn. Ola har mor igjen og kan fortsatt logge inn.
   assert.equal((await lise("/me")).status, 401);
   assert.equal((await kari("/me")).status, 401);
@@ -1370,6 +1376,21 @@ test("alvorlig sak: vakthavende varsles, reserven varsles når ingen kvitterer, 
     const failed = body.incidents.find((i) => !i.ackedAt).alerts.find((a) => a.recipient === "feiler@example.com");
     assert.equal(failed.ok, false);
     assert.match(failed.error, /postkassen er full/);
+
+    // Stopper varslingsjobben opp, svarer /healthz med feil, så Render starter appen på nytt.
+    await app3.locals.escalateIncidents();
+    assert.equal((await fetch(`${url.replace(/\/api$/, "")}/healthz`)).status, 200);
+    clock += 6 * 60e3;
+    assert.equal((await fetch(`${url.replace(/\/api$/, "")}/healthz`)).status, 503);
+    await app3.locals.escalateIncidents();
+    assert.equal((await fetch(`${url.replace(/\/api$/, "")}/healthz`)).status, 200);
+
+    // Etter ett år slettes saker som er tatt, med varslene, og administratorloggen. Åpne saker blir liggende.
+    clock += 366 * 864e5;
+    app3.locals.cleanup();
+    assert.deepEqual(db3.prepare("SELECT acked_at FROM incidents").all().map((r) => r.acked_at), [null]);
+    assert.equal(db3.prepare("SELECT COUNT(*) AS n FROM incident_alerts WHERE incident_id = ?").get(inc.id).n, 0);
+    assert.equal(db3.prepare("SELECT COUNT(*) AS n FROM admin_log").get().n, 0);
   } finally {
     clock = start;
     srv.close();

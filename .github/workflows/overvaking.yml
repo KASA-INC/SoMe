@@ -1,0 +1,22 @@
+# Sjekker hvert tiende minutt at www.quipu.no svarer, og at varslingen av alvorlige saker går.
+# Feiler sjekken, sender GitHub e-post til den som sist endret denne filen.
+# GitHub kjører planlagte jobber bare fra standardgrenen, og kan forsinke dem noen minutter.
+name: Overvåking
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+permissions: {}
+jobs:
+  sjekk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: quipu svarer
+        run: |
+          for i in 1 2 3; do
+            curl --fail --silent --show-error --max-time 20 https://www.quipu.no/healthz && exit 0
+            sleep 30
+          done
+          echo "::error::www.quipu.no/healthz svarte ikke riktig tre ganger på rad"
+          exit 1
