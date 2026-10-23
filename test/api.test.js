@@ -285,6 +285,43 @@ test("bilde: EXIF/GPS fjernes, og bare gruppa ser det etter godkjenning", async 
   assert.equal((await client()(`/media/${up.body.id}`)).status, 401);
 });
 
+// WebP er RIFF-biter: 4 bokstaver, lengde (little endian) og innhold, polstret til partall.
+function webp(...chunks) {
+  const body = Buffer.concat(chunks.map(([type, data]) => {
+    const head = Buffer.alloc(8);
+    head.write(type, 0, "latin1");
+    head.writeUInt32LE(data.length, 4);
+    return Buffer.concat([head, data, Buffer.alloc(data.length & 1)]);
+  }));
+  const head = Buffer.alloc(12);
+  head.write("RIFF", 0, "latin1");
+  head.writeUInt32LE(4 + body.length, 4);
+  head.write("WEBP", 8, "latin1");
+  return Buffer.concat([head, body]);
+}
+
+test("bilde: WebP godtas, og EXIF, XMP og GPS fjernes", async () => {
+  const a = await setupFamily("wp");
+  const vp8x = Buffer.alloc(10);
+  vp8x[0] = 0x08 | 0x04; // sier at det finnes EXIF og XMP
+  const up = await upload(a.kid, webp(["VP8X", vp8x], ["VP8 ", Buffer.from("bildedata")],
+    ["EXIF", Buffer.from("Exif\0\0GPS 59.9139 10.7522")], ["XMP ", Buffer.from("<x:xmpmeta>Oslo</x:xmpmeta>")]));
+  assert.equal(up.status, 201);
+  assert.equal(up.body.type, "image");
+  const file = await a.kid(`/media/${up.body.id}`);
+  assert.equal(file.headers.get("content-type"), "image/webp");
+  assert.equal(file.body.includes("GPS 59.9139"), false);
+  assert.equal(file.body.includes("Oslo"), false);
+  assert.equal(file.body.toString("latin1", 0, 4), "RIFF");
+  assert.equal(file.body.readUInt32LE(4), file.body.length - 8, "riktig lengde etter rensing");
+  assert.equal(file.body[20] & 0x0c, 0, "flaggene for EXIF og XMP er slått av");
+  assert.ok(file.body.includes("bildedata"));
+
+  // Animasjon og filer uten bilde avvises.
+  assert.equal((await upload(a.kid, webp(["VP8X", Buffer.alloc(10)], ["ANIM", Buffer.alloc(6)], ["ANMF", Buffer.alloc(16)]))).status, 400);
+  assert.equal((await upload(a.kid, webp(["EXIF", Buffer.from("bare metadata")]))).status, 400);
+});
+
 test("video: lengden sjekkes på serveren, GPS fjernes og Range virker", async () => {
   const a = await setupFamily("v");
   await a.parent(`/groups/${a.groupId}`, { method: "PATCH", body: { mediaReview: false } });

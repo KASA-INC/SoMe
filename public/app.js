@@ -1064,7 +1064,9 @@ function uploadMedia(blob, onProgress) {
 }
 
 // Bilder tegnes på nytt i et canvas: det fjerner EXIF/GPS, retter opp rotasjon,
-// gjør dem mindre og gjør HEIC fra iPhone om til JPEG.
+// gjør dem mindre og gjør HEIC fra iPhone om til WebP eller JPEG.
+// 1440 punkter på den lengste siden er skarpt nok for feeden på mobil og PC, også på skjermer med høy oppløsning.
+// WebP blir 25–35 % mindre enn JPEG med samme kvalitet. Nettlesere som ikke kan lage WebP, lager JPEG i stedet.
 async function prepareImage(file) {
   const url = URL.createObjectURL(file);
   try {
@@ -1074,13 +1076,15 @@ async function prepareImage(file) {
       i.onerror = () => reject(new Error("Klarte ikke å åpne bildet. Prøv et annet."));
       i.src = url;
     });
-    const MAX = 1600;
+    const MAX = 1440;
     const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(img.naturalWidth * scale);
     canvas.height = Math.round(img.naturalHeight * scale);
     canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-    return await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+    const encode = (type, quality) => new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+    const webp = await encode("image/webp", 0.8);
+    return webp?.type === "image/webp" ? webp : await encode("image/jpeg", 0.8);
   } finally {
     URL.revokeObjectURL(url);
   }

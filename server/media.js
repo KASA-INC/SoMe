@@ -1,6 +1,7 @@
 // Kontroll og rensing av opplastede bilder og videoer, uten eksterne avhengigheter.
 //
-// - Bilder: bare JPEG. Alle APPn-/COM-segmenter (EXIF, GPS, XMP, kommentarer) fjernes.
+// - Bilder: JPEG og WebP. Alle APPn-/COM-segmenter i JPEG og EXIF-/XMP-biter i WebP (EXIF, GPS, XMP,
+//   kommentarer) fjernes.
 // - Video: MP4/MOV (ISO BMFF, det iPhone og Android tar opp). Lengden leses fra moov/mvhd,
 //   og metadata-bokser (udta/meta, der bl.a. GPS-posisjon ligger) gjøres om til "free".
 
@@ -30,6 +31,42 @@ export function stripJpegMetadata(buf) {
     i += 2 + len;
   }
   throw new MediaError("Ødelagt bilde");
+}
+
+export function isWebp(buf) {
+  return buf.length >= 20 && buf.toString("latin1", 0, 4) === "RIFF" && buf.toString("latin1", 8, 12) === "WEBP";
+}
+
+// WebP er en RIFF-fil med biter (chunks). Vi beholder bare selve bildet (VP8, VP8L, alfa og VP8X-hodet)
+// og fargeprofilen. EXIF og XMP, der GPS kan ligge, og alt vi ikke kjenner, fjernes. Animasjon avvises.
+const WEBP_KEEP = new Set(["VP8X", "VP8 ", "VP8L", "ALPH", "ICCP"]);
+export function stripWebpMetadata(buf) {
+  if (!isWebp(buf)) throw new MediaError("Bildet må være JPEG eller WebP");
+  const end = Math.min(buf.length, 8 + buf.readUInt32LE(4));
+  const out = [];
+  let images = 0;
+  let i = 12;
+  while (i + 8 <= end) {
+    const type = buf.toString("latin1", i, i + 4);
+    const size = buf.readUInt32LE(i + 4);
+    const next = i + 8 + size + (size & 1);
+    if (i + 8 + size > end) throw new MediaError("Ødelagt bilde");
+    if (type === "ANIM" || type === "ANMF") throw new MediaError("Animerte bilder kan ikke lastes opp");
+    if (WEBP_KEEP.has(type)) {
+      const chunk = Buffer.from(buf.subarray(i, Math.min(next, end)));
+      if (type === "VP8X") chunk[8] &= ~(0x08 | 0x04 | 0x02); // ingen EXIF, XMP eller animasjon
+      if (type === "VP8 " || type === "VP8L") images++;
+      out.push(chunk);
+    }
+    i = next;
+  }
+  if (images !== 1) throw new MediaError("Ødelagt bilde");
+  const body = Buffer.concat(out);
+  const head = Buffer.alloc(12);
+  head.write("RIFF", 0, "latin1");
+  head.writeUInt32LE(4 + body.length, 4);
+  head.write("WEBP", 8, "latin1");
+  return Buffer.concat([head, body]);
 }
 
 function* boxes(buf, start, end) {

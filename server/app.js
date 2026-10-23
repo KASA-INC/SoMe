@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync, readdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkText } from "./filter.js";
-import { isJpeg, stripJpegMetadata, inspectVideo, MediaError } from "./media.js";
+import { isJpeg, isWebp, stripJpegMetadata, stripWebpMetadata, inspectVideo, MediaError } from "./media.js";
 import { createMailer } from "./mail.js";
 import { renderEmail } from "./email.js";
 import { createPushSender, createVapidKeys } from "./push.js";
@@ -775,9 +775,11 @@ export function createApp({
 
     let media;
     try {
-      if (isJpeg(buf)) {
+      if (isJpeg(buf) || isWebp(buf)) {
         if (buf.length > mediaLimits.imageMb * 1024 * 1024) fail(413, `Bildet er for stort. Maks ${mediaLimits.imageMb} MB.`);
-        media = { type: "image", mime: "image/jpeg", data: stripJpegMetadata(buf), duration: null };
+        media = isJpeg(buf)
+          ? { type: "image", mime: "image/jpeg", data: stripJpegMetadata(buf), duration: null }
+          : { type: "image", mime: "image/webp", data: stripWebpMetadata(buf), duration: null };
       } else if (req.user.role === "parent") {
         fail(400, "Bare bilder kan deles i voksenkontakten");
       } else if (buf.length > 12 && buf.toString("latin1", 4, 8) === "ftyp") {
