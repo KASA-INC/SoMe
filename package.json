@@ -19,7 +19,7 @@
     "admin": "node --disable-warning=ExperimentalWarning server/cli.js admin"
   },
   "dependencies": {
-    "express": "5.1.0",
+    "express": "5.3.0",
     "nodemailer": "10.0.16"
   }
 }
