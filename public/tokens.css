@@ -67,6 +67,17 @@
   --font-display: "Red Hat Display", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --fs-display: 2.375rem;
+  --fs-display-sm: 1.8125rem;
+  --fs-title: 1.75rem;
+  --fs-heading: 1.25rem;
+  --fs-heading-sm: 1.0625rem;
+  --fs-overline: 0.8125rem;
+  --fs-large: 1.0625rem;
+  --fs-body: 1rem;
+  --fs-small: 0.875rem;
+  --fs-caption: 0.8125rem;
+  --fs-code: 1.0625rem;
   color-scheme: light;
 }
 
