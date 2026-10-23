@@ -1,6 +1,6 @@
 // Bygger forhåndsvisningen av appen som en privat artifact i Claude, der man kan kommentere direkte på elementene.
 // Alt bygges fra filene i public/, så forhåndsvisningen alltid viser det som ligger i repoet.
-//   node preview/build.mjs   ->  preview/dist/ (index.html + om.html, hvem.html, sikkerhet.html, personvern.html, img/)
+//   node preview/build.mjs   ->  preview/dist/ (index.html + om.html, hvem.html, sikkerhet.html, personvern.html, miljo.html, img/)
 //
 // Forskjeller fra den ekte appen:
 // - Det finnes ingen server. preview/mock.js svarer på kallene til /api med eksempeldata fra preview/fixtures.json.
@@ -17,7 +17,7 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(new URL("img/", OUT), { recursive: true });
 for (const f of readdirSync(new URL("img/", PUB))) copyFileSync(new URL(`img/${f}`, PUB), new URL(`img/${f}`, OUT));
 
-const PAGES = { "/om": "om.html", "/hvem": "hvem.html", "/sikkerhet": "sikkerhet.html", "/personvern": "personvern.html" };
+const PAGES = { "/om": "om.html", "/hvem": "hvem.html", "/sikkerhet": "sikkerhet.html", "/personvern": "personvern.html", "/miljo": "miljo.html" };
 // Lenker inne i forhåndsvisningen. Hovedsiden er «./».
 function relink(s, quote) {
   for (const [path, file] of Object.entries(PAGES)) {

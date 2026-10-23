@@ -629,6 +629,7 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 .khipu .knot.ink { fill: var(--text); }
 
 .info-grid { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.info-grid + p { margin-top: 16px; }
 .info-grid li {
   padding: 12px 14px 12px 44px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--border);
   color: var(--text-2); position: relative;

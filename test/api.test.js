@@ -640,6 +640,7 @@ test("sikkerhetsheadere: ingen mellomlagring av API-svar, og nettsiden får ikke
   assert.match(res.headers.get("content-security-policy"), /default-src 'self'/);
   const page = await fetch(base.replace(/\/api$/, "") + "/sikkerhet");
   assert.equal(page.status, 200);
+  assert.match(await (await fetch(base.replace(/\/api$/, "") + "/miljo")).text(), /<h1>Miljø<\/h1>/);
 });
 
 test("opprydding sletter gammel skjermtid og fjernede innlegg etter 30 dager", async () => {

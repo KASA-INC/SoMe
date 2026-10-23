@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Miljø i quipu</title>
+  <meta name="description" content="Hvordan quipu er laget for å bruke lite tid, lite data og lite strøm: kort skjermtid, små bilder, sletting etter 60 dager og en liten app uten reklame og sporing.">
+  <meta name="theme-color" content="#f9dccc" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1f3437" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preload" href="fonts/red-hat-display.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="info-page">
+  <main class="info">
+    <a class="info-back link" href="/om">← Om quipu</a>
+
+    <header class="info-hero">
+      <h1>Miljø</h1>
+      <p class="lead">quipu er laget for å bruke lite: lite tid, lite data og lite strøm. Det som er best for barna, er ofte også best for miljøet.</p>
+    </header>
+
+    <section class="info-section">
+      <h2>Mindre skjermtid er det viktigste</h2>
+      <p>Den største energibruken i sosiale medier er ikke serverne, men alle timene på telefonen og all dataen som strømmer gjennom nettet mens man scroller. quipu er laget for at barna skal bruke den litt og så legge den fra seg.</p>
+      <ul class="info-grid checks">
+        <li><strong>Tidsgrense.</strong> Foresatte bestemmer hvor mange minutter barnet kan bruke per dag. Standard er 20.</li>
+        <li><strong>Stengt om kvelden og natta.</strong> Appen er åpen for barna mellom kl. 07 og 20 som standard. Resten av døgnet henter barnets telefon ingenting fra quipu.</li>
+        <li><strong>Feeden tar slutt.</strong> Barna ser bare de siste tre dagene, og så står det «Du er oppdatert». Det finnes ingen uendelig scrolling som henter mer og mer.</li>
+        <li><strong>Ingen varsler til barna.</strong> quipu prøver aldri å lokke barnet tilbake til skjermen.</li>
+        <li><strong>Ingen autoavspilling.</strong> En video starter bare når noen trykker på den, og bare starten av fila hentes før det.</li>
+      </ul>
+      <p>Serveren står likevel på hele døgnet. Foresatte kan bruke appen når de vil, og varsler om alvorlige saker må komme fram også om natta. Gevinsten av at quipu er stengt for barna, ligger derfor i telefonene og nettet, ikke i serveren.</p>
+    </section>
+
+    <section class="info-section">
+      <h2>Små bilder</h2>
+      <p>Bilder fra mobilen er ofte flere megabyte. quipu gjør dem mindre på telefonen før de lastes opp, så de tar mindre plass både på serveren, i nettet og på telefonene som viser dem.</p>
+      <ul class="info-list">
+        <li>Bildet skaleres ned til 1440 punkter på den lengste siden. Det er skarpt nok for feeden, også på skjermer med høy oppløsning.</li>
+        <li>Telefonen lagrer bildet som WebP, et format som blir 25–35 % mindre enn vanlig JPEG med samme kvalitet. Telefoner som ikke kan lage WebP, bruker JPEG.</li>
+        <li>På et testbilde på 12 megapiksler ble fila halvparten så stor som før vi gjorde dette.</li>
+        <li>En video kan være høyst 30 sekunder.</li>
+      </ul>
+    </section>
+
+    <section class="info-section">
+      <h2>Vi sletter det som ikke trengs</h2>
+      <p>Data som ligger lagret, bruker strøm hele tiden, også når ingen ser på den. Den må kopieres til sikkerhetskopier også. Derfor sletter quipu det som ikke trengs lenger.</p>
+      <ul class="info-list">
+        <li>Innlegg, bilder, video og meldinger mellom foresatte slettes av seg selv etter 60 dager. Det er lenge nok til at voksne rekker å se det, og til at barn rekker å si fra hvis noe var galt.</li>
+        <li>Innlegg som en voksen har fjernet, slettes etter 30 dager.</li>
+        <li>Bilder og video som ble lastet opp, men aldri delt, slettes etter en time.</li>
+      </ul>
+      <p>Det er også bra for personvernet: barna etterlater seg ikke et arkiv.</p>
+    </section>
+
+    <section class="info-section">
+      <h2>En liten app</h2>
+      <ul class="info-grid checks">
+        <li><strong>Drøyt 200 kB.</strong> Hele appen, med skrift, farger og alt, er rundt 200 kB før den komprimeres. En vanlig nettside er ofte flere megabyte.</li>
+        <li><strong>Ingen reklame eller sporing.</strong> Det er ingen annonser, analyseverktøy eller sporingspiksler som må lastes ned og kjøres på telefonen.</li>
+        <li><strong>Ingenting fra andre nettsteder.</strong> Alt kommer fra quipu sin egen server, også skriften, som er kuttet ned til bare de tegnene vi bruker.</li>
+        <li><strong>Henter bare når den er i bruk.</strong> quipu ser etter nye innlegg bare når appen er åpen på skjermen, ikke i bakgrunnen.</li>
+        <li><strong>Mørk modus.</strong> På mobiler med OLED-skjerm bruker mørke farger mindre strøm. quipu følger innstillingen på telefonen.</li>
+        <li><strong>Én liten server.</strong> quipu kjører på én server i Frankfurt, og databasen ligger på samme maskin. Det er ingen store datasentre fulle av egne tjenester.</li>
+      </ul>
+    </section>
+
+    <section class="info-section">
+      <h2>Det vi vurderer videre</h2>
+      <ul class="info-list">
+        <li>Gjøre video mindre på telefonen før opplasting, slik vi gjør med bilder. Video er det som tar mest plass.</li>
+        <li>Sikkerhetskopier som bare kopierer nye filer. Bilder og video endres aldri, så hver fil trenger bare å kopieres én gang.</li>
+        <li>Velge leverandører som bruker fornybar strøm, når vi velger sted for sikkerhetskopier eller flytter tjenesten.</li>
+      </ul>
+      <p>Har du forslag til hvordan quipu kan bruke mindre? Skriv til <a class="link" href="mailto:hei@quipu.no">hei@quipu.no</a>.</p>
+    </section>
+
+    <p class="info-cta"><a class="btn" href="/">Til quipu</a></p>
+  </main>
+  <footer class="site-footer" data-site-footer></footer>
+  <script type="module" src="footer.js"></script>
+</body>
+</html>
