@@ -69,9 +69,9 @@
       <p>Appen på telefonen bestemmer ingenting selv. Hver eneste forespørsel sjekkes på serveren: Er du logget inn? Er du med i denne gruppa, og er du godkjent? Eier du denne gruppa? Er det barnet ditt? Er appen åpen nå, og har barnet tid og innlegg igjen i dag? Et barn som er flink med teknikk, kommer ikke rundt grensene ved å endre på appen.</p>
       <ul class="info-list">
         <li>Administrator er bare den som drifter quipu. Det settes med en kommando på serveren og kan ikke slås på i appen, og krever to-trinns innlogging med en engangskode fra en app, på hver enhet og på nytt etter 12 timer. Administratoren ser statistikk som tall, innlegg som er meldt med «Si fra» og det barn sender med «Si fra om noe annet», og kan stenge kontoer. Alt administratoren gjør, logges.</li>
-        <li>Sier et barn fra om trusler, ekkel kontakt eller farlige bilder, varsles administratoren som har vakt straks, på e-post og push. Har ingen tatt ansvar for saken innen 15 minutter, varsles reserven og så flere, til noen kvitterer. Varslene inneholder ikke barnets melding.</li>
+        <li>Sier et barn fra om trusler, ekkel kontakt eller farlige bilder, varsles administratoren som har vakt straks, på e-post og push. Har ingen tatt ansvar for saken innen 15 minutter, varsles reserven, så resten av vaktlisten og til slutt alle administratorer, hvert kvarter til noen kvitterer. Hvert varsel lagres som sendt eller feilet, for at et sendt varsel ikke er det samme som et lest. Bare en kvittering stopper varslingen, og den lagres med navn og tidspunkt. Varslene inneholder ikke barnets melding eller hvem barnet er.</li>
         <li>Eieren av en gruppe kan ta ut et barn, og barnets foresatte får e-post om det. Eieren kan også lage en ny invitasjonskode hvis den gamle er spredt. Invitasjoner og delingslenker som ikke er brukt, kan trekkes tilbake under Konto.</li>
-        <li>Et barn ser ingenting i en gruppe før den voksne som eier gruppa har godkjent det. Eieren ser navn og e-post på den foresatte som spør.</li>
+        <li>Et barn ser ingenting i en gruppe før den voksne som eier gruppa har godkjent det. Eieren ser navn og e-post på den foresatte som spør. Har eieren selv invitert den foresatte, regnes invitasjonen som godkjenning.</li>
         <li>Bilder og videoer har tilfeldige navn, ligger utenfor den offentlige delen av serveren og sendes bare til den som har tilgang.</li>
         <li>Innloggede sider kan ikke mellomlagres av andre enn din egen enhet.</li>
       </ul>
@@ -117,6 +117,7 @@
       <ul class="info-list">
         <li>quipu har ennå ikke hatt en uavhengig sikkerhetstest (pentest). Det står høyt på lista.</li>
         <li>Tjenesten kjører på én server. Sikkerhetskopiering og varsling ved nedetid skal bli bedre.</li>
+        <li>Varsler om alvorlige saker går på e-post og push, som ikke alltid vekker noen om natta. Varsling på SMS står på planen. quipu er ikke en nødtjeneste: er et barn i fare, ring 112.</li>
         <li>Filteret er en ordliste og fanger ikke alt, og bilder skannes ikke automatisk. Derfor er voksne som følger med og godkjenner, en viktig del av sikkerheten.</li>
       </ul>
       <p>Har du funnet en svakhet? Skriv til <a class="link" href="mailto:hei@quipu.no">hei@quipu.no</a>, så ser vi på det med en gang.</p>
