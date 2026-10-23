@@ -176,6 +176,11 @@ function migrate(db) {
     // Siste melding den foresatte har fått e-post om, så samme melding ikke sendes to ganger.
     db.exec("ALTER TABLE adult_reads ADD COLUMN notified_id INTEGER NOT NULL DEFAULT 0");
   }
+  if (!columns("media").includes("adult_message_id")) {
+    // Bilder i voksenkontakten knyttes til en melding i stedet for et innlegg.
+    db.exec("ALTER TABLE media ADD COLUMN adult_message_id INTEGER REFERENCES adult_messages(id) ON DELETE CASCADE");
+  }
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS media_adult_message ON media (adult_message_id) WHERE adult_message_id IS NOT NULL");
   if (!columns("memberships").includes("approved")) {
     db.exec("ALTER TABLE memberships ADD COLUMN approved INTEGER NOT NULL DEFAULT 1");
   }

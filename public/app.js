@@ -1418,11 +1418,46 @@ async function showAdultChat(g) {
   const text = h("textarea", { maxlength: 1000, rows: 3, placeholder: "Skriv en beskjed til de andre foresatte …", "aria-label": "Melding" });
   const warning = warningBox();
   const send = h("button", { class: "btn", type: "button" }, "Send");
-  send.addEventListener("click", async () => {
-    if (!text.value.trim()) return text.focus();
+
+  // Bilde: tegnes på nytt på telefonen (fjerner GPS o.l.) og lastes opp før beskjeden sendes.
+  let image = null;
+  let uploading = false;
+  const preview = h("div", { class: "preview hidden" });
+  const fileInput = h("input", { type: "file", accept: "image/*", class: "visually-hidden", id: "adultFile" });
+  const attachBtn = h("label", { class: "icon-btn", for: "adultFile", "aria-label": "Legg ved bilde", title: "Legg ved bilde" }, icon("image"));
+  const clearImage = () => { image = null; preview.replaceChildren(); preview.classList.add("hidden"); fileInput.value = ""; };
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    warning.classList.add("hidden");
+    let blob;
+    try { blob = await prepareImage(file); } catch (err) { clearImage(); return showWarning(warning, err.message); }
+    const bar = h("progress", { max: 1, value: 0 });
+    const status = h("span", {}, "Laster opp …");
+    preview.replaceChildren(h("img", { src: URL.createObjectURL(blob), alt: "Bildet du har valgt" }),
+      h("div", { class: "upload-row" }, status, bar, h("button", { type: "button", class: "link danger small", onclick: clearImage }, "Fjern")));
+    preview.classList.remove("hidden");
+    uploading = true;
     send.disabled = true;
     try {
-      await api(`/groups/${g.id}/adult`, { method: "POST", body: { text: text.value } });
+      image = await uploadMedia(blob, (p) => (bar.value = p));
+      status.textContent = "Bilde lagt til";
+      bar.remove();
+    } catch (err) {
+      clearImage();
+      showWarning(warning, err.message);
+    } finally {
+      uploading = false;
+      send.disabled = false;
+    }
+  });
+
+  send.addEventListener("click", async () => {
+    if (uploading) return;
+    if (!text.value.trim() && !image) return text.focus();
+    send.disabled = true;
+    try {
+      await api(`/groups/${g.id}/adult`, { method: "POST", body: { text: text.value, mediaId: image?.id } });
       showAdultChat(g);
     } catch (err) {
       send.disabled = false;
@@ -1434,7 +1469,8 @@ async function showAdultChat(g) {
     h("div", { class: "head" },
       avatar(m.avatar),
       h("div", { class: "who" }, h("div", { class: "name" }, m.author), h("div", { class: "meta" }, timeAgo(m.createdAt)))),
-    h("div", { class: `body bubble${m.mine ? " mine" : ""}` }, m.text),
+    m.text && h("div", { class: `body bubble${m.mine ? " mine" : ""}` }, m.text),
+    m.imageId && h("div", { class: "media" }, h("img", { src: `/api/media/${m.imageId}`, alt: `Bilde fra ${m.author}`, loading: "lazy" })),
     m.canDelete && h("div", { class: "actions" }, btn("Slett", async () => {
       if (!confirm("Slette meldingen?")) return;
       await api(`/adult/${m.id}`, { method: "DELETE" }).then(() => showAdultChat(g), (err) => toast(err.message));
@@ -1444,7 +1480,10 @@ async function showAdultChat(g) {
     newPostsBar,
     h("div", { class: "back-head" }, iconBtn("back", "Tilbake", () => { parentTab = "grupper"; showParent(); }), h("h2", {}, `Voksenkontakt · ${g.name}`)),
     h("p", { class: "muted small adult-note" }, icon("lock"), h("span", {}, "Bare foresatte i gruppa ser dette. Barna ser det ikke.")),
-    h("section", { class: "card adult-compose" }, h("div", { class: "editor" }, text), warning, h("div", { class: "composer-foot" }, h("span", { class: "to" }), send)),
+    h("section", { class: "card adult-compose" },
+      h("div", { class: "editor" }, text, h("div", { class: "toolbar" }, attachBtn)),
+      fileInput, preview, warning,
+      h("div", { class: "composer-foot" }, h("span", { class: "to" }), send)),
     messages.length ? messages.map(message) : h("div", { class: "card empty" },
       h("div", { class: "end-icon" }, icon("users")),
       h("p", {}, "Ingen meldinger ennå. Her kan dere gi beskjeder og avtale ting sammen.")));

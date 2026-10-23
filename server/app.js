@@ -488,12 +488,14 @@ export function createApp({
   // ---------- Bilder og video ----------
   const maxUploadBytes = Math.max(mediaLimits.videoMb, mediaLimits.imageMb) * 1024 * 1024;
 
-  app.post("/api/media", child, express.raw({ type: () => true, limit: maxUploadBytes }), (req, res) => {
+  // Barn laster opp bilder og video til innlegg. Foresatte laster opp bilder til voksenkontakten.
+  const uploader = (req, res, next) => (req.user?.role === "parent" ? verifiedGate : childGate)(req, res, next);
+  app.post("/api/media", needUser(), uploader, express.raw({ type: () => true, limit: maxUploadBytes }), (req, res) => {
     const buf = req.body;
     if (!Buffer.isBuffer(buf) || !buf.length) fail(400, "Fila er tom");
-    const pending = q("SELECT COUNT(*) AS n FROM media WHERE owner_id = ? AND post_id IS NULL").get(req.user.id).n;
+    const pending = q("SELECT COUNT(*) AS n FROM media WHERE owner_id = ? AND post_id IS NULL AND adult_message_id IS NULL").get(req.user.id).n;
     if (pending >= MAX_PENDING_UPLOADS) {
-      q("DELETE FROM media WHERE owner_id = ? AND post_id IS NULL").run(req.user.id);
+      q("DELETE FROM media WHERE owner_id = ? AND post_id IS NULL AND adult_message_id IS NULL").run(req.user.id);
       sweepMedia();
     }
 
@@ -502,6 +504,8 @@ export function createApp({
       if (isJpeg(buf)) {
         if (buf.length > mediaLimits.imageMb * 1024 * 1024) fail(413, `Bildet er for stort. Maks ${mediaLimits.imageMb} MB.`);
         media = { type: "image", mime: "image/jpeg", data: stripJpegMetadata(buf), duration: null };
+      } else if (req.user.role === "parent") {
+        fail(400, "Bare bilder kan deles i voksenkontakten");
       } else if (buf.length > 12 && buf.toString("latin1", 4, 8) === "ftyp") {
         if (buf.length > mediaLimits.videoMb * 1024 * 1024) fail(413, `Videoen er for stor. Maks ${mediaLimits.videoMb} MB.`, "TOO_BIG");
         const { duration } = inspectVideo(buf);
@@ -526,12 +530,14 @@ export function createApp({
 
   app.get("/api/media/:id", needUser(), (req, res) => {
     if (!MEDIA_ID.test(req.params.id)) fail(404, "Finnes ikke");
-    const m = q(`SELECT md.*, p.group_id AS groupId, p.status FROM media md LEFT JOIN posts p ON p.id = md.post_id
+    const m = q(`SELECT md.*, p.group_id AS groupId, p.status, am.group_id AS adultGroupId FROM media md
+      LEFT JOIN posts p ON p.id = md.post_id LEFT JOIN adult_messages am ON am.id = md.adult_message_id
       WHERE md.id = ?`).get(req.params.id);
     if (!m) fail(404, "Finnes ikke");
     const me = req.user;
     if (me.role === "child") childGate(req, res, () => {});
-    const allowed = m.owner_id === me.id || (m.groupId && m.status !== "removed" && (
+    const adultGroup = m.adultGroupId && q("SELECT * FROM groups WHERE id = ?").get(m.adultGroupId);
+    const allowed = m.owner_id === me.id || (adultGroup ? me.role === "parent" && canTalk(me.id, adultGroup) : m.groupId && m.status !== "removed" && (
       me.role === "child"
         ? m.approved && m.status === "visible" && q("SELECT 1 FROM memberships WHERE group_id = ? AND user_id = ? AND approved = 1").get(m.groupId, me.id)
         : visibleGroup(me.id, m.groupId)));
@@ -543,7 +549,7 @@ export function createApp({
 
   // Rydder bort filer som ikke hører til noe lenger, og opplastinger som aldri ble delt.
   function sweepMedia() {
-    q("DELETE FROM media WHERE post_id IS NULL AND created_at < ?").run(now() - 3600e3);
+    q("DELETE FROM media WHERE post_id IS NULL AND adult_message_id IS NULL AND created_at < ?").run(now() - 3600e3);
     const keep = new Set(q("SELECT id FROM media").all().map((r) => r.id));
     for (const file of readdirSync(mediaDir)) {
       if (!keep.has(file)) {
@@ -836,8 +842,8 @@ export function createApp({
   app.get("/api/groups/:groupId/adult", parent, (req, res) => {
     const g = adultGroup(req);
     const messages = q(`SELECT m.id, m.text, m.created_at AS createdAt, u.display_name AS author, u.avatar,
-        (m.author_id = ?) AS mine
-      FROM adult_messages m JOIN users u ON u.id = m.author_id
+        (m.author_id = ?) AS mine, md.id AS imageId
+      FROM adult_messages m JOIN users u ON u.id = m.author_id LEFT JOIN media md ON md.adult_message_id = m.id
       WHERE m.group_id = ? ORDER BY m.id DESC LIMIT 200`).all(req.user.id, g.id);
     // Å åpne voksenkontakten betyr at man har lest alt.
     const last = messages[0]?.id || 0;
@@ -852,9 +858,16 @@ export function createApp({
   app.post("/api/groups/:groupId/adult", parent, async (req, res) => {
     const g = adultGroup(req);
     const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
-    if (text.length < 1 || text.length > 1000) fail(400, "Meldingen må ha 1–1000 tegn");
-    q("INSERT INTO adult_messages (group_id, author_id, text, created_at) VALUES (?, ?, ?, ?)").run(g.id, req.user.id, text, now());
-    await pushAdultMessage(g, req.user, text);
+    const { mediaId } = req.body;
+    const image = mediaId !== undefined && mediaId !== null && q(`SELECT id FROM media
+      WHERE id = ? AND owner_id = ? AND type = 'image' AND post_id IS NULL AND adult_message_id IS NULL`).get(String(mediaId), req.user.id);
+    if (mediaId && !image) fail(400, "Fant ikke bildet. Prøv å legge det til på nytt.");
+    if (text.length > 1000) fail(400, "Meldingen kan ha maks 1000 tegn");
+    if (!text && !image) fail(400, "Skriv en beskjed eller legg ved et bilde");
+    const { lastInsertRowid } = q("INSERT INTO adult_messages (group_id, author_id, text, created_at) VALUES (?, ?, ?, ?)")
+      .run(g.id, req.user.id, text, now());
+    if (image) q("UPDATE media SET adult_message_id = ?, approved = 1 WHERE id = ?").run(lastInsertRowid, image.id);
+    await pushAdultMessage(g, req.user, text || "📷 Bilde");
     res.status(201).json({ ok: true });
   });
 
@@ -911,7 +924,7 @@ export function createApp({
 
       const total = sections.reduce((n, s) => n + s.messages.length, 0);
       const lines = sections.flatMap(({ g, messages }) => messages.slice(-5).map((m) =>
-        `${m.author} i ${g.name}: «${m.text.length > 200 ? `${m.text.slice(0, 199)}…` : m.text}»`));
+        `${m.author} i ${g.name}: ${!m.text ? "📷 Bilde" : `«${m.text.length > 200 ? `${m.text.slice(0, 199)}…` : m.text}»`}`));
       if (total > lines.length) lines.push(`… og ${total - lines.length} til.`);
       try {
         await mailer.send({
@@ -979,6 +992,7 @@ export function createApp({
       WHERE m.id = ? AND (m.author_id = ? OR g.owner_id = ?)`).get(req.params.id, req.user.id, req.user.id);
     if (!m) fail(404, "Fant ikke meldingen");
     q("DELETE FROM adult_messages WHERE id = ?").run(m.id);
+    sweepMedia();
     res.json({ ok: true });
   });
 

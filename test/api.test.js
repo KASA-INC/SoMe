@@ -314,8 +314,9 @@ test("opplasting avviser for store filer, feil filtyper og manglende X-Upload", 
   assert.equal((await upload(a.kid, Buffer.from("<html>hei</html>"))).status, 400);
   const noHeader = await a.kid("/media", { method: "POST", raw: fixture("plain.jpg"), headers: { "X-Upload": "0" } });
   assert.equal(noHeader.status, 415);
-  // Foresatte laster ikke opp; det gjør bare barn.
-  assert.equal((await upload(a.parent, fixture("plain.jpg"))).status, 403);
+  // Foresatte kan laste opp bilder (til voksenkontakten), men ikke video.
+  assert.equal((await upload(a.parent, fixture("plain.jpg"))).status, 201);
+  assert.equal((await upload(a.parent, fixture("short.mp4"))).status, 400);
   // Man kan ikke dele andres opplasting.
   const other = await setupFamily("x");
   const up = await upload(other.kid, fixture("plain.jpg"));
@@ -816,4 +817,31 @@ test("e-post om beskjeder: samlet etter litt, én gang om dagen, eller av", asyn
   } finally {
     clock = start;
   }
+});
+
+test("voksenkontakt: foresatte kan dele bilder, som bare foresatte i gruppa ser", async () => {
+  const a = await setupFamily("vb");
+  const b = await secondParent(a, "vb");
+  // Video er ikke lov i voksenkontakten, bare bilder.
+  assert.equal((await upload(b, fixture("short.mp4"))).status, 400);
+  const up = await upload(b, jpegWithExif());
+  assert.equal(up.status, 201);
+  assert.equal((await b(`/groups/${a.groupId}/adult`, { method: "POST", body: { mediaId: up.body.id } })).status, 201);
+  const { body: { messages } } = await a.parent(`/groups/${a.groupId}/adult`);
+  assert.equal(messages[0].imageId, up.body.id);
+  assert.equal(messages[0].text, "");
+  // Foresatte i gruppa ser bildet (uten GPS), barna og fremmede gjør ikke.
+  const img = await a.parent(`/media/${up.body.id}`);
+  assert.equal(img.status, 200);
+  assert.equal(img.body.includes("GPS"), false);
+  assert.equal((await a.kid(`/media/${up.body.id}`)).status, 404);
+  const stranger = client();
+  await registerParent(stranger, "vb-fremmed@example.com");
+  assert.equal((await stranger(`/media/${up.body.id}`)).status, 404);
+  // Bildet kan ikke brukes på nytt, og sletter man meldingen, forsvinner bildet.
+  assert.equal((await b(`/groups/${a.groupId}/adult`, { method: "POST", body: { mediaId: up.body.id } })).status, 400);
+  assert.equal((await b(`/groups/${a.groupId}/adult`, { method: "POST", body: { text: "" } })).status, 400);
+  await b(`/adult/${messages[0].id}`, { method: "DELETE" });
+  assert.equal((await a.parent(`/media/${up.body.id}`)).status, 404);
+  assert.equal(readdirSync(mediaDir).includes(up.body.id), false);
 });
