@@ -869,14 +869,15 @@ test("invitasjon: en foresatt inviterer en annen, som slipper registreringskoden
     await anon("/email/verify", { method: "POST", body: { token: verify } });
 
     // Invitasjon på e-post. Lenken har koden etter #.
-    const inv = await kristin("/invites", { method: "POST", body: { email: "inv-thomas@example.com" } });
+    const inv = await kristin("/invites", { method: "POST", body: { emails: ["inv-thomas@example.com", " INV-thomas@example.com"] } });
     assert.equal(inv.status, 201);
-    assert.equal(inv.body.emailed, true);
+    assert.deepEqual(inv.body.results, [{ email: "inv-thomas@example.com", status: "sent" }], "dobbelt adresse sendes én gang");
     const mail = sent.findLast((m) => m.to === "inv-thomas@example.com");
     assert.match(mail.subject, /Kristin inviterer deg/);
     const token = mail.text.match(/#invitasjon=([0-9a-f]{64})/)[1];
-    assert.equal(inv.body.url, `https://some.example/#invitasjon=${token}`);
-    assert.deepEqual((await anon(`/invites/${token}`)).body, { inviter: "Kristin", email: "inv-thomas@example.com" });
+    assert.match(mail.text, new RegExp(`https://some.example/#invitasjon=${token}`));
+    assert.deepEqual((await anon(`/invites/${token}`)).body, { inviter: "Kristin", email: "inv-thomas@example.com", group: null });
+    assert.equal((await kristin("/invites", { method: "POST", body: { emails: ["ok@example.com", "ikke-en-adresse"] } })).status, 400);
 
     // Med invitasjonen trengs ikke koden, og den kan bare brukes én gang.
     const thomas = await anon("/register", { method: "POST", body: { displayName: "Thomas", email: "inv-thomas@example.com", password: "hemmelig123", invite: token } });
@@ -890,7 +891,7 @@ test("invitasjon: en foresatt inviterer en annen, som slipper registreringskoden
 
     // Lenke uten e-post går ut etter 14 dager.
     const link = await kristin("/invites", { method: "POST", body: {} });
-    assert.equal(link.body.emailed, false);
+    assert.deepEqual(link.body.results, []);
     const linkToken = link.body.url.split("=")[1];
     const start = clock;
     clock += 15 * 864e5;
@@ -906,4 +907,49 @@ test("invitasjon: en foresatt inviterer en annen, som slipper registreringskoden
   } finally {
     srv.close();
   }
+});
+
+test("invitasjon til en gruppe: nye og eksisterende foresatte kan melde inn barnet uten kode", async () => {
+  const a = await setupFamily("gi"); // a.parent eier gruppa
+  const eier = a.parent;
+  // Ny foresatt via lenke: kontoen lages, og gruppa ligger klar under invitasjoner.
+  const link = await eier("/invites", { method: "POST", body: { groupId: a.groupId } });
+  assert.equal(link.status, 201);
+  const token = link.body.url.split("=")[1];
+  const anon = client();
+  assert.equal((await anon(`/invites/${token}`)).body.group, "Klasse 4B");
+  const ny = client();
+  assert.equal((await ny("/register", { method: "POST", body: { displayName: "Ny", email: "gi-ny@example.com", password: "hemmelig123", invite: token } })).status, 201);
+  await verifyEmail("gi-ny@example.com");
+  assert.deepEqual((await ny("/groups")).body.invitations.map((g) => [g.name, g.inviter]), [["Klasse 4B", "Mamma"]]);
+  await ny("/children", { method: "POST", body: { username: "gi-barn", password: "barn12345", displayName: "Barn", avatar: "c05" } });
+  const { body: { children } } = await ny("/children");
+  // Eieren inviterte, så barnet slipper rett inn.
+  assert.deepEqual((await ny("/groups/join", { method: "POST", body: { groupId: a.groupId, childId: children[0].id } })).body, { ok: true, pending: false });
+
+  // En annen foresatt i gruppa inviterer en som allerede har konto: hen får e-post, og eieren må godkjenne.
+  const medlem = await secondParent(a, "gi");
+  const gammel = client();
+  await registerParent(gammel, "gi-gammel@example.com", "Gammel");
+  const res = await medlem("/invites", { method: "POST", body: { groupId: a.groupId, emails: ["gi-gammel@example.com", "gi-helt-ny@example.com"] } });
+  assert.deepEqual(res.body.results.map((r) => r.status), ["invited", "sent"]);
+  assert.match(outbox.findLast((m) => m.to === "gi-gammel@example.com").text, /meld/i);
+  await gammel("/children", { method: "POST", body: { username: "gi-barn2", password: "barn12345", displayName: "Barn2", avatar: "c06" } });
+  const { body: { children: [b2] } } = await gammel("/children");
+  assert.equal((await gammel("/groups/join", { method: "POST", body: { groupId: a.groupId, childId: b2.id } })).body.pending, true);
+
+  // Uten invitasjon går det ikke uten kode, og fremmede kan ikke invitere til gruppa.
+  const fremmed = client();
+  await registerParent(fremmed, "gi-fremmed@example.com");
+  assert.equal((await fremmed("/invites", { method: "POST", body: { groupId: a.groupId } })).status, 404);
+  await fremmed("/children", { method: "POST", body: { username: "gi-barn3", password: "barn12345", displayName: "Barn3", avatar: "c07" } });
+  const { body: { children: [b3] } } = await fremmed("/children");
+  assert.equal((await fremmed("/groups/join", { method: "POST", body: { groupId: a.groupId, childId: b3.id } })).status, 404);
+
+  // En innlogget foresatt som åpner en gruppelenke, blir invitert til gruppa. Invitasjonen kan skjules.
+  const link2 = await eier("/invites", { method: "POST", body: { groupId: a.groupId } });
+  assert.equal((await fremmed(`/invites/${link2.body.url.split("=")[1]}/accept`, { method: "POST" })).body.group, "Klasse 4B");
+  assert.equal((await fremmed("/groups")).body.invitations.length, 1);
+  await fremmed(`/invitations/${a.groupId}`, { method: "DELETE" });
+  assert.equal((await fremmed("/groups")).body.invitations.length, 0);
 });

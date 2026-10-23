@@ -134,8 +134,20 @@ CREATE TABLE IF NOT EXISTS parent_invites (
   token_hash TEXT PRIMARY KEY,
   inviter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   email TEXT,
+  group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE, -- invitasjon til en bestemt gruppe (valgfritt)
   created_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL
+);
+
+-- Foresatte som er invitert til en gruppe. Med invitasjonen kan de melde inn barnet uten invitasjonskode.
+-- Har eieren av gruppa invitert, slipper barnet rett inn (auto_approve). Ellers må eieren godkjenne som vanlig.
+CREATE TABLE IF NOT EXISTS group_invitations (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  inviter_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  auto_approve INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, group_id)
 );
 
 -- Innstillinger for tjenesten, f.eks. nøklene til push-varsler.
@@ -191,6 +203,9 @@ function migrate(db) {
     db.exec("ALTER TABLE media ADD COLUMN adult_message_id INTEGER REFERENCES adult_messages(id) ON DELETE CASCADE");
   }
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS media_adult_message ON media (adult_message_id) WHERE adult_message_id IS NOT NULL");
+  if (!columns("parent_invites").includes("group_id")) {
+    db.exec("ALTER TABLE parent_invites ADD COLUMN group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE");
+  }
   if (!columns("users").includes("invited_by")) {
     // Hvem som inviterte en foresatt, så man kan se hvem som har kommet inn gjennom hvem.
     db.exec("ALTER TABLE users ADD COLUMN invited_by INTEGER REFERENCES users(id) ON DELETE SET NULL");

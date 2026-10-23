@@ -52,7 +52,8 @@ const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
 const RESET_MINUTES = 60;
 const VERIFY_HOURS = 48;
 const INVITE_DAYS = 14; // så lenge en invitasjon til en annen foresatt virker
-const INVITES_PER_DAY = 20;
+const INVITES_PER_DAY = 40;
+const INVITE_EMAILS_MAX = 30; // adresser i én invitasjon
 const CLEANUP_DAYS = 30;
 
 class HttpError extends Error {
@@ -214,52 +215,108 @@ export function createApp({
 
   // Invitasjon fra en annen foresatt: gyldig, ubrukt og ikke utløpt.
   const findInvite = (token) => typeof token === "string" && /^[0-9a-f]{64}$/.test(token)
-    ? q(`SELECT i.*, u.display_name AS inviter_name FROM parent_invites i JOIN users u ON u.id = i.inviter_id
+    ? q(`SELECT i.*, u.display_name AS inviter_name, g.name AS group_name, g.owner_id AS group_owner
+        FROM parent_invites i JOIN users u ON u.id = i.inviter_id LEFT JOIN groups g ON g.id = i.group_id
         WHERE i.token_hash = ? AND i.expires_at > ?`).get(sha256(token), now())
     : undefined;
   const INVITE_GONE = "Invitasjonen er brukt eller har gått ut. Be den som inviterte deg om en ny.";
 
-  // Registreringssiden viser hvem som har invitert deg. Krever ikke innlogging.
+  // Husker at en foresatt er invitert til en gruppe. Har eieren invitert, slipper barnet rett inn.
+  function rememberGroupInvite(userId, groupId, inviterId, ownerId) {
+    q(`INSERT INTO group_invitations (user_id, group_id, inviter_id, auto_approve, created_at) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT (user_id, group_id) DO UPDATE SET inviter_id = excluded.inviter_id,
+        auto_approve = MAX(auto_approve, excluded.auto_approve)`)
+      .run(userId, groupId, inviterId, inviterId === ownerId ? 1 : 0, now());
+  }
+
+  // Registreringssiden viser hvem som har invitert deg, og til hvilken gruppe. Krever ikke innlogging.
   app.get("/api/invites/:token", (req, res) => {
     const invite = findInvite(req.params.token);
     if (!invite) fail(404, INVITE_GONE);
-    res.json({ inviter: invite.inviter_name, email: invite.email || "" });
+    res.json({ inviter: invite.inviter_name, email: invite.email || "", group: invite.group_name || null });
   });
 
-  // En foresatt inviterer en annen. Lenken kan sendes på e-post fra appen, eller deles som melding.
-  app.post("/api/invites", parent, async (req, res) => {
-    const email = req.body.email ? validateEmail(req.body.email) : null;
-    const recent = q("SELECT COUNT(*) AS n FROM parent_invites WHERE inviter_id = ? AND created_at > ?").get(req.user.id, now() - 864e5).n;
-    if (recent >= INVITES_PER_DAY) fail(429, `Du kan lage ${INVITES_PER_DAY} invitasjoner i døgnet. Prøv igjen i morgen.`);
-    const token = randomBytes(32).toString("hex");
-    const expiresAt = now() + INVITE_DAYS * 864e5;
-    q("INSERT INTO parent_invites (token_hash, inviter_id, email, created_at, expires_at) VALUES (?, ?, ?, ?, ?)")
-      .run(sha256(token), req.user.id, email, now(), expiresAt);
-    // Koden ligger etter # så den aldri havner i serverlogger.
-    const url = `${appUrl.replace(/\/$/, "")}/#invitasjon=${token}`;
-    let emailed = false;
-    if (email) {
-      try {
-        await mailer.send({
-          to: email,
-          subject: `${req.user.display_name} inviterer deg til ${APP_NAME}`,
-          ...renderEmail({
-            preheader: "Lag en foresatt-konto med lenken.",
-            heading: `${req.user.display_name} inviterer deg til ${APP_NAME}`,
-            paragraphs: [
-              `${APP_NAME} er en rolig sosial app for klassen, uten likes, reklame og sporing. Foresatte lager kontoer til barna og bestemmer hvilke grupper de er med i.`,
-              `${req.user.display_name} (${req.user.email}) har invitert deg til å lage en foresatt-konto.`,
-            ],
-            button: { label: "Lag konto", url },
-            note: `Invitasjonen virker i ${INVITE_DAYS} dager og kan brukes én gang. Kjenner du ikke ${req.user.display_name}, kan du se bort fra denne e-posten.`,
-          }),
-        });
-        emailed = mailer.configured !== false; // uten SMTP havner e-posten bare i serverloggen
-      } catch (err) {
-        console.error("Klarte ikke å sende e-post:", err.message);
-      }
+  // En som allerede har konto, åpner en gruppeinvitasjon: hen blir invitert til gruppa.
+  app.post("/api/invites/:token/accept", parent, (req, res) => {
+    const invite = findInvite(req.params.token);
+    if (!invite) fail(404, INVITE_GONE);
+    if (invite.group_id) rememberGroupInvite(req.user.id, invite.group_id, invite.inviter_id, invite.group_owner);
+    q("DELETE FROM parent_invites WHERE token_hash = ?").run(invite.token_hash);
+    res.json({ ok: true, group: invite.group_name || null });
+  });
+
+  async function sendInviteEmail(to, inviter, group, url, existing) {
+    const where = group ? `gruppa ${group.name} i ${APP_NAME}` : APP_NAME;
+    try {
+      await mailer.send({
+        to,
+        subject: group ? `${inviter.display_name} inviterer deg til ${group.name} i ${APP_NAME}` : `${inviter.display_name} inviterer deg til ${APP_NAME}`,
+        ...renderEmail({
+          preheader: existing ? "Logg inn og meld barnet ditt inn i gruppa." : "Lag en foresatt-konto med lenken.",
+          heading: `${inviter.display_name} inviterer deg til ${group ? group.name : APP_NAME}`,
+          paragraphs: existing
+            ? [`${inviter.display_name} (${inviter.email}) har invitert deg og barnet ditt til ${where}.`,
+              "Logg inn og gå til Barn. Der kan du melde barnet ditt inn i gruppa uten invitasjonskode."]
+            : [`${APP_NAME} er en rolig sosial app for klassen, uten likes, reklame og sporing. Foresatte lager kontoer til barna og bestemmer hvilke grupper de er med i.`,
+              `${inviter.display_name} (${inviter.email}) har invitert deg til ${where}.`],
+          button: existing ? { label: `Åpne ${APP_NAME}`, url: appUrl } : { label: "Lag konto", url },
+          note: existing ? undefined : `Invitasjonen virker i ${INVITE_DAYS} dager og kan brukes én gang. Kjenner du ikke ${inviter.display_name}, kan du se bort fra denne e-posten.`,
+        }),
+      });
+      return mailer.configured === false ? "not_sent" : "sent"; // uten SMTP havner e-posten bare i serverloggen
+    } catch (err) {
+      console.error("Klarte ikke å sende e-post:", err.message);
+      return "not_sent";
     }
-    res.status(201).json({ url, expiresAt, emailed });
+  }
+
+  // En foresatt inviterer andre foresatte, til quipu eller til en gruppe. Med e-postadresser sendes én invitasjon
+  // til hver. Uten adresser lages én lenke som kan deles som melding.
+  app.post("/api/invites", parent, async (req, res) => {
+    let group = null;
+    if (req.body.groupId !== undefined && req.body.groupId !== null) {
+      group = q("SELECT * FROM groups WHERE id = ?").get(req.body.groupId);
+      if (!group || !canTalk(req.user.id, group)) fail(404, "Fant ikke gruppa");
+    }
+    const raw = Array.isArray(req.body.emails) ? req.body.emails : req.body.email ? [req.body.email] : [];
+    if (raw.length > INVITE_EMAILS_MAX) fail(400, `Du kan invitere ${INVITE_EMAILS_MAX} adresser om gangen`);
+    const emails = [...new Set(raw.map((e) => (typeof e === "string" ? e.trim().toLowerCase() : "")))];
+    const bad = emails.find((e) => !EMAIL.test(e));
+    if (bad !== undefined) fail(400, `Sjekk e-postadressen ${bad || "(tom)"}`);
+    const recent = q("SELECT COUNT(*) AS n FROM parent_invites WHERE inviter_id = ? AND created_at > ?").get(req.user.id, now() - 864e5).n;
+    if (recent + Math.max(1, emails.length) > INVITES_PER_DAY) fail(429, `Du kan lage ${INVITES_PER_DAY} invitasjoner i døgnet. Prøv igjen i morgen.`);
+
+    const createInvite = (email) => {
+      const token = randomBytes(32).toString("hex");
+      q("INSERT INTO parent_invites (token_hash, inviter_id, email, group_id, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)")
+        .run(sha256(token), req.user.id, email, group?.id ?? null, now(), now() + INVITE_DAYS * 864e5);
+      // Koden ligger etter # så den aldri havner i serverlogger.
+      return `${appUrl.replace(/\/$/, "")}/#invitasjon=${token}`;
+    };
+    if (!emails.length) return res.status(201).json({ url: createInvite(null), results: [] });
+
+    const results = [];
+    for (const email of emails) {
+      const existing = q("SELECT id, role FROM users WHERE email = ?").get(email);
+      if (existing) {
+        // Har adressen allerede konto, trengs ingen ny konto. Gjelder det en gruppe, blir hen invitert til den.
+        if (!group || existing.role !== "parent" || existing.id === req.user.id) { results.push({ email, status: "exists" }); continue; }
+        rememberGroupInvite(existing.id, group.id, req.user.id, group.owner_id);
+        results.push({ email, status: await sendInviteEmail(email, req.user, group, null, true) === "sent" ? "invited" : "invited_not_sent" });
+        continue;
+      }
+      const url = createInvite(email);
+      const status = await sendInviteEmail(email, req.user, group, url, false);
+      // Kom ikke e-posten fram, får den som inviterer lenken, så hen kan sende den selv.
+      results.push(status === "sent" ? { email, status } : { email, status, url });
+    }
+    res.status(201).json({ results });
+  });
+
+  // Gruppeinvitasjoner den innloggede foresatte har fått. Kan skjules.
+  app.delete("/api/invitations/:groupId", parent, (req, res) => {
+    q("DELETE FROM group_invitations WHERE user_id = ? AND group_id = ?").run(req.user.id, req.params.groupId);
+    res.json({ ok: true });
   });
 
   // Foresatte logger inn med e-post. Brukernavnet lages automatisk og vises ikke,
@@ -280,7 +337,10 @@ export function createApp({
     while (q("SELECT 1 FROM users WHERE username = ?").get(username));
     const { lastInsertRowid } = q(`INSERT INTO users (username, password_hash, role, display_name, email, avatar, invited_by, created_at)
       VALUES (?, ?, 'parent', ?, ?, ?, ?, ?)`).run(username, hashPassword(password), displayName, email, AVATARS[randomInt(AVATARS.length)], invite?.inviter_id ?? null, now());
-    if (invite) q("DELETE FROM parent_invites WHERE token_hash = ?").run(invite.token_hash);
+    if (invite) {
+      q("DELETE FROM parent_invites WHERE token_hash = ?").run(invite.token_hash);
+      if (invite.group_id) rememberGroupInvite(lastInsertRowid, invite.group_id, invite.inviter_id, invite.group_owner);
+    }
     const token = createSession(db, lastInsertRowid);
     await sendVerification({ id: lastInsertRowid, display_name: displayName }, email);
     res.set("Set-Cookie", sessionCookie(token, secureCookies)).status(201).json({ ok: true });
@@ -775,6 +835,9 @@ export function createApp({
           adultUnread: canTalk(req.user.id, g) ? unreadAdult(req.user.id, g.id) : undefined,
         };
       }),
+      // Grupper den foresatte er invitert til. Barna kan meldes inn uten invitasjonskode.
+      invitations: q(`SELECT g.id, g.name, u.display_name AS inviter FROM group_invitations i JOIN groups g ON g.id = i.group_id
+        LEFT JOIN users u ON u.id = i.inviter_id WHERE i.user_id = ? ORDER BY g.name`).all(req.user.id),
     });
   });
 
@@ -790,11 +853,18 @@ export function createApp({
   // Eierens egne barn slipper rett inn.
   app.post("/api/groups/join", parent, async (req, res) => {
     const c = ownChild(req);
-    const g = q("SELECT * FROM groups WHERE invite_code = ?").get(String(req.body.code || "").trim().toUpperCase());
+    // Med koden, eller med en invitasjon til gruppa (da trengs ingen kode).
+    const invitation = req.body.groupId !== undefined
+      ? q("SELECT * FROM group_invitations WHERE user_id = ? AND group_id = ?").get(req.user.id, req.body.groupId)
+      : undefined;
+    if (req.body.groupId !== undefined && !invitation) fail(404, "Fant ingen invitasjon til den gruppa");
+    const g = invitation
+      ? q("SELECT * FROM groups WHERE id = ?").get(invitation.group_id)
+      : q("SELECT * FROM groups WHERE invite_code = ?").get(String(req.body.code || "").trim().toUpperCase());
     if (!g) fail(404, "Fant ingen gruppe med den koden");
     const existing = q("SELECT approved FROM memberships WHERE group_id = ? AND user_id = ?").get(g.id, c.id);
     if (existing) return res.json({ ok: true, pending: !existing.approved });
-    const approved = g.owner_id === req.user.id ? 1 : 0;
+    const approved = g.owner_id === req.user.id || invitation?.auto_approve ? 1 : 0;
     q("INSERT INTO memberships (group_id, user_id, approved) VALUES (?, ?, ?)").run(g.id, c.id, approved);
     if (!approved) {
       const owner = q("SELECT display_name, email FROM users WHERE id = ?").get(g.owner_id);

@@ -370,8 +370,16 @@ async function route() {
   setHeader(config?.me.status);
   if (!config) return location.hash === "#registrer" || pendingInvite ? showRegister() : showLogin();
   if (pendingInvite) {
+    // Allerede innlogget: en gruppeinvitasjon tas imot, en vanlig invitasjon trengs ikke.
+    const token = pendingInvite;
     pendingInvite = null;
-    toast("Du er allerede logget inn. Invitasjonen er til en ny foresatt.");
+    if (config.me.role === "parent") {
+      try {
+        const { group } = await api(`/invites/${token}/accept`, { method: "POST" });
+        toast(group ? `Du er invitert til ${group}` : "Du har allerede konto");
+        parentTab = "barn";
+      } catch (err) { toast(err.message); }
+    }
   }
   if (config.me.role === "child") return showChild();
   if (!config.me.emailVerified) return showVerifyEmail();
@@ -994,7 +1002,7 @@ function videoDuration(file) {
 // ---------- Foresatte ----------
 async function showParent() {
   stopTimers(); // slutt å se etter nye innlegg når man går ut av en gruppe
-  const [{ children }, { groups }] = await Promise.all([api("/children"), api("/groups")]);
+  const [{ children }, { groups, invitations = [] }] = await Promise.all([api("/children"), api("/groups")]);
   const todo = groups.reduce((n, g) => n + (g.openReports || 0) + (g.pendingMedia || 0) + (g.pendingMembers?.length || 0) + (g.adultUnread || 0), 0);
 
   const tab = (key, label) => h("button", {
@@ -1003,7 +1011,7 @@ async function showParent() {
   }, label, key === "grupper" && todo ? h("span", { class: "count" }, todo) : null);
 
   const content = {
-    barn: () => childrenTab(children),
+    barn: () => childrenTab(children, invitations),
     grupper: () => groupsTab(groups),
     konto: accountTab,
   }[parentTab]();
@@ -1019,14 +1027,39 @@ async function showParent() {
     content);
 }
 
-function childrenTab(children) {
+function childrenTab(children, invitations) {
   return [
+    ...invitations.map((inv) => invitationCard(inv, children)),
     h("div", { class: "section-title" }, h("h2", {}, "Barna mine"), btn("Legg til", openAddChild, "soft small", "plus")),
     children.length ? null : h("div", { class: "card empty" },
       h("div", { class: "end-icon" }, icon("user")),
       h("p", {}, "Lag en konto til barnet ditt for å komme i gang.")),
-    ...children.map(childCard),
+    ...children.map((c) => childCard(c, invitations)),
   ];
+}
+
+// Meld et barn inn i en gruppe man er invitert til. Trenger ingen invitasjonskode.
+async function joinInvited(inv, c) {
+  try {
+    const { pending } = await api("/groups/join", { method: "POST", body: { groupId: inv.id, childId: c.id } });
+    toast(pending ? "Forespørselen er sendt. Den som eier gruppa, må godkjenne den." : `${c.displayName} er med i ${inv.name}`);
+    showParent();
+  } catch (err) { toast(err.message); }
+}
+
+// Øverst under Barn: «Du er invitert til 6B», med knapp for hvert barn som ikke er med ennå.
+function invitationCard(inv, children) {
+  const missing = children.filter((c) => !c.groups.some((g) => g.id === inv.id));
+  if (children.length && !missing.length) return null;
+  return h("section", { class: "card notice invitation" }, icon("mail"),
+    h("div", {},
+      h("strong", {}, `Du er invitert til ${inv.name}`),
+      h("p", { class: "muted small" }, children.length
+        ? `${inv.inviter ? `${inv.inviter} har invitert deg. ` : ""}Meld inn barnet ditt, så trenger du ingen invitasjonskode.`
+        : `${inv.inviter ? `${inv.inviter} har invitert deg. ` : ""}Lag en barnekonto først, så kan du melde barnet inn i ${inv.name}.`),
+      h("div", { class: "row" },
+        ...missing.map((c) => btn(`Meld inn ${c.displayName}`, () => joinInvited(inv, c), "small", "plus")),
+        btn("Skjul", async () => { await api(`/invitations/${inv.id}`, { method: "DELETE" }).catch(() => {}); showParent(); }, "ghost small"))));
 }
 
 function meter(label, used, max, unit) {
@@ -1037,7 +1070,7 @@ function meter(label, used, max, unit) {
     h("div", { class: "bar" }, h("i", { style: `width:${pct}%` })));
 }
 
-function childCard(c) {
+function childCard(c, invitations = []) {
   const num = (name, value, min, max) => h("input", { name, type: "number", inputmode: "numeric", value, min, max, required: true });
   const time = (name, value) => h("input", { name, type: "time", value, required: true });
 
@@ -1108,6 +1141,8 @@ function childCard(c) {
           await api(`/groups/${g.id}/leave`, { method: "POST", body: { childId: c.id } });
           showParent();
         }))) : null,
+      ...invitations.filter((inv) => !c.groups.some((g) => g.id === inv.id)).map((inv) =>
+        h("button", { type: "button", class: "chip add invited", title: `Invitert til ${inv.name}`, onclick: () => joinInvited(inv, c) }, icon("plus"), inv.name)),
       h("button", {
         type: "button", class: "chip add",
         onclick: (e) => { e.currentTarget.classList.add("hidden"); join.classList.remove("hidden"); join.querySelector("input").focus(); },
@@ -1171,6 +1206,7 @@ function groupCard(g) {
     g.isOwner && reviewSwitch(g),
     h("div", { class: "card-actions" },
       btn("Se innlegg", () => showGroupPosts(g), "", "eye"),
+      btn("Inviter foresatte", () => openInvite(g), "secondary", "mail"),
       g.adultUnread !== undefined && h("button", { type: "button", class: "btn secondary", onclick: () => showAdultChat(g) },
         icon("users"), "Voksenkontakt", g.adultUnread ? h("span", { class: "count" }, g.adultUnread) : null),
       g.isOwner && btn("Slett", async () => {
@@ -1247,31 +1283,90 @@ function openNewGroup() {
   });
 }
 
-// En foresatt inviterer en annen: lenken sendes på e-post, eller kopieres og deles som melding.
-function openInvite() {
-  openSheet("Inviter foresatt", (close) => {
+// Felt der hver e-postadresse blir en tagg når man trykker mellomrom, komma eller Enter (eller limer inn flere).
+// Gyldige adresser ligger i el.values. En ugyldig adresse blir stående som tekst, så den kan rettes.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+function emailTags(id) {
+  const input = h("input", { id, type: "email", inputmode: "email", autocomplete: "off", autocapitalize: "none", spellcheck: "false", placeholder: "navn@eksempel.no" });
+  const list = h("span", { class: "tags" });
+  const el = h("div", { class: "tag-input", onclick: (e) => e.target === el && input.focus() }, list, input);
+  el.values = [];
+  const draw = () => list.replaceChildren(...el.values.map((email) => h("span", { class: "tag" }, email,
+    h("button", { type: "button", "aria-label": `Fjern ${email}`, onclick: () => { el.values = el.values.filter((v) => v !== email); draw(); input.focus(); } }, icon("x")))));
+  // Gjør teksten i feltet om til tagger. Returnerer det som ikke var gyldige adresser.
+  el.commit = () => {
+    const rest = [];
+    for (const part of input.value.split(/[\s,;]+/).filter(Boolean)) {
+      const email = part.toLowerCase();
+      if (!EMAIL_RE.test(email)) rest.push(part);
+      else if (!el.values.includes(email)) el.values.push(email);
+    }
+    input.value = rest.join(" ");
+    el.classList.toggle("invalid", rest.length > 0);
+    draw();
+    return rest;
+  };
+  input.addEventListener("keydown", (e) => {
+    if ([" ", ",", ";", "Enter"].includes(e.key)) {
+      if (e.key === "Enter" && !input.value.trim()) return; // tomt felt: Enter sender skjemaet
+      e.preventDefault();
+      el.commit();
+    } else if (e.key === "Backspace" && !input.value && el.values.length) {
+      input.value = el.values.pop();
+      draw();
+      e.preventDefault();
+    }
+  });
+  input.addEventListener("paste", () => setTimeout(el.commit));
+  input.addEventListener("blur", () => el.commit());
+  input.addEventListener("input", () => el.classList.remove("invalid"));
+  return el;
+}
+
+const INVITE_RESULT = {
+  sent: "Invitasjon sendt",
+  not_sent: "E-posten ble ikke sendt",
+  invited: "Har konto, fikk beskjed om gruppa",
+  invited_not_sent: "Har konto og er invitert, men e-posten ble ikke sendt",
+  exists: "Har allerede konto",
+};
+
+// En foresatt inviterer andre foresatte, til quipu eller til en bestemt gruppe.
+// Med e-postadresser får hver sin invitasjon. Uten adresser lages en lenke man deler selv.
+function openInvite(group) {
+  openSheet(group ? `Inviter til ${group.name}` : "Inviter foresatt", (close) => {
     const warning = warningBox();
+    const tags = emailTags("invite-emails");
+    const submit = h("button", { class: "btn block" }, icon("mail"), "Lag lenke");
+    const label = () => { submit.lastChild.textContent = tags.values.length || tags.querySelector("input").value.trim() ? "Send invitasjoner" : "Lag lenke"; };
+    tags.addEventListener("keyup", label);
+    tags.addEventListener("click", label);
     const box = h("div", {});
-    const form = h("form", {},
-      h("p", { class: "muted small" }, `Den du inviterer, kan lage en foresatt-konto i ${APP_NAME} uten registreringskode. Invitasjonen virker i 14 dager og kan brukes én gang. Inviter bare noen du kjenner.`),
-      field("E-post til den du inviterer (valgfritt)", h("input", { name: "email", type: "email", autocomplete: "off", autocapitalize: "none", inputmode: "email" })),
-      h("p", { class: "muted small" }, "Uten e-post får du en lenke du kan sende selv, for eksempel på SMS."),
-      h("button", { class: "btn block" }, icon("mail"), "Lag invitasjon"),
+    const form = h("form", { novalidate: true },
+      h("p", { class: "muted small" }, group
+        ? `Invitasjonen gjelder ${group.name}. Nye foresatte lager konto uten registreringskode, og de som allerede har konto, får beskjed. Barna meldes inn uten invitasjonskode${group.isOwner ? " og slipper rett inn, siden du eier gruppa" : ", og den som eier gruppa, godkjenner dem som vanlig"}.`
+        : `Den du inviterer, kan lage en foresatt-konto i ${APP_NAME} uten registreringskode. Inviter bare noen du kjenner.`),
+      field("E-postadresser (valgfritt)", tags),
+      h("p", { class: "muted small" }, "Trykk mellomrom etter hver adresse. Uten adresser får du en lenke du kan sende selv, for eksempel på SMS. Invitasjonene virker i 14 dager og kan brukes én gang."),
+      submit,
       warning);
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const { email } = formData(form);
+      const rest = tags.commit();
+      label();
+      if (rest.length) return showWarning(warning, `Sjekk ${rest.length === 1 ? "adressen" : "adressene"}: ${rest.join(", ")}`);
       try {
-        const { url, emailed } = await api("/invites", { method: "POST", body: { email: email || undefined } });
-        const share = navigator.share && btn("Del", () => navigator.share({ title: `Invitasjon til ${APP_NAME}`, text: `Bli med i ${APP_NAME}, appen for klassen:`, url }).catch(() => {}), "secondary small", "share");
+        const { url, results } = await api("/invites", { method: "POST", body: { emails: tags.values, groupId: group?.id } });
+        const share = url && navigator.share && btn("Del", () => navigator.share({ title: `Invitasjon til ${APP_NAME}`, text: group ? `Bli med i ${group.name} i ${APP_NAME}:` : `Bli med i ${APP_NAME}, appen for klassen:`, url }).catch(() => {}), "secondary small", "share");
         box.replaceChildren(...[
-          emailed && h("div", { class: "notice" }, icon("check"),
-            h("div", {}, h("strong", {}, "Invitasjonen er sendt"), h("p", { class: "muted small" }, `Vi sendte en e-post til ${email}. Du kan også dele lenken under.`))),
-          email && !emailed && h("p", { class: "warning" }, icon("alert"), h("span", {}, "Vi fikk ikke sendt e-posten. Del lenken under i stedet.")),
-          h("div", { class: "code-box invite-link" },
+          results.length && h("ul", { class: "invite-results" }, results.map((r) => h("li", { class: r.status === "sent" || r.status === "invited" ? "ok" : "warn" },
+            icon(r.status === "sent" || r.status === "invited" ? "check" : "alert"), h("span", {}, h("strong", {}, r.email), h("small", {}, INVITE_RESULT[r.status] || r.status)),
+            r.url && btn("Kopier lenke", () => copyText(r.url, "Lenken"), "secondary small", "copy")))),
+          results.some((r) => r.url) && h("p", { class: "muted small" }, "E-posten kom ikke fram. Kopier lenken og send den selv, for eksempel på SMS. Hver lenke virker bare for den ene personen."),
+          url && h("div", { class: "code-box invite-link" },
             h("div", {}, h("div", { class: "label" }, "Invitasjonslenke"), h("code", {}, url)),
             h("div", { class: "row" }, btn("Kopier", () => copyText(url, "Lenken"), "secondary small", "copy"), share)),
-          btn("Inviter en til", () => { close(); setTimeout(openInvite, 260); }, "ghost small"),
+          btn("Inviter flere", () => { close(); setTimeout(() => openInvite(group), 260); }, "ghost small"),
         ].filter(Boolean));
         form.replaceWith(box);
       } catch (err) { showWarning(warning, err.message); }
@@ -1286,7 +1381,7 @@ function accountTab() {
     h("section", { class: "card" },
       h("div", { class: "entity-head" }, avatar(config.me.avatar, "lg"),
         h("div", { class: "who" }, h("h3", {}, config.me.displayName), h("div", { class: "sub" }, config.me.email || `@${config.me.username}`))),
-      h("div", { class: "card-actions" }, btn("Inviter foresatt", openInvite, "", "mail"), btn("Logg ut", logout, "secondary", "logout"))),
+      h("div", { class: "card-actions" }, btn("Inviter foresatt", () => openInvite(), "", "mail"), btn("Logg ut", logout, "secondary", "logout"))),
     h("a", { class: "card notice info-link", href: "/om" }, icon("shield"),
       h("div", {}, h("strong", {}, `Slik gjør vi ${APP_NAME} trygt`),
         h("p", { class: "muted small" }, "Valgene vi har tatt, og historien bak navnet. Fin å dele med andre foresatte."))),
