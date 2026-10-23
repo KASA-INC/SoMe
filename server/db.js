@@ -118,6 +118,22 @@ CREATE TABLE IF NOT EXISTS adult_reads (
   PRIMARY KEY (group_id, user_id)
 );
 
+-- Push-varsler: ett abonnement per enhet der en foresatt har slått på varsler.
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+-- Innstillinger for tjenesten, f.eks. nøklene til push-varsler.
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS usage (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   day TEXT NOT NULL,
@@ -150,6 +166,15 @@ function migrate(db) {
   }
   if (!columns("users").includes("email_verified")) {
     db.exec("ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!columns("users").includes("notify_email")) {
+    // off, soon (kort tid etter nye beskjeder, samlet) eller daily (én gang om dagen)
+    db.exec("ALTER TABLE users ADD COLUMN notify_email TEXT NOT NULL DEFAULT 'soon'");
+    db.exec("ALTER TABLE users ADD COLUMN notify_daily_day TEXT");
+  }
+  if (!columns("adult_reads").includes("notified_id")) {
+    // Siste melding den foresatte har fått e-post om, så samme melding ikke sendes to ganger.
+    db.exec("ALTER TABLE adult_reads ADD COLUMN notified_id INTEGER NOT NULL DEFAULT 0");
   }
   if (!columns("memberships").includes("approved")) {
     db.exec("ALTER TABLE memberships ADD COLUMN approved INTEGER NOT NULL DEFAULT 1");

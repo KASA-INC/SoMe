@@ -6,6 +6,8 @@ import { join } from "node:path";
 import { openDb } from "../server/db.js";
 import { createApp } from "../server/app.js";
 import { checkText } from "../server/filter.js";
+import { createVapidKeys, encryptPayload, vapidHeader } from "../server/push.js";
+import { createECDH, createDecipheriv, createPublicKey, hkdfSync, randomBytes, verify } from "node:crypto";
 
 const fixture = (name) => readFileSync(new URL(`fixtures/${name}`, import.meta.url));
 
@@ -16,11 +18,13 @@ const mediaDir = mkdtempSync(join(tmpdir(), "some-media-"));
 const mediaLimits = { videoSeconds: 30, videoMb: 1, imageMb: 1 };
 const outbox = []; // e-poster som appen «sender» i testene
 const mailer = { send: async (mail) => { outbox.push(mail); } };
+const pushed = []; // push-varsler som appen «sender» i testene
+const push = { send: async (subscription, message) => { pushed.push({ endpoint: subscription.endpoint, ...message }); return { gone: subscription.endpoint.endsWith("/borte") }; } };
 
 let app, db;
 before(async () => {
   db = openDb();
-  app = createApp({ db, mediaDir, mediaLimits, now: () => clock, mailer, appUrl: "https://some.example" });
+  app = createApp({ db, push, mediaDir, mediaLimits, now: () => clock, mailer, appUrl: "https://some.example" });
   server = app.listen(0);
   await new Promise((r) => server.once("listening", r));
   base = `http://localhost:${server.address().port}/api`;
@@ -687,4 +691,129 @@ test("voksenkontakt: bare foresatte i gruppa kan lese og skrive, og barna ser de
   // Eieren kan slette alle meldinger.
   assert.equal((await a.parent(`/adult/${own.id}`, { method: "DELETE" })).status, 200);
   assert.equal((await b(`/groups/${a.groupId}/adult`)).body.messages.length, 1);
+});
+
+
+// Hjelper: en foresatt med et godkjent barn i gruppa til a.
+async function secondParent(a, prefix) {
+  const b = client();
+  await registerParent(b, `${prefix}-far@example.com`, "Pappa");
+  await b("/children", { method: "POST", body: { username: `${prefix}-tor`, password: "tor12345", displayName: "Tor", avatar: "c04" } });
+  const { body: { children: [tor] } } = await b("/children");
+  await b("/groups/join", { method: "POST", body: { code: a.code, childId: tor.id } });
+  await a.parent(`/groups/${a.groupId}/members/${tor.id}`, { method: "POST", body: { action: "approve" } });
+  return b;
+}
+const fakeSub = (name) => ({ endpoint: `https://push.example.com/${name}`, keys: { p256dh: "B".repeat(87), auth: "A".repeat(22) } });
+
+test("push: innholdet krypteres slik at bare enheten kan lese det (RFC 8291)", () => {
+  const ua = createECDH("prime256v1");
+  const uaPublic = ua.generateKeys();
+  const auth = randomBytes(16);
+  const body = encryptPayload(JSON.stringify({ title: "Hei" }), { p256dh: uaPublic.toString("base64url"), auth: auth.toString("base64url") });
+  // Dekrypter som en nettleser ville gjort.
+  const salt = body.subarray(0, 16);
+  const idlen = body.readUInt8(20);
+  const asPublic = body.subarray(21, 21 + idlen);
+  const shared = ua.computeSecret(asPublic);
+  const ikm = Buffer.from(hkdfSync("sha256", shared, auth, Buffer.concat([Buffer.from("WebPush: info\0"), uaPublic, asPublic]), 32));
+  const cek = Buffer.from(hkdfSync("sha256", ikm, salt, Buffer.from("Content-Encoding: aes128gcm\0"), 16));
+  const nonce = Buffer.from(hkdfSync("sha256", ikm, salt, Buffer.from("Content-Encoding: nonce\0"), 12));
+  const data = body.subarray(21 + idlen);
+  const decipher = createDecipheriv("aes-128-gcm", cek, nonce);
+  decipher.setAuthTag(data.subarray(-16));
+  const plain = Buffer.concat([decipher.update(data.subarray(0, -16)), decipher.final()]);
+  assert.equal(plain.at(-1), 2);
+  assert.deepEqual(JSON.parse(plain.subarray(0, -1)), { title: "Hei" });
+});
+
+test("push: VAPID-signaturen kan kontrolleres med den offentlige nøkkelen (RFC 8292)", () => {
+  const keys = createVapidKeys();
+  const header = vapidHeader("https://push.example.com/abc", keys);
+  const [, jwt, k] = header.match(/^vapid t=([^,]+), k=(.+)$/);
+  assert.equal(k, keys.publicKey);
+  const [h, c, sig] = jwt.split(".");
+  assert.equal(JSON.parse(Buffer.from(c, "base64url")).aud, "https://push.example.com");
+  const pub = Buffer.from(keys.publicKey, "base64url");
+  const key = createPublicKey({ key: { kty: "EC", crv: "P-256", x: pub.subarray(1, 33).toString("base64url"), y: pub.subarray(33).toString("base64url") }, format: "jwk" });
+  assert.ok(verify("sha256", Buffer.from(`${h}.${c}`), { key, dsaEncoding: "ieee-p1363" }, Buffer.from(sig, "base64url")));
+});
+
+test("push: nye beskjeder varsler de andre foresatte, ikke forfatteren, og døde abonnementer fjernes", async () => {
+  const a = await setupFamily("pv");
+  const b = await secondParent(a, "pv");
+  const { body: { pushKey } } = await b("/notify");
+  assert.match(pushKey, /^[\w-]{87}$/);
+  assert.equal((await b("/push/subscribe", { method: "POST", body: { endpoint: "javascript:alert(1)", keys: fakeSub("x").keys } })).status, 400);
+  assert.equal((await b("/push/subscribe", { method: "POST", body: fakeSub("pv-far") })).status, 201);
+  assert.equal((await b("/push/subscribe", { method: "POST", body: fakeSub("borte") })).status, 201);
+  assert.equal((await a.parent("/push/subscribe", { method: "POST", body: fakeSub("pv-mor") })).status, 201);
+  pushed.length = 0;
+  await a.parent(`/groups/${a.groupId}/adult`, { method: "POST", body: { text: "Foreldremøte torsdag!" } });
+  assert.deepEqual(pushed.map((p) => p.endpoint).sort(), ["https://push.example.com/borte", "https://push.example.com/pv-far"]);
+  assert.equal(pushed[0].title, "Ny beskjed i Klasse 4B");
+  assert.equal(pushed[0].body, "Mamma: Foreldremøte torsdag!");
+  assert.equal(pushed[0].url, `/#voksen=${a.groupId}`);
+  // «borte» svarte at abonnementet ikke finnes lenger, så det er slettet.
+  pushed.length = 0;
+  await a.parent(`/groups/${a.groupId}/adult`, { method: "POST", body: { text: "Og en til" } });
+  assert.deepEqual(pushed.map((p) => p.endpoint), ["https://push.example.com/pv-far"]);
+  // Slått av på enheten: ingen varsler.
+  await b("/push/unsubscribe", { method: "POST", body: { endpoint: fakeSub("pv-far").endpoint } });
+  pushed.length = 0;
+  await a.parent(`/groups/${a.groupId}/adult`, { method: "POST", body: { text: "Tredje" } });
+  assert.equal(pushed.length, 0);
+});
+
+test("e-post om beskjeder: samlet etter litt, én gang om dagen, eller av", async () => {
+  const a = await setupFamily("ev");
+  const b = await secondParent(a, "ev");
+  const start = clock;
+  try {
+    assert.equal((await b("/notify")).body.email, "soon");
+    await a.parent(`/groups/${a.groupId}/adult`, { method: "POST", body: { text: "Husk gymtøy" } });
+    await a.parent(`/groups/${a.groupId}/adult`, { method: "POST", body: { text: "og matpakke" } });
+    const mine = () => outbox.filter((m) => m.to === "ev-far@example.com");
+    outbox.length = 0;
+    await app.locals.emailAdultMessages();
+    assert.equal(mine().length, 0); // venter litt, så flere beskjeder kommer i samme e-post
+    clock += 11 * 60e3;
+    await app.locals.emailAdultMessages();
+    assert.equal(mine().length, 1);
+    assert.match(mine()[0].subject, /2 nye beskjeder/);
+    assert.match(mine()[0].text, /Mamma i Klasse 4B: «Husk gymtøy»/);
+    assert.match(mine()[0].html, /cid:button@quipu/);
+    assert.equal(outbox.filter((m) => m.to === "ev@example.com").length, 0); // ikke til forfatteren
+    await app.locals.emailAdultMessages();
+    assert.equal(mine().length, 1); // ikke samme beskjeder to ganger
+
+    // Leser man beskjedene i appen, kommer det ingen e-post om dem.
+    await a.parent(`/groups/${a.groupId}/adult`, { method: "POST", body: { text: "Lest i appen" } });
+    await b(`/groups/${a.groupId}/adult`);
+    clock += 11 * 60e3;
+    await app.locals.emailAdultMessages();
+    assert.equal(mine().length, 1);
+
+    // Én gang om dagen: først etter kl. 18, og bare én gang.
+    assert.equal((await b("/notify", { method: "PATCH", body: { email: "sjelden" } })).status, 400);
+    await b("/notify", { method: "PATCH", body: { email: "daily" } });
+    await a.parent(`/groups/${a.groupId}/adult`, { method: "POST", body: { text: "Dagens beskjed" } });
+    clock = Date.parse("2026-10-21T14:00:00Z"); // 16:00 i Oslo
+    await app.locals.emailAdultMessages();
+    assert.equal(mine().length, 1);
+    clock = Date.parse("2026-10-21T16:30:00Z"); // 18:30 i Oslo
+    await app.locals.emailAdultMessages();
+    assert.equal(mine().length, 2);
+    await a.parent(`/groups/${a.groupId}/adult`, { method: "POST", body: { text: "Enda en" } });
+    await app.locals.emailAdultMessages();
+    assert.equal(mine().length, 2); // allerede sendt i dag
+
+    // Av: ingen e-post.
+    await b("/notify", { method: "PATCH", body: { email: "off" } });
+    clock = Date.parse("2026-10-22T16:30:00Z");
+    await app.locals.emailAdultMessages();
+    assert.equal(mine().length, 2);
+  } finally {
+    clock = start;
+  }
 });

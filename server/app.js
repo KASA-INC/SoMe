@@ -7,6 +7,7 @@ import { checkText } from "./filter.js";
 import { isJpeg, stripJpegMetadata, inspectVideo, MediaError } from "./media.js";
 import { createMailer } from "./mail.js";
 import { renderEmail } from "./email.js";
+import { createPushSender, createVapidKeys } from "./push.js";
 import { APP_NAME } from "./config.js";
 import {
   COOKIE, hashPassword, verifyPassword, createSession, destroySession, userFromToken,
@@ -69,7 +70,7 @@ function safeEqual(a, b) {
 
 // registrationCode: hvis satt, må foresatte oppgi denne koden for å lage konto.
 export function createApp({
-  db, mediaDir, mediaLimits = DEFAULT_MEDIA_LIMITS, now = Date.now, secureCookies = false, registrationCode = "",
+  db, mediaDir, mediaLimits = DEFAULT_MEDIA_LIMITS, now = Date.now, secureCookies = false, registrationCode = "", push,
   appUrl = "http://localhost:3000", mailer = createMailer(),
 }) {
   const app = express();
@@ -82,6 +83,16 @@ export function createApp({
   };
 
   const q = (sql) => db.prepare(sql);
+
+  // Nøklene til push-varsler lages første gang og lagres i databasen, så ingenting må settes opp.
+  function vapidKeys() {
+    const row = q("SELECT value FROM app_settings WHERE key = 'vapid'").get();
+    if (row) return JSON.parse(row.value);
+    const keys = createVapidKeys();
+    q("INSERT INTO app_settings (key, value) VALUES ('vapid', ?)").run(JSON.stringify(keys));
+    return keys;
+  }
+  const pushSender = push || createPushSender(vapidKeys);
 
   // ---------- Sikkerhet ----------
   app.use((req, res, next) => {
@@ -838,12 +849,121 @@ export function createApp({
     });
   });
 
-  app.post("/api/groups/:groupId/adult", parent, (req, res) => {
+  app.post("/api/groups/:groupId/adult", parent, async (req, res) => {
     const g = adultGroup(req);
     const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
     if (text.length < 1 || text.length > 1000) fail(400, "Meldingen må ha 1–1000 tegn");
     q("INSERT INTO adult_messages (group_id, author_id, text, created_at) VALUES (?, ?, ?, ?)").run(g.id, req.user.id, text, now());
+    await pushAdultMessage(g, req.user, text);
     res.status(201).json({ ok: true });
+  });
+
+  // ---------- Varsler om nye beskjeder i voksenkontakten ----------
+  // Hver foresatt velger selv: e-post (av, kort tid etter, eller én gang om dagen) og push-varsel per enhet.
+  const NOTIFY_EMAIL = ["off", "soon", "daily"];
+  const SOON_MINUTES = 10; // vent litt, så flere beskjeder havner i samme e-post
+  const DAILY_AT = "18:00";
+
+  // Foresatte som har tilgang til voksenkontakten i gruppa (eieren og foresatte med godkjente barn).
+  const adultsInGroup = (g) => q(`SELECT u.* FROM users u WHERE u.role = 'parent' AND (u.id = ? OR EXISTS (
+      SELECT 1 FROM memberships m JOIN users c ON c.id = m.user_id WHERE m.group_id = ? AND m.approved = 1 AND c.parent_id = u.id))`)
+    .all(g.owner_id, g.id);
+
+  async function pushAdultMessage(g, author, text) {
+    const message = {
+      title: `Ny beskjed i ${g.name}`,
+      body: `${author.display_name}: ${text.length > 120 ? `${text.slice(0, 119)}…` : text}`,
+      url: `/#voksen=${g.id}`,
+      tag: `voksen-${g.id}`,
+      topic: `voksen-${g.id}`,
+    };
+    const subs = adultsInGroup(g).filter((u) => u.id !== author.id)
+      .flatMap((u) => q("SELECT * FROM push_subscriptions WHERE user_id = ?").all(u.id));
+    await Promise.all(subs.map(async (sub) => {
+      try {
+        const { gone } = await pushSender.send(sub, message);
+        if (gone) q("DELETE FROM push_subscriptions WHERE id = ?").run(sub.id);
+      } catch (err) {
+        console.error("Klarte ikke å sende push-varsel:", err.message);
+      }
+    }));
+  }
+
+  // Kjøres jevnlig (se index.js): sender e-post om beskjeder den foresatte ikke har lest eller fått e-post om.
+  async function emailAdultMessages() {
+    const { day, hm } = clock();
+    const parents = q("SELECT * FROM users WHERE role = 'parent' AND email_verified = 1 AND notify_email != 'off'").all();
+    for (const p of parents) {
+      if (p.notify_email === "daily" && (hm < DAILY_AT || p.notify_daily_day === day)) continue;
+      const groups = q(`SELECT g.* FROM groups g WHERE g.owner_id = ? OR EXISTS (SELECT 1 FROM memberships m JOIN users c ON c.id = m.user_id
+        WHERE m.group_id = g.id AND m.approved = 1 AND c.parent_id = ?) ORDER BY g.name`).all(p.id, p.id);
+      const sections = groups.map((g) => {
+        const r = q("SELECT last_id, notified_id FROM adult_reads WHERE group_id = ? AND user_id = ?").get(g.id, p.id);
+        const since = Math.max(r?.last_id || 0, r?.notified_id || 0);
+        const messages = q(`SELECT m.id, m.text, m.created_at, u.display_name AS author FROM adult_messages m JOIN users u ON u.id = m.author_id
+          WHERE m.group_id = ? AND m.id > ? AND m.author_id != ? ORDER BY m.id`).all(g.id, since, p.id);
+        return { g, messages };
+      }).filter((s) => s.messages.length);
+      if (p.notify_email === "daily") q("UPDATE users SET notify_daily_day = ? WHERE id = ?").run(day, p.id);
+      if (!sections.length) continue;
+      const oldest = Math.min(...sections.flatMap((s) => s.messages.map((m) => m.created_at)));
+      if (p.notify_email === "soon" && now() - oldest < SOON_MINUTES * 60e3) continue;
+
+      const total = sections.reduce((n, s) => n + s.messages.length, 0);
+      const lines = sections.flatMap(({ g, messages }) => messages.slice(-5).map((m) =>
+        `${m.author} i ${g.name}: «${m.text.length > 200 ? `${m.text.slice(0, 199)}…` : m.text}»`));
+      if (total > lines.length) lines.push(`… og ${total - lines.length} til.`);
+      try {
+        await mailer.send({
+          to: p.email,
+          subject: total === 1 ? `Ny beskjed i voksenkontakten i ${APP_NAME}` : `${total} nye beskjeder i voksenkontakten i ${APP_NAME}`,
+          ...renderEmail({
+            preheader: lines[0],
+            heading: total === 1 ? "Ny beskjed fra de andre foresatte" : `${total} nye beskjeder fra de andre foresatte`,
+            paragraphs: lines,
+            button: { label: "Åpne voksenkontakten", url: `${appUrl.replace(/\/$/, "")}/#voksen=${sections[0].g.id}` },
+            note: "Du får denne e-posten fordi du har slått på e-post om beskjeder i voksenkontakten. Du kan endre det under Konto i quipu.",
+          }),
+        });
+      } catch (err) {
+        console.error("Klarte ikke å sende e-post:", err.message);
+        continue;
+      }
+      for (const { g, messages } of sections) {
+        q(`INSERT INTO adult_reads (group_id, user_id, last_id, notified_id) VALUES (?, ?, 0, ?)
+          ON CONFLICT (group_id, user_id) DO UPDATE SET notified_id = MAX(notified_id, excluded.notified_id)`).run(g.id, p.id, messages.at(-1).id);
+      }
+    }
+  }
+  app.locals.emailAdultMessages = emailAdultMessages;
+
+  app.get("/api/notify", parentAny, (req, res) => {
+    res.json({ email: req.user.notify_email, pushKey: vapidKeys().publicKey });
+  });
+
+  app.patch("/api/notify", parentAny, (req, res) => {
+    if (!NOTIFY_EMAIL.includes(req.body.email)) fail(400, "Ugyldig valg");
+    q("UPDATE users SET notify_email = ? WHERE id = ?").run(req.body.email, req.user.id);
+    res.json({ ok: true });
+  });
+
+  // Push-abonnement for denne enheten. Endepunktet er en adresse hos Apple, Google eller Mozilla.
+  app.post("/api/push/subscribe", parentAny, (req, res) => {
+    const { endpoint, keys } = req.body;
+    let url;
+    try { url = new URL(endpoint); } catch { fail(400, "Ugyldig abonnement"); }
+    if (url.protocol !== "https:" || endpoint.length > 1000 || !/^[\w-]{80,100}$/.test(keys?.p256dh || "") || !/^[\w-]{16,32}$/.test(keys?.auth || "")) {
+      fail(400, "Ugyldig abonnement");
+    }
+    q(`INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT (endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth`)
+      .run(req.user.id, endpoint, keys.p256dh, keys.auth, now());
+    res.status(201).json({ ok: true });
+  });
+
+  app.post("/api/push/unsubscribe", parentAny, (req, res) => {
+    q("DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?").run(String(req.body.endpoint || ""), req.user.id);
+    res.json({ ok: true });
   });
 
   app.get("/api/groups/:groupId/adult/new", parent, (req, res) => {

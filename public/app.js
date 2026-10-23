@@ -324,6 +324,8 @@ function updateTimeLeft(minutesLeft) {
 }
 
 async function logout() {
+  // Varsler skal ikke fortsette å komme til en enhet man har logget ut av.
+  if (config?.me.role === "parent") await setPush(false).catch(() => {});
   await api("/logout", { method: "POST" }).catch(() => {});
   config = null;
   stopTimers();
@@ -365,6 +367,12 @@ async function route() {
   if (!config) return location.hash === "#registrer" ? showRegister() : showLogin();
   if (config.me.role === "child") return showChild();
   if (!config.me.emailVerified) return showVerifyEmail();
+  const voksen = location.hash.match(/^#voksen=(\d+)$/);
+  if (voksen) {
+    history.replaceState(null, "", location.pathname);
+    parentTab = "grupper";
+    return showAdultChat({ id: Number(voksen[1]) }).catch((err) => { toast(err.message); return showParent(); });
+  }
   return showParent();
 }
 
@@ -1226,6 +1234,7 @@ function accountTab() {
       h("div", {}, h("strong", {}, `Slik gjør vi ${APP_NAME} trygt`),
         h("p", { class: "muted small" }, "Valgene vi har tatt, og historien bak navnet. Fin å dele med andre foresatte."))),
     installGuide(),
+    notifyCard(),
     emailCard(),
     passwordCard(),
     h("section", { class: "card" },
@@ -1237,6 +1246,86 @@ function accountTab() {
         start();
       }, "danger", "trash")),
   ];
+}
+
+// ---------- Varsler fra voksenkontakten ----------
+// E-post (av, kort tid etter nye beskjeder, eller én gang om dagen) og push-varsel på denne enheten.
+const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+let pushKey = null;
+
+async function currentPush() {
+  if (!pushSupported()) return null;
+  const reg = await navigator.serviceWorker.getRegistration("/");
+  return reg ? reg.pushManager.getSubscription() : null;
+}
+
+async function setPush(on) {
+  if (!on) {
+    const sub = await currentPush();
+    if (sub) {
+      await api("/push/unsubscribe", { method: "POST", body: { endpoint: sub.endpoint } });
+      await sub.unsubscribe();
+    }
+    return;
+  }
+  if (await Notification.requestPermission() !== "granted") {
+    throw new Error("Varsler er blokkert. Slå dem på for quipu i innstillingene på telefonen.");
+  }
+  let sub;
+  try {
+    const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    await navigator.serviceWorker.ready;
+    const key = Uint8Array.from(atob(pushKey.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+  } catch (err) {
+    console.warn("Push:", err);
+    throw new Error("Klarte ikke å slå på push-varsler på denne enheten. Prøv igjen, eller velg e-post.");
+  }
+  await api("/push/subscribe", { method: "POST", body: sub.toJSON() });
+}
+
+function notifyCard() {
+  const card = h("section", { class: "card" },
+    h("h3", {}, "Varsler fra voksenkontakten"),
+    h("p", { class: "muted small" }, "Få beskjed når andre foresatte skriver i voksenkontakten. Barna får aldri varsler."));
+  (async () => {
+    const settings = await api("/notify");
+    pushKey = settings.pushKey;
+    const email = h("select", { "aria-label": "E-post" },
+      [["off", "Av"], ["soon", "Kort tid etter nye beskjeder"], ["daily", "Én gang om dagen (kl. 18)"]]
+        .map(([v, label]) => h("option", { value: v, selected: settings.email === v }, label)));
+    email.addEventListener("change", async () => {
+      try {
+        await api("/notify", { method: "PATCH", body: { email: email.value } });
+        toast(email.value === "off" ? "E-post om beskjeder er slått av" : "Lagret");
+      } catch (err) { toast(err.message); }
+    });
+
+    let pushRow;
+    if (pushSupported()) {
+      const box = h("input", { type: "checkbox", role: "switch", checked: !!(await currentPush()) && Notification.permission === "granted", "aria-label": "Push-varsel på denne enheten" });
+      box.addEventListener("change", async () => {
+        box.disabled = true;
+        try {
+          await setPush(box.checked);
+          toast(box.checked ? "Push-varsler er slått på for denne enheten" : "Push-varsler er slått av for denne enheten");
+        } catch (err) {
+          box.checked = !box.checked;
+          toast(err.message);
+        } finally { box.disabled = false; }
+      });
+      pushRow = h("label", { class: "switch-row" },
+        h("span", { class: "text" }, "Push-varsel på denne enheten", h("small", {}, "Et varsel på låseskjermen når det kommer en ny beskjed")),
+        h("span", { class: "switch" }, box, h("i", {})));
+    } else {
+      const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+      pushRow = h("p", { class: "status-note" }, icon("phone"), ios
+        ? "På iPhone og iPad må quipu ligge på hjemskjermen for å få push-varsler. Se «Legg quipu på hjemskjermen» over, og åpne quipu derfra."
+        : "Denne nettleseren støtter ikke push-varsler. Du kan få e-post i stedet.");
+    }
+    card.append(field("E-post", email), pushRow);
+  })().catch((err) => card.append(h("p", { class: "muted small" }, err.message)));
+  return card;
 }
 
 function emailCard() {
@@ -1322,7 +1411,8 @@ async function showGroupPosts(g) {
 // Beskjeder og diskusjon mellom foresatte i gruppa. Barna ser det aldri. Samme oppsett som feeden:
 // skrivefelt øverst, nyeste først, og en knapp når det kommer nye meldinger.
 async function showAdultChat(g) {
-  const { messages } = await api(`/groups/${g.id}/adult`);
+  const { messages, group } = await api(`/groups/${g.id}/adult`);
+  g = { ...g, name: group.name };
   watchNewPosts(Math.max(0, ...messages.map((m) => m.id)), `/groups/${g.id}/adult/new`, () => showAdultChat(g), ["ny melding", "nye meldinger"]);
 
   const text = h("textarea", { maxlength: 1000, rows: 3, placeholder: "Skriv en beskjed til de andre foresatte …", "aria-label": "Melding" });
@@ -1379,6 +1469,6 @@ function hideSplash() {
 }
 
 // En lenke for nytt passord kan åpnes i en fane der appen allerede er åpen.
-window.addEventListener("hashchange", () => /^#(reset=|verify=|registrer$)/.test(location.hash) && start());
+window.addEventListener("hashchange", () => /^#(reset=|verify=|voksen=|registrer$)/.test(location.hash) && start());
 
 start();
