@@ -186,6 +186,13 @@ CREATE TABLE IF NOT EXISTS admin_log (
   created_at INTEGER NOT NULL
 );
 
+-- Bremsen mot gjetting av passord (se auth.js). Nøkkelen er en hash, så ingen IP-adresser lagres.
+CREATE TABLE IF NOT EXISTS login_failures (
+  key_hash TEXT PRIMARY KEY,
+  first INTEGER NOT NULL,
+  count INTEGER NOT NULL
+);
+
 -- Barn kan si fra om noe direkte til dem som drifter quipu, utenom gruppa og foresatte
 -- (for eksempel når problemet er en voksen). Bare administrator ser disse.
 CREATE TABLE IF NOT EXISTS safety_reports (
@@ -275,6 +282,12 @@ function migrate(db) {
     db.exec("ALTER TABLE users ADD COLUMN totp_secret TEXT");
     db.exec("ALTER TABLE users ADD COLUMN totp_pending TEXT");
     db.exec("ALTER TABLE users ADD COLUMN totp_last_step INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!columns("sessions").includes("device")) {
+    // Når innloggingen startet, sist ble brukt, og hvilken type enhet (for eksempel «iPhone · Safari»).
+    db.exec("ALTER TABLE sessions ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0");
+    db.exec("ALTER TABLE sessions ADD COLUMN last_seen INTEGER NOT NULL DEFAULT 0");
+    db.exec("ALTER TABLE sessions ADD COLUMN device TEXT NOT NULL DEFAULT ''");
   }
   if (!columns("sessions").includes("mfa_at")) {
     db.exec("ALTER TABLE sessions ADD COLUMN mfa_at INTEGER"); // når engangskoden sist ble skrevet inn på denne enheten

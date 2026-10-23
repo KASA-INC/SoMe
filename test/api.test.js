@@ -420,6 +420,10 @@ test("foresatte kan bytte passord og e-post når de er logget inn", async () => 
   assert.equal((await a.parent("/me", { method: "PATCH", body: { email: "Ny@Example.com" } })).status, 200);
   assert.equal((await a.parent("/me")).body.me.email, "r@example.com"); // gammel adresse til den nye er bekreftet
   await verifyEmail("ny@example.com");
+  // Lenken ble åpnet på en annen enhet: de andre innloggingene er logget ut, og den gamle adressen fikk beskjed.
+  assert.equal((await a.parent("/me")).status, 401);
+  assert.match(outbox.findLast((m) => m.to === "r@example.com").subject, /E-postadressen din i quipu er endret/);
+  assert.equal((await a.parent("/login", { method: "POST", body: { login: "ny@example.com", password: "nytt-passord-123" } })).status, 200);
   assert.equal((await a.parent("/me")).body.me.email, "ny@example.com");
   // Barn har verken e-post eller tilgang til dette.
   assert.equal((await a.kid("/me/password", { method: "POST", body: { current: "ola12345", password: "nytt-passord-123" } })).status, 403);
@@ -505,6 +509,8 @@ test("foresatte må bekrefte e-posten før de kan lage barn og grupper", async (
   ({ body: { me } } = await p("/me"));
   assert.deepEqual([me.email, me.pendingEmail, me.emailVerified], ["v2@example.com", "v3@example.com", true]);
   await verifyEmail("v3@example.com");
+  assert.equal((await p("/me")).status, 401, "andre enheter logges ut ved ny e-post");
+  await p("/login", { method: "POST", body: { login: "v3@example.com", password: "hemmelig123" } });
   ({ body: { me } } = await p("/me"));
   assert.deepEqual([me.email, me.pendingEmail], ["v3@example.com", ""]);
 });
@@ -1174,4 +1180,49 @@ test("barn kan si fra med kategori, og om noe annet direkte til administrator", 
   await sjef(`/admin/safety/${mine.id}`, { method: "POST", body: { note: "Snakket med foresatt" } });
   assert.equal((await sjef("/admin/safety")).body.reports.find((r) => r.id === mine.id).resolved, true);
   assert.equal((await b("/safety", { method: "POST", body: { text: "hei" } })).status, 403, "bare barn");
+});
+
+test("innlogginger: foresatte ser enhetene sine, kan logge dem ut, og får e-post om nye", async () => {
+  const mor = client();
+  await registerParent(mor, "inn@example.com", "Mor");
+  const iphone = client();
+  const ua = { "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1" };
+  const before = outbox.length;
+  await iphone("/login", { method: "POST", body: { login: "inn@example.com", password: "hemmelig123" }, headers: ua });
+  const mail = outbox.slice(before).find((m) => m.to === "inn@example.com");
+  assert.match(mail.text, /iPhone · Safari/);
+  // Samme type enhet igjen: ingen ny e-post.
+  const n = outbox.length;
+  await client()("/login", { method: "POST", body: { login: "inn@example.com", password: "hemmelig123" }, headers: ua });
+  assert.equal(outbox.length, n);
+
+  const { body: { sessions } } = await mor("/sessions");
+  assert.equal(sessions.length, 3);
+  assert.equal(sessions.filter((x) => x.current).length, 1);
+  const phone = sessions.find((x) => x.device === "iPhone · Safari");
+  await mor(`/sessions/${phone.id}`, { method: "DELETE" });
+  assert.equal((await mor("/sessions")).body.sessions.length, 2);
+  assert.equal((await mor("/sessions/others", { method: "POST" })).body.loggedOut, 1);
+  assert.equal((await mor("/sessions")).body.sessions.length, 1);
+  assert.equal((await mor("/me")).status, 200, "denne enheten er fortsatt logget inn");
+  // Passordbytte gir e-post.
+  await mor("/me/password", { method: "POST", body: { current: "hemmelig123", password: "nytt-passord-456" } });
+  assert.match(outbox.findLast((m) => m.to === "inn@example.com").subject, /Passordet ditt i quipu er endret/);
+});
+
+test("bremsen mot passordgjetting lagres i databasen og gjelder etter omstart", async () => {
+  const p = client();
+  await registerParent(p, "brems@example.com", "Brems");
+  for (let i = 0; i < 5; i++) await client()("/login", { method: "POST", body: { login: "brems@example.com", password: "feil" } });
+  // En ny app med samme database (som etter en omstart) husker forsøkene.
+  const app2 = createApp({ db, mediaDir, now: () => clock, mailer });
+  const srv = app2.listen(0);
+  await new Promise((r) => srv.once("listening", r));
+  try {
+    const res = await fetch(`http://localhost:${srv.address().port}/api/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ login: "brems@example.com", password: "hemmelig123" }) });
+    assert.equal(res.status, 429);
+  } finally {
+    srv.close();
+  }
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM login_failures WHERE key_hash LIKE '%@%'").get().n, 0, "bare hash lagres");
 });

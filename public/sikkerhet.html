@@ -53,9 +53,9 @@
       <h2>Kontoer og innlogging</h2>
       <ul class="info-grid checks">
         <li><strong>Passord lagres aldri.</strong> Vi lagrer bare et «fingeravtrykk» laget med scrypt og et unikt tilfeldig salt per konto. Scrypt er laget for å være tregt og dyrt å gjette mot, så selv en stjålet database avslører ikke passordene. Sammenligningen tar like lang tid uansett svar, så tiden ikke røper noe.</li>
-        <li><strong>Innloggingen er en tilfeldig nøkkel på 256 bit</strong> i en informasjonskapsel. Serveren lagrer bare en SHA-256-hash av den, så en lekket database gir ingen innlogginger. Nøkkelen varer i 30 dager.</li>
+        <li><strong>Innloggingen er en tilfeldig nøkkel på 256 bit</strong> i en informasjonskapsel. Serveren lagrer bare en SHA-256-hash av den, så en lekket database gir ingen innlogginger. Nøkkelen varer i 14 dager for foresatte og 30 for barn. Foresatte ser alle innloggingene sine under Konto, kan logge ut én eller alle andre, og får e-post ved innlogging fra en ny type enhet, nytt passord og ny e-postadresse (også til den gamle adressen).</li>
         <li><strong>Informasjonskapselen er låst ned:</strong> <code>HttpOnly</code> (skript kan ikke lese den), <code>Secure</code> (sendes bare over HTTPS) og <code>SameSite=Strict</code> (følger ikke med forespørsler fra andre nettsider).</li>
-        <li><strong>Bremse mot gjetting.</strong> Etter fem feil passord for samme konto fra samme sted må man vente et kvarter.</li>
+        <li><strong>Bremse mot gjetting.</strong> Etter fem feil passord for samme konto fra samme sted må man vente et kvarter. Bremsen lagres i databasen og gjelder også etter omstart.</li>
         <li><strong>Flere foresatte, uten faste koder.</strong> En foresatt kan dele et barn med en annen foresatt med en engangslenke som virker i 7 dager. Barnet har ingen fast kode som kan komme på avveie. De andre foresatte får e-post når noen får tilgang, ingen kan fjerne en annen foresatt, og barnekontoen kan bare slettes når det er én foresatt igjen.</li>
         <li><strong>Bare inviterte.</strong> Nye foresatte kommer inn med en personlig invitasjon fra en annen foresatt, eller med registreringskoden. Invitasjonen virker i 14 dager og kan brukes én gang, og bare en hash av den lagres. Vi ser hvem som inviterte hvem.</li>
         <li><strong>Bekreftet e-post.</strong> Nye foresatte må åpne en lenke i e-posten før de kan lage barnekontoer. Ny e-postadresse tas først i bruk når lenken til den nye adressen er åpnet.</li>
@@ -115,7 +115,6 @@
       <ul class="info-list">
         <li>quipu har ennå ikke hatt en uavhengig sikkerhetstest (pentest). Det står høyt på lista.</li>
         <li>Tjenesten kjører på én server. Sikkerhetskopiering og varsling ved nedetid skal bli bedre.</li>
-        <li>Bremsen mot passordgjetting nullstilles hvis serveren starter på nytt.</li>
         <li>Filteret er en ordliste og fanger ikke alt, og bilder skannes ikke automatisk. Derfor er voksne som følger med og godkjenner, en viktig del av sikkerheten.</li>
       </ul>
       <p>Har du funnet en svakhet? Skriv til <a class="link" href="mailto:hei@quipu.no">hei@quipu.no</a>, så ser vi på det med en gang.</p>

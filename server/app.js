@@ -12,7 +12,7 @@ import { newSecret, verifyCode, otpauthUri } from "./totp.js";
 import { APP_NAME, CONTACT_EMAIL } from "./config.js";
 import {
   COOKIE, hashPassword, verifyPassword, createSession, destroySession, userFromToken,
-  readCookie, sessionCookie, tooManyAttempts, recordFailure, clearFailures, sha256,
+  readCookie, sessionCookie, createLimiter, deviceLabel, sha256,
 } from "./auth.js";
 
 // Merkelapper barnet kan sette på et innlegg. De er valgfrie: et innlegg uten merkelapp lagres med kind "".
@@ -88,6 +88,29 @@ export function createApp({
   appUrl = "http://localhost:3000", mailer = createMailer(),
 }) {
   const app = express();
+  const { tooManyAttempts, recordFailure, clearFailures, sweep: sweepFailures } = createLimiter(db, now);
+  // Foresatte har kortere innlogging enn barn, fordi kontoen styrer barna. Barn som må logge inn ofte,
+  // skriver gjerne passordet ned.
+  const SESSION_DAYS = { parent: 14, child: 30 };
+  // Lager en innlogging og setter informasjonskapselen. Returnerer navnet på enheten.
+  function startSession(req, res, user) {
+    const days = SESSION_DAYS[user.role] || 14;
+    const device = deviceLabel(req.headers["user-agent"]);
+    const token = createSession(db, user.id, { days, device, now: now() });
+    res.set("Set-Cookie", sessionCookie(token, secureCookies, days));
+    return device;
+  }
+  // Kort e-post om noe som har skjedd med kontoen. Ingen lenker med koder.
+  async function notifyAccount(to, subject, heading, paragraphs) {
+    if (!to) return;
+    try {
+      await mailer.send({ to, subject, ...renderEmail({ preheader: subject, heading, paragraphs: [...paragraphs,
+        `Var det ikke deg? Bytt passord med en gang under Konto eller med «Glemt passord», og skriv til ${CONTACT_EMAIL}.`] }) });
+    } catch (err) {
+      console.error("Klarte ikke å sende e-post:", err.message);
+    }
+  }
+  const when = (t) => new Date(t).toLocaleString("nb-NO", { timeZone: "Europe/Oslo", dateStyle: "long", timeStyle: "short" });
   app.disable("x-powered-by");
   mkdirSync(mediaDir, { recursive: true });
 
@@ -143,6 +166,7 @@ export function createApp({
     const token = readCookie(req, COOKIE);
     req.user = userFromToken(db, token);
     req.sessionHash = token ? sha256(token) : null;
+    if (req.user) q("UPDATE sessions SET last_seen = ? WHERE token_hash = ? AND last_seen < ?").run(now(), req.sessionHash, now() - 5 * 60e3);
     // En utestengt konto regnes som utlogget (øktene slettes også når den stenges).
     if (req.user?.suspended_at) req.user = null;
     next();
@@ -364,14 +388,14 @@ export function createApp({
       if (invite.group_id) rememberGroupInvite(lastInsertRowid, invite.group_id, invite.inviter_id, invite.group_owner);
     }
     if (share) await addGuardian(share, { id: lastInsertRowid, display_name: displayName, email });
-    const token = createSession(db, lastInsertRowid);
+    startSession(req, res, { id: lastInsertRowid, role: "parent" });
     await sendVerification({ id: lastInsertRowid, display_name: displayName }, email);
-    res.set("Set-Cookie", sessionCookie(token, secureCookies)).status(201).json({ ok: true });
+    res.status(201).json({ ok: true });
   });
 
   // Én innlogging for alle: foresatte skriver e-post, barn skriver brukernavn.
   // Foresatte som registrerte seg før e-post kom, kan også bruke brukernavnet sitt.
-  app.post("/api/login", (req, res) => {
+  app.post("/api/login", async (req, res) => {
     const { password } = req.body;
     const login = String(req.body.login ?? req.body.username ?? "").trim().toLowerCase();
     const key = `${login}|${req.ip}`;
@@ -389,8 +413,35 @@ export function createApp({
         ? "Kontoen er stengt. Snakk med en voksen."
         : `Kontoen er stengt fordi den ikke fulgte reglene. Ta kontakt med ${CONTACT_EMAIL} hvis du mener dette er feil.`, "SUSPENDED");
     }
-    const token = createSession(db, user.id);
-    res.set("Set-Cookie", sessionCookie(token, secureCookies)).json({ ok: true });
+    // Ny innlogging fra en type enhet foresatte ikke allerede er logget inn på: e-post om det.
+    const known = new Set(q("SELECT device FROM sessions WHERE user_id = ? AND expires_at > ?").all(user.id, now()).map((r) => r.device));
+    const device = startSession(req, res, user);
+    if (user.role === "parent" && !known.has(device)) {
+      await notifyAccount(user.email, `Ny innlogging i ${APP_NAME}`, "Ny innlogging",
+        [`Hei ${user.display_name}! Noen logget inn på ${APP_NAME}-kontoen din fra ${device}, ${when(now())}.`,
+          "Var det deg, trenger du ikke gjøre noe. Under Konto ser du alle innloggingene og kan logge dem ut."]);
+    }
+    res.json({ ok: true });
+  });
+
+  // Innloggingene til en foresatt, så hen kan se dem og logge ut enheter hen ikke kjenner igjen.
+  app.get("/api/sessions", parentAny, (req, res) => {
+    res.json({
+      sessions: q("SELECT token_hash, device, created_at, last_seen FROM sessions WHERE user_id = ? AND expires_at > ? ORDER BY last_seen DESC")
+        .all(req.user.id, now()).map((x) => ({
+          id: x.token_hash.slice(0, 16), device: x.device || "Ukjent enhet", createdAt: x.created_at, lastSeen: x.last_seen,
+          current: x.token_hash === req.sessionHash,
+        })),
+    });
+  });
+  app.delete("/api/sessions/:id", parentAny, (req, res) => {
+    if (!/^[0-9a-f]{16}$/.test(req.params.id)) fail(404, "Fant ikke innloggingen");
+    q("DELETE FROM sessions WHERE user_id = ? AND substr(token_hash, 1, 16) = ? AND token_hash != ?").run(req.user.id, req.params.id, req.sessionHash);
+    res.json({ ok: true });
+  });
+  app.post("/api/sessions/others", parentAny, (req, res) => {
+    const { changes } = q("DELETE FROM sessions WHERE user_id = ? AND token_hash != ?").run(req.user.id, req.sessionHash);
+    res.json({ ok: true, loggedOut: changes });
   });
 
   app.post("/api/logout", (req, res) => {
@@ -480,14 +531,21 @@ export function createApp({
   }
 
   // Lenken kan åpnes på en annen enhet enn den man er logget inn på, så den krever ikke innlogging.
-  app.post("/api/email/verify", (req, res) => {
+  app.post("/api/email/verify", async (req, res) => {
     const token = typeof req.body.token === "string" ? req.body.token : "";
     const row = /^[0-9a-f]{64}$/.test(token) &&
       q("SELECT * FROM email_verifications WHERE token_hash = ? AND expires_at > ?").get(sha256(token), now());
     if (!row) fail(400, "Lenken er utløpt eller allerede brukt. Logg inn og be om en ny.", "VERIFY_INVALID");
     if (q("SELECT 1 FROM users WHERE email = ? AND id != ?").get(row.email, row.user_id)) fail(409, "E-postadressen er allerede i bruk");
+    const before = q("SELECT * FROM users WHERE id = ?").get(row.user_id);
     q("UPDATE users SET email = ?, email_verified = 1 WHERE id = ?").run(row.email, row.user_id);
     q("DELETE FROM email_verifications WHERE user_id = ?").run(row.user_id);
+    if (before.email && before.email !== row.email) {
+      // Ny e-postadresse: andre enheter logges ut (ikke den som bekreftet), og den gamle adressen får beskjed.
+      q("DELETE FROM sessions WHERE user_id = ? AND token_hash != ?").run(row.user_id, req.sessionHash || "");
+      await notifyAccount(before.email, `E-postadressen din i ${APP_NAME} er endret`, "Ny e-postadresse",
+        [`Hei ${before.display_name}! E-postadressen til ${APP_NAME}-kontoen din ble endret fra ${before.email} til ${row.email} ${when(now())}. Andre enheter er logget ut.`]);
+    }
     res.json({ ok: true });
   });
 
@@ -524,7 +582,7 @@ export function createApp({
   });
 
   // Bytt passord når man er logget inn. Krever det gamle passordet.
-  app.post("/api/me/password", parentAny, (req, res) => {
+  app.post("/api/me/password", parentAny, async (req, res) => {
     const key = `pw|${req.user.id}`;
     if (tooManyAttempts(key)) fail(429, "For mange forsøk. Vent litt og prøv igjen.");
     if (typeof req.body.current !== "string" || !verifyPassword(req.body.current, req.user.password_hash)) {
@@ -535,7 +593,10 @@ export function createApp({
     q("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(req.body.password), req.user.id);
     // Logg ut alle andre enheter, men behold denne.
     q("DELETE FROM sessions WHERE user_id = ?").run(req.user.id);
-    res.set("Set-Cookie", sessionCookie(createSession(db, req.user.id), secureCookies)).json({ ok: true });
+    startSession(req, res, req.user);
+    await notifyAccount(req.user.email, `Passordet ditt i ${APP_NAME} er endret`, "Passordet er endret",
+      [`Hei ${req.user.display_name}! Passordet til ${APP_NAME}-kontoen din ble endret ${when(now())}. Alle andre enheter er logget ut.`]);
+    res.json({ ok: true });
   });
 
   // Glemt passord: svarer alltid det samme, så ingen kan finne ut hvilke e-poster som finnes.
@@ -566,7 +627,7 @@ export function createApp({
     res.json({ ok: true });
   });
 
-  app.post("/api/password/reset", (req, res) => {
+  app.post("/api/password/reset", async (req, res) => {
     const token = typeof req.body.token === "string" ? req.body.token : "";
     const row = /^[0-9a-f]{64}$/.test(token) &&
       q("SELECT * FROM password_resets WHERE token_hash = ? AND expires_at > ?").get(sha256(token), now());
@@ -576,10 +637,13 @@ export function createApp({
     q("UPDATE users SET password_hash = ?, email_verified = 1 WHERE id = ?").run(hashPassword(req.body.password), row.user_id);
     q("DELETE FROM password_resets WHERE user_id = ?").run(row.user_id);
     q("DELETE FROM sessions WHERE user_id = ?").run(row.user_id);
-    const user = q("SELECT username, email FROM users WHERE id = ?").get(row.user_id);
+    const user = q("SELECT * FROM users WHERE id = ?").get(row.user_id);
     clearFailures(`${user.username.toLowerCase()}|${req.ip}`);
     if (user.email) clearFailures(`${user.email}|${req.ip}`);
-    res.set("Set-Cookie", sessionCookie(createSession(db, row.user_id), secureCookies)).json({ ok: true });
+    startSession(req, res, user);
+    await notifyAccount(user.email, `Passordet ditt i ${APP_NAME} er endret`, "Passordet er endret",
+      [`Hei ${user.display_name}! Passordet til ${APP_NAME}-kontoen din ble satt på nytt med «Glemt passord» ${when(now())}. Alle andre enheter er logget ut.`]);
+    res.json({ ok: true });
   });
 
   // Foresatte kan slette sin egen konto. Barnekontoene og alt innholdet slettes også.
@@ -953,6 +1017,7 @@ export function createApp({
     const t = now();
     recordDailyStats();
     q("DELETE FROM sessions WHERE expires_at < ?").run(t);
+    sweepFailures();
     q("DELETE FROM password_resets WHERE expires_at < ?").run(t);
     q("DELETE FROM email_verifications WHERE expires_at < ?").run(t);
     q("DELETE FROM parent_invites WHERE expires_at < ?").run(t);

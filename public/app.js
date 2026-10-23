@@ -1537,6 +1537,7 @@ function accountTab() {
     notifyCard(),
     emailCard(),
     passwordCard(),
+    sessionsCard(),
     h("section", { class: "card" },
       h("h3", {}, "Slett konto"),
       h("p", { class: "muted small" }, "Sletter kontoen din, barnekontoene og alt de har delt. Dette kan ikke angres."),
@@ -1784,6 +1785,38 @@ async function loadAdminLog(box) {
         h("span", { class: "muted small" }, fmtTime(l.createdAt)), " ", h("strong", {}, l.action), ` ${l.target}`, l.detail && h("span", { class: "muted" }, ` · ${l.detail}`))))
       : h("p", { class: "muted small" }, "Ingenting ennå."));
   } catch (err) { box.replaceChildren(h("p", { class: "warning" }, icon("alert"), h("span", {}, err.message))); }
+}
+
+// Hvor man er logget inn. Kjenner man ikke igjen en enhet, logger man den ut og bytter passord.
+function sessionsCard() {
+  const list = h("ul", { class: "sessions" });
+  const card = h("section", { class: "card" }, h("h3", {}, "Innlogginger"),
+    h("p", { class: "muted small" }, "Her er du logget inn nå. Du får e-post når noen logger inn fra en ny type enhet. Kjenner du ikke igjen en innlogging, logg den ut og bytt passord."),
+    list);
+  const load = async () => {
+    try {
+      const { sessions } = await api("/sessions");
+      const others = sessions.filter((x) => !x.current).length;
+      list.replaceChildren(...sessions.map((x) => h("li", {},
+        icon(/iPhone|Android/.test(x.device) ? "phone" : "user"),
+        h("div", { class: "who" }, h("strong", {}, x.device), x.current && h("span", { class: "badge done" }, "denne enheten"),
+          h("div", { class: "muted small" }, `Sist brukt ${fmtTime(x.lastSeen || x.createdAt)} · logget inn ${fmtTime(x.createdAt)}`)),
+        !x.current && btn("Logg ut", async () => {
+          await api(`/sessions/${x.id}`, { method: "DELETE" }).catch((err) => toast(err.message));
+          load();
+        }, "secondary small"))));
+      card.querySelector(".others")?.remove();
+      if (others) {
+        card.append(h("div", { class: "card-actions others" }, btn("Logg ut alle andre enheter", async () => {
+          const { loggedOut } = await api("/sessions/others", { method: "POST" });
+          toast(`${loggedOut} ${loggedOut === 1 ? "enhet" : "enheter"} er logget ut`);
+          load();
+        }, "secondary", "logout")));
+      }
+    } catch (err) { list.replaceChildren(h("li", { class: "warning" }, err.message)); }
+  };
+  load();
+  return card;
 }
 
 // ---------- Varsler fra voksenkontakten ----------
