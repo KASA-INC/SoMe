@@ -82,6 +82,9 @@ const CLEANUP_DAYS = 30;
 // Innlegg og meldinger i voksenkontakten, med bilder og video, slettes etter 60 dager. Det er lenge nok til at
 // foresatte rekker å se dem og barn rekker å si fra, og barna etterlater seg ikke et arkiv.
 const KEEP_DAYS = 60;
+// Grupper uten noe nytt på et halvt år, og kontoer som ikke er brukt på et år, slettes. Først får den det gjelder
+// e-post om det, og så går det 30 dager. Uten en e-post som faktisk er sendt, slettes ingenting.
+const IDLE_GROUP_DAYS = 182, IDLE_ACCOUNT_DAYS = 365, DELETE_NOTICE_DAYS = 30;
 // Administratorloggen, alvorlige saker med varsler og behandlede meldinger fra barn slettes etter ett år.
 const ADMIN_RETENTION_DAYS = 365;
 
@@ -187,6 +190,10 @@ export function createApp({
     req.user = userFromToken(db, token);
     req.sessionHash = token ? sha256(token) : null;
     if (req.user) q("UPDATE sessions SET last_seen = ? WHERE token_hash = ? AND last_seen < ?").run(now(), req.sessionHash, now() - 5 * 60e3);
+    // Kontoen er i bruk: den slettes ikke for inaktivitet, og et varsel om sletting gjelder ikke lenger.
+    if (req.user && !req.user.suspended_at && (req.user.last_active ?? 0) < now() - 3600e3) {
+      q("UPDATE users SET last_active = ?, deletion_warned_at = NULL WHERE id = ?").run(now(), req.user.id);
+    }
     // En utestengt konto regnes som utlogget (øktene slettes også når den stenges).
     if (req.user?.suspended_at) req.user = null;
     next();
@@ -1214,9 +1221,78 @@ export function createApp({
 
   // Sletter det vi ikke trenger lenger (se lagringstidene på /personvern):
   // utløpte innlogginger og lenker, skjermtid eldre enn 30 dager, og innlegg som en voksen fjernet for over 30 dager siden.
+  // ---------- Sletting ved lang inaktivitet ----------
+  const touchGroup = (id) => q("UPDATE groups SET last_activity = ?, deletion_warned_at = NULL WHERE id = ?").run(now(), id);
+  const deletesAt = (warnedAt) => warnedAt ? warnedAt + DELETE_NOTICE_DAYS * 864e5 : null;
+  const dateOf = (t) => new Date(t).toLocaleDateString("nb-NO", { timeZone: TZ, day: "numeric", month: "long", year: "numeric" });
+  // Sender e-post og svarer om den faktisk ble sendt. Uten SMTP er den ikke sendt.
+  async function sendNotice(to, subject, heading, paragraphs) {
+    if (!to || mailer.configured === false) return false;
+    try {
+      await mailer.send({ to, subject, ...renderEmail({ preheader: subject, heading, paragraphs, button: { label: `Åpne ${APP_NAME}`, url: appUrl } }) });
+      return true;
+    } catch (err) {
+      console.error("Klarte ikke å sende e-post:", err.message);
+      return false;
+    }
+  }
+  // Varsler først, og sletter 30 dager etter et varsel som kom fram. Stengte kontoer, og barn med innlegg eller
+  // meldinger som er bevart eller ikke ferdig behandlet, slettes aldri av seg selv.
+  async function sweepInactive() {
+    const t = now(), day = 864e5, when = dateOf(t + DELETE_NOTICE_DAYS * day);
+    let deleted = 0;
+    const handle = async (row, table, notify) => {
+      if (!row.deletion_warned_at) {
+        if (await notify()) q(`UPDATE ${table} SET deletion_warned_at = ? WHERE id = ?`).run(t, row.id);
+      } else if (row.deletion_warned_at < t - DELETE_NOTICE_DAYS * day) {
+        q(`DELETE FROM ${table} WHERE id = ?`).run(row.id);
+        deleted++;
+      }
+    };
+
+    for (const g of q(`SELECT g.*, u.email, u.display_name AS ownerName FROM groups g JOIN users u ON u.id = g.owner_id
+      WHERE COALESCE(g.last_activity, g.created_at) < ?`).all(t - IDLE_GROUP_DAYS * day)) {
+      await handle(g, "groups", () => sendNotice(g.email, `Gruppa ${g.name} i ${APP_NAME} slettes ${when}`, `Gruppa ${g.name} slettes ${when}`, [
+        `Hei ${g.ownerName}! Ingen har delt noe i gruppa ${g.name} på et halvt år, så den slettes ${when}.`,
+        "Bare gruppa slettes. Barna og kontoene deres blir ikke slettet.",
+        "Vil du beholde gruppa, logg inn og trykk «Behold gruppa» under Grupper.",
+      ]));
+    }
+
+    for (const c of q(`SELECT u.* FROM users u WHERE u.role = 'child' AND u.suspended_at IS NULL AND COALESCE(u.last_active, u.created_at) < ?
+      AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.author_id = u.id AND (p.hold = 1 OR EXISTS (SELECT 1 FROM reports r WHERE r.post_id = p.id AND r.resolved = 0)))
+      AND NOT EXISTS (SELECT 1 FROM safety_reports s WHERE s.reporter_id = u.id AND s.resolved_at IS NULL)`).all(t - IDLE_ACCOUNT_DAYS * day)) {
+      await handle(c, "users", async () => {
+        let sent = false;
+        for (const p of guardiansOf(c.id)) {
+          sent = (await sendNotice(p.email, `Barnekontoen til ${c.display_name} i ${APP_NAME} slettes ${when}`, `Barnekontoen til ${c.display_name} slettes ${when}`, [
+            `Hei ${p.display_name}! ${c.display_name} har ikke vært innom ${APP_NAME} på et år, så barnekontoen slettes ${when}, med alt barnet har delt.`,
+            `Vil dere beholde den, holder det at ${c.display_name} logger inn før det, eller at du trykker «Behold kontoen» på barnet under Barn.`,
+          ])) || sent;
+        }
+        return sent;
+      });
+    }
+
+    // Foresatte uten barn og uten grupper. Har de barn eller grupper, slettes de først når de er borte.
+    for (const p of q(`SELECT u.* FROM users u WHERE u.role = 'parent' AND u.is_admin = 0 AND u.suspended_at IS NULL
+      AND COALESCE(u.last_active, u.created_at) < ?
+      AND NOT EXISTS (SELECT 1 FROM guardians gd WHERE gd.parent_id = u.id) AND NOT EXISTS (SELECT 1 FROM groups g WHERE g.owner_id = u.id)`)
+      .all(t - IDLE_ACCOUNT_DAYS * day)) {
+      await handle(p, "users", () => sendNotice(p.email, `Kontoen din i ${APP_NAME} slettes ${when}`, `Kontoen din slettes ${when}`, [
+        `Hei ${p.display_name}! Du har ikke logget inn i ${APP_NAME} på et år, og har verken barn eller grupper der, så kontoen din slettes ${when}.`,
+        "Vil du beholde den, holder det å logge inn før det.",
+      ]));
+    }
+    if (deleted) sweepMedia();
+    return deleted;
+  }
+  app.locals.sweepInactive = sweepInactive;
+
   function cleanup() {
     const t = now();
     recordDailyStats();
+    sweepInactive().catch((err) => console.error(err));
     q("DELETE FROM sessions WHERE expires_at < ?").run(t);
     sweepFailures();
     q("DELETE FROM password_resets WHERE expires_at < ?").run(t);
@@ -1256,6 +1332,7 @@ export function createApp({
     }
     const { lastInsertRowid } = q(`INSERT INTO posts (group_id, author_id, kind, text, sticker, color, day, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(groupId, req.user.id, kindKey, text, sticker, color, clock().day, now());
+    touchGroup(groupId);
     let pending = false;
     if (mediaId) {
       pending = !!q("SELECT media_review FROM groups WHERE id = ?").get(groupId).media_review;
@@ -1323,12 +1400,20 @@ export function createApp({
       children: children.map((c) => ({
         ...childSettings(c),
         status: childStatus(c),
+        deletesAt: deletesAt(c.deletion_warned_at),
         // Alle foresatte har samme tilgang. Den innloggede står med «me».
         guardians: guardiansOf(c.id).map((g) => ({ id: g.id, displayName: g.display_name, email: g.email, me: g.id === req.user.id })),
         groups: q(`SELECT g.id, g.name, (m.approved = 0) AS pending FROM groups g JOIN memberships m ON m.group_id = g.id
           WHERE m.user_id = ? ORDER BY g.name`).all(c.id).map((g) => ({ ...g, pending: !!g.pending })),
       })),
     });
+  });
+
+  // En foresatt vil beholde en barnekonto som skulle slettes fordi den ikke var i bruk.
+  app.post("/api/children/:id/keep", parent, (req, res) => {
+    const c = ownChild(req);
+    q("UPDATE users SET last_active = ?, deletion_warned_at = NULL WHERE id = ?").run(now(), c.id);
+    res.json({ ok: true });
   });
 
   app.post("/api/children", parent, (req, res) => {
@@ -1512,6 +1597,7 @@ export function createApp({
           isOwner,
           inviteCode: isOwner ? g.invite_code : undefined,
           mediaReview: !!g.media_review,
+          deletesAt: isOwner ? deletesAt(g.deletion_warned_at) : undefined,
           pendingMedia: isOwner ? q(`SELECT COUNT(*) AS n FROM media md JOIN posts p ON p.id = md.post_id
             WHERE p.group_id = ? AND md.approved = 0 AND p.status = 'visible'`).get(g.id).n : undefined,
           members: q(`SELECT u.id, u.display_name AS displayName, u.avatar FROM memberships m JOIN users u ON u.id = m.user_id
@@ -1616,12 +1702,21 @@ export function createApp({
       ? q("UPDATE memberships SET approved = 1 WHERE group_id = ? AND user_id = ? AND approved = 0").run(g.id, req.params.userId)
       : q("DELETE FROM memberships WHERE group_id = ? AND user_id = ? AND approved = 0").run(g.id, req.params.userId);
     if (!changes) fail(404, "Fant ingen forespørsel");
+    if (action === "approve") touchGroup(g.id);
     res.json({ ok: true });
   });
 
   app.post("/api/groups/:groupId/leave", parent, (req, res) => {
     const c = ownChild(req);
     q("DELETE FROM memberships WHERE group_id = ? AND user_id = ?").run(req.params.groupId, c.id);
+    res.json({ ok: true });
+  });
+
+  // Eieren vil beholde en gruppe som skulle slettes fordi den ikke var i bruk.
+  app.post("/api/groups/:groupId/keep", parent, (req, res) => {
+    const g = q("SELECT id FROM groups WHERE id = ? AND owner_id = ?").get(req.params.groupId, req.user.id);
+    if (!g) fail(404, "Fant ikke gruppa");
+    touchGroup(g.id);
     res.json({ ok: true });
   });
 
@@ -1708,6 +1803,7 @@ export function createApp({
     if (!text && !image) fail(400, "Skriv en beskjed eller legg ved et bilde");
     const { lastInsertRowid } = q("INSERT INTO adult_messages (group_id, author_id, text, created_at) VALUES (?, ?, ?, ?)")
       .run(g.id, req.user.id, text, now());
+    touchGroup(g.id);
     if (image) q("UPDATE media SET adult_message_id = ?, approved = 1 WHERE id = ?").run(lastInsertRowid, image.id);
     await pushAdultMessage(g, req.user, text || "📷 Bilde");
     res.status(201).json({ ok: true });

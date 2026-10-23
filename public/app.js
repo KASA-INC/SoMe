@@ -1276,6 +1276,8 @@ function childCard(c, invitations = []) {
   });
 
   return h("section", { class: "card" },
+    c.deletesAt && deletionNotice(`Barnekontoen til ${c.displayName} slettes ${dateText(c.deletesAt)}, fordi den ikke har vært brukt på et år.`,
+      "Behold kontoen", () => api(`/children/${c.id}/keep`, { method: "POST" })),
     h("div", { class: "entity-head" },
       avatar(c.avatar, "lg"),
       h("div", { class: "who" }, h("h3", {}, c.displayName), h("div", { class: "sub" }, `@${c.username} · åpen ${c.openFrom}–${c.openTo}`)),
@@ -1375,8 +1377,24 @@ function groupsTab(groups) {
   ];
 }
 
+// Beskjed på et kort som skal slettes fordi det ikke har vært i bruk, med en knapp for å beholde det.
+const dateText = (t) => new Date(t).toLocaleDateString("nb-NO", { day: "numeric", month: "long" });
+function deletionNotice(text, label, keep) {
+  return h("div", { class: "deletion-notice" },
+    h("p", {}, icon("clock"), h("span", {}, text)),
+    btn(label, async () => {
+      try {
+        await keep();
+        toast("Den blir ikke slettet");
+        showParent();
+      } catch (err) { toast(err.message); }
+    }, "small"));
+}
+
 function groupCard(g) {
   return h("section", { class: "card" },
+    g.deletesAt && deletionNotice(`Gruppa slettes ${dateText(g.deletesAt)}, fordi ingen har delt noe på et halvt år. Barna blir ikke slettet.`,
+      "Behold gruppa", () => api(`/groups/${g.id}/keep`, { method: "POST" })),
     h("div", { class: "entity-head" },
       h("span", { class: "avatar lg" }, icon("users")),
       h("div", { class: "who" },

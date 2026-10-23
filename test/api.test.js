@@ -638,6 +638,65 @@ test("nattpause: minst 10 timer stengt, og alltid mellom 23 og 06", async () => 
   }
 });
 
+test("inaktive grupper og kontoer: varsel på e-post, og sletting 30 dager etter", async () => {
+  const a = await setupFamily("inakt");
+  const day = 864e5;
+  const ids = { kid: db.prepare("SELECT id FROM users WHERE username = 'inakt-ola'").get().id };
+  const sweep = () => app.locals.sweepInactive();
+  const mails = (to) => outbox.filter((m) => m.to === to && /slettes/.test(m.subject));
+
+  // Gruppa: ingen har delt noe på et halvt år. Eieren får e-post, ser beskjeden, og kan beholde den.
+  db.prepare("UPDATE groups SET last_activity = ? WHERE id = ?").run(clock - 200 * day, a.groupId);
+  await sweep();
+  assert.equal(mails("inakt@example.com").length, 1);
+  let g = (await a.parent("/groups")).body.groups.find((x) => x.id === a.groupId);
+  assert.equal(g.deletesAt, clock + 30 * day);
+  await a.parent(`/groups/${a.groupId}/keep`, { method: "POST" });
+  assert.equal((await a.parent("/groups")).body.groups.find((x) => x.id === a.groupId).deletesAt, null);
+
+  // Uten «Behold» slettes gruppa 30 dager etter varselet, men barnet blir værende.
+  db.prepare("UPDATE groups SET last_activity = ?, deletion_warned_at = ? WHERE id = ?").run(clock - 220 * day, clock - 31 * day, a.groupId);
+  await sweep();
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM groups WHERE id = ?").get(a.groupId).n, 0);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM users WHERE id = ?").get(ids.kid).n, 1);
+
+  // Barnet har ikke vært innom på et år: de foresatte får e-post. Logger barnet inn, gjelder ikke varselet lenger.
+  db.prepare("UPDATE users SET last_active = ? WHERE id = ?").run(clock - 400 * day, ids.kid);
+  await sweep();
+  assert.match(mails("inakt@example.com").at(-1).subject, /Barnekontoen til Ola/);
+  assert.ok((await a.parent("/children")).body.children[0].deletesAt);
+  await a.kid("/me");
+  assert.equal(db.prepare("SELECT deletion_warned_at FROM users WHERE id = ?").get(ids.kid).deletion_warned_at, null);
+
+  // Et barn med et innlegg som er bevart som dokumentasjon, slettes ikke av seg selv.
+  db.prepare("INSERT INTO groups (name, invite_code, owner_id, created_at) VALUES ('Bevis', 'BEVIS1', (SELECT id FROM users WHERE email = 'inakt@example.com'), ?)").run(clock);
+  db.prepare("INSERT INTO posts (group_id, author_id, kind, text, sticker, color, day, created_at, hold) VALUES ((SELECT id FROM groups WHERE invite_code = 'BEVIS1'), ?, '', 'bevis', '', 'gul', '2026-10-20', ?, 1)").run(ids.kid, clock);
+  db.prepare("UPDATE users SET last_active = ?, deletion_warned_at = ? WHERE id = ?").run(clock - 400 * day, clock - 31 * day, ids.kid);
+  await sweep();
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM users WHERE id = ?").get(ids.kid).n, 1);
+  db.prepare("DELETE FROM groups WHERE invite_code = 'BEVIS1'").run();
+  await sweep();
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM users WHERE id = ?").get(ids.kid).n, 0, "slettet når beviset er borte");
+
+  // Foresatte uten barn og grupper: varsel, og så sletting.
+  db.prepare("UPDATE users SET last_active = ? WHERE email = 'inakt@example.com'").run(clock - 400 * day);
+  await sweep();
+  assert.match(mails("inakt@example.com").at(-1).subject, /Kontoen din/);
+  db.prepare("UPDATE users SET deletion_warned_at = ? WHERE email = 'inakt@example.com'").run(clock - 31 * day);
+  await sweep();
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM users WHERE email = 'inakt@example.com'").get().n, 0);
+});
+
+test("inaktive kontoer: uten e-post som kom fram, slettes ingenting", async () => {
+  const db4 = openDb();
+  const app4 = createApp({ db: db4, mediaDir, now: () => clock, appUrl: "https://some.example", mailer: { configured: false, send: async () => {} } });
+  db4.prepare("INSERT INTO users (role, username, display_name, email, password_hash, created_at, last_active) VALUES ('parent', 'x', 'X', 'x@example.com', 'h', 0, 0)").run();
+  db4.prepare("UPDATE users SET deletion_warned_at = NULL").run();
+  for (let i = 0; i < 3; i++) await app4.locals.sweepInactive();
+  assert.equal(db4.prepare("SELECT deletion_warned_at FROM users").get().deletion_warned_at, null);
+  assert.equal(db4.prepare("SELECT COUNT(*) AS n FROM users").get().n, 1);
+});
+
 test("eieren kan avslå en forespørsel", async () => {
   const a = await setupFamily("g2");
   const b = client();

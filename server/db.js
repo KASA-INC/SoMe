@@ -277,6 +277,16 @@ function migrate(db) {
   if (!columns("users").includes("onboarded")) {
     db.exec("ALTER TABLE users ADD COLUMN onboarded INTEGER NOT NULL DEFAULT 0");
   }
+  // Sletting ved lang inaktivitet: når kontoen sist ble brukt, og når gruppa sist hadde noe nytt.
+  // Fra før regnes alt som brukt i dag, så ingenting slettes før det har gått et helt år (seks måneder for grupper).
+  if (!columns("users").includes("last_active")) {
+    db.exec("ALTER TABLE users ADD COLUMN last_active INTEGER; ALTER TABLE users ADD COLUMN deletion_warned_at INTEGER");
+    db.prepare("UPDATE users SET last_active = ?").run(Date.now());
+  }
+  if (!columns("groups").includes("last_activity")) {
+    db.exec("ALTER TABLE groups ADD COLUMN last_activity INTEGER; ALTER TABLE groups ADD COLUMN deletion_warned_at INTEGER");
+    db.prepare("UPDATE groups SET last_activity = ?").run(Date.now());
+  }
   if (!columns("users").includes("email")) {
     db.exec("ALTER TABLE users ADD COLUMN email TEXT");
   }
