@@ -856,3 +856,10 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 .composer-inline.collapsed .composer-foot, .composer-inline.collapsed .editor .toolbar,
 .composer-inline.collapsed .picker { display: none; }
 .composer-inline.collapsed .editor textarea { min-height: 0; height: 48px; padding-top: 12px; padding-bottom: 12px; }
+
+/* ---------- Voksenkontakt ---------- */
+.adult-note { display: flex; align-items: center; gap: 6px; margin: -4px 4px 12px; }
+.adult-note svg.icon { width: 16px; height: 16px; flex: none; }
+.adult-compose { padding: 12px; }
+.adult-compose .editor textarea { min-height: 88px; }
+.btn .count { margin-left: 6px; background: var(--danger); color: var(--danger-ink); border-radius: 999px; font-size: 0.75rem; padding: 1px 7px; }

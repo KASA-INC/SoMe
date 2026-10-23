@@ -100,6 +100,24 @@ CREATE TABLE IF NOT EXISTS media (
   created_at INTEGER NOT NULL
 );
 
+-- Voksenkontakt: meldinger mellom foresatte i en gruppe. Barna ser dem aldri.
+CREATE TABLE IF NOT EXISTS adult_messages (
+  id INTEGER PRIMARY KEY,
+  group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS adult_messages_group ON adult_messages (group_id, id);
+
+-- Hvor langt hver foresatt har lest i voksenkontakten, for å vise antall uleste.
+CREATE TABLE IF NOT EXISTS adult_reads (
+  group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  last_id INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (group_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS usage (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   day TEXT NOT NULL,
@@ -151,5 +169,10 @@ function migrate(db) {
     const update = db.prepare("UPDATE users SET avatar = ? WHERE role = 'child' AND avatar = ?");
     OLD.forEach((emoji, i) => update.run(`c${String(i + 1).padStart(2, "0")}`, emoji));
     db.exec("UPDATE users SET avatar = 'c01' WHERE role = 'child' AND avatar NOT GLOB 'c[0-9][0-9]'; PRAGMA user_version = 3");
+  }
+  // Versjon 4: foresatte får også en figur (valgt automatisk ut fra kontoen) i stedet for emoji.
+  if (db.prepare("PRAGMA user_version").get().user_version < 4) {
+    db.exec(`UPDATE users SET avatar = printf('c%02d', (id % 24) + 1) WHERE role = 'parent' AND avatar NOT GLOB 'c[0-9][0-9]';
+      PRAGMA user_version = 4`);
   }
 }

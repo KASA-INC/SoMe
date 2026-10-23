@@ -595,7 +595,7 @@ test("barnet kan bytte profilbilde selv, men bare til figurene i settet", async 
   assert.equal((await a.parent("/me/avatar", { method: "POST", body: { avatar: "c01" } })).status, 403);
 });
 
-test("gamle emoji-profilbilder blir til figurer", () => {
+test("gamle emoji-profilbilder blir til figurer, også for foresatte", () => {
   const dir = mkdtempSync(join(tmpdir(), "quipu-"));
   const path = join(dir, "old.db");
   // En database fra før figurene kom: versjon 2 med emojier.
@@ -605,7 +605,8 @@ test("gamle emoji-profilbilder blir til figurer", () => {
     PRAGMA user_version = 2`);
   old.close();
   const db2 = openDb(path);
-  assert.deepEqual(db2.prepare("SELECT avatar FROM users ORDER BY username").all().map((r) => r.avatar), ["c02", "c01", "🧑"]);
+  // Barna får figuren som svarer til emojien, foresatte en figur ut fra kontoen (id 3 → c04).
+  assert.deepEqual(db2.prepare("SELECT avatar FROM users ORDER BY username").all().map((r) => r.avatar), ["c02", "c01", "c04"]);
   db2.close();
   rmSync(dir, { recursive: true, force: true });
 });
@@ -644,4 +645,46 @@ test("foresatte kan også spørre om nye innlegg i en gruppe", async () => {
   const stranger = client();
   await registerParent(stranger, "fnytt-fremmed@example.com");
   assert.equal((await stranger(`/groups/${a.groupId}/posts/new?since=0`)).status, 404);
+});
+
+test("nye foresatte får en figur som profilbilde automatisk", async () => {
+  const p = client();
+  await registerParent(p, "figur@example.com");
+  assert.match((await p("/me")).body.me.avatar, /^c\d{2}$/);
+});
+
+test("voksenkontakt: bare foresatte i gruppa kan lese og skrive, og barna ser det ikke", async () => {
+  const a = await setupFamily("vk");
+  const b = client();
+  await registerParent(b, "vk-far@example.com", "Pappa");
+  await b("/children", { method: "POST", body: { username: "vk-tor", password: "tor12345", displayName: "Tor", avatar: "c04" } });
+  const { body: { children: [tor] } } = await b("/children");
+  await b("/groups/join", { method: "POST", body: { code: a.code, childId: tor.id } });
+
+  // Mens barnet venter på godkjenning, er den foresatte ikke med i voksenkontakten.
+  assert.equal((await b(`/groups/${a.groupId}/adult`)).status, 404);
+  await a.parent(`/groups/${a.groupId}/members/${tor.id}`, { method: "POST", body: { action: "approve" } });
+
+  assert.equal((await a.parent(`/groups/${a.groupId}/adult`, { method: "POST", body: { text: "Hei! Husk foreldremøtet torsdag." } })).status, 201);
+  // Den andre foresatte ser én ulest melding i grupper-lista, og den er lest når voksenkontakten åpnes.
+  let g = (await b("/groups")).body.groups.find((x) => x.id === a.groupId);
+  assert.equal(g.adultUnread, 1);
+  assert.equal((await b(`/groups/${a.groupId}/adult/new?since=0`)).body.count, 1);
+  const { body } = await b(`/groups/${a.groupId}/adult`);
+  assert.deepEqual(body.messages.map((m) => [m.author, m.text, m.mine, m.canDelete]), [["Mamma", "Hei! Husk foreldremøtet torsdag.", false, false]]);
+  g = (await b("/groups")).body.groups.find((x) => x.id === a.groupId);
+  assert.equal(g.adultUnread, 0);
+
+  assert.equal((await b(`/groups/${a.groupId}/adult`, { method: "POST", body: { text: "Takk, vi kommer!" } })).status, 201);
+  const own = (await b(`/groups/${a.groupId}/adult`)).body.messages[0];
+  assert.equal(own.canDelete, true);
+  // Barn og fremmede kommer ikke inn.
+  assert.equal((await a.kid(`/groups/${a.groupId}/adult`)).status, 403);
+  const stranger = client();
+  await registerParent(stranger, "vk-fremmed@example.com");
+  assert.equal((await stranger(`/groups/${a.groupId}/adult`)).status, 404);
+  assert.equal((await stranger(`/adult/${own.id}`, { method: "DELETE" })).status, 404);
+  // Eieren kan slette alle meldinger.
+  assert.equal((await a.parent(`/adult/${own.id}`, { method: "DELETE" })).status, 200);
+  assert.equal((await b(`/groups/${a.groupId}/adult`)).body.messages.length, 1);
 });

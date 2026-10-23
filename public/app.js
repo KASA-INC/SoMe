@@ -665,11 +665,13 @@ const NEW_POSTS_EVERY = 20000;
 let newPostsSince = 0;
 let newPostsUrl = "/feed/new";
 let newPostsReload = () => showChild();
+let newPostsWords = ["nytt innlegg", "nye innlegg"];
 const newPostsBar = h("button", { type: "button", class: "new-posts hidden", onclick: () => { window.scrollTo({ top: 0 }); newPostsReload(); } });
 
 // Brukes av barnas feed og av foresattes visning av en gruppe.
-function watchNewPosts(since, url = "/feed/new", reload = () => showChild()) {
+function watchNewPosts(since, url = "/feed/new", reload = () => showChild(), words = ["nytt innlegg", "nye innlegg"]) {
   newPostsSince = since;
+  newPostsWords = words;
   newPostsUrl = url;
   newPostsReload = reload;
   newPostsBar.classList.add("hidden");
@@ -682,7 +684,7 @@ async function checkNewPosts() {
   if (document.visibilityState !== "visible") return;
   try {
     const { count } = await api(`${newPostsUrl}?since=${newPostsSince}`);
-    newPostsBar.replaceChildren(icon("refresh"), count === 1 ? "1 nytt innlegg" : `${count} nye innlegg`);
+    newPostsBar.replaceChildren(icon("refresh"), `${count} ${newPostsWords[count === 1 ? 0 : 1]}`);
     newPostsBar.classList.toggle("hidden", !count);
   } catch (err) {
     if (err.code === "CLOSED" || err.code === "TIME_UP") handleChildError(err);
@@ -961,7 +963,7 @@ function videoDuration(file) {
 async function showParent() {
   stopTimers(); // slutt å se etter nye innlegg når man går ut av en gruppe
   const [{ children }, { groups }] = await Promise.all([api("/children"), api("/groups")]);
-  const todo = groups.reduce((n, g) => n + (g.openReports || 0) + (g.pendingMedia || 0) + (g.pendingMembers?.length || 0), 0);
+  const todo = groups.reduce((n, g) => n + (g.openReports || 0) + (g.pendingMedia || 0) + (g.pendingMembers?.length || 0) + (g.adultUnread || 0), 0);
 
   const tab = (key, label) => h("button", {
     type: "button", role: "tab", class: parentTab === key ? "selected" : "", "aria-selected": String(parentTab === key),
@@ -1137,6 +1139,8 @@ function groupCard(g) {
     g.isOwner && reviewSwitch(g),
     h("div", { class: "card-actions" },
       btn("Se innlegg", () => showGroupPosts(g), "", "eye"),
+      g.adultUnread !== undefined && h("button", { type: "button", class: "btn secondary", onclick: () => showAdultChat(g) },
+        icon("users"), "Voksenkontakt", g.adultUnread ? h("span", { class: "count" }, g.adultUnread) : null),
       g.isOwner && btn("Slett", async () => {
         if (!confirm(`Slette gruppa ${g.name} og alle innleggene i den?`)) return;
         await api(`/groups/${g.id}`, { method: "DELETE" });
@@ -1312,6 +1316,48 @@ async function showGroupPosts(g) {
       if (n) card.querySelector(".actions").before(n);
       return card;
     }));
+}
+
+// ---------- Voksenkontakt ----------
+// Beskjeder og diskusjon mellom foresatte i gruppa. Barna ser det aldri. Samme oppsett som feeden:
+// skrivefelt øverst, nyeste først, og en knapp når det kommer nye meldinger.
+async function showAdultChat(g) {
+  const { messages } = await api(`/groups/${g.id}/adult`);
+  watchNewPosts(Math.max(0, ...messages.map((m) => m.id)), `/groups/${g.id}/adult/new`, () => showAdultChat(g), ["ny melding", "nye meldinger"]);
+
+  const text = h("textarea", { maxlength: 1000, rows: 3, placeholder: "Skriv en beskjed til de andre foresatte …", "aria-label": "Melding" });
+  const warning = warningBox();
+  const send = h("button", { class: "btn", type: "button" }, "Send");
+  send.addEventListener("click", async () => {
+    if (!text.value.trim()) return text.focus();
+    send.disabled = true;
+    try {
+      await api(`/groups/${g.id}/adult`, { method: "POST", body: { text: text.value } });
+      showAdultChat(g);
+    } catch (err) {
+      send.disabled = false;
+      showWarning(warning, err.message);
+    }
+  });
+
+  const message = (m) => h("article", { class: "post" },
+    h("div", { class: "head" },
+      avatar(m.avatar),
+      h("div", { class: "who" }, h("div", { class: "name" }, m.author), h("div", { class: "meta" }, timeAgo(m.createdAt)))),
+    h("div", { class: `body bubble${m.mine ? " mine" : ""}` }, m.text),
+    m.canDelete && h("div", { class: "actions" }, btn("Slett", async () => {
+      if (!confirm("Slette meldingen?")) return;
+      await api(`/adult/${m.id}`, { method: "DELETE" }).then(() => showAdultChat(g), (err) => toast(err.message));
+    }, "ghost", "trash")));
+
+  render.feed(
+    newPostsBar,
+    h("div", { class: "back-head" }, iconBtn("back", "Tilbake", () => { parentTab = "grupper"; showParent(); }), h("h2", {}, `Voksenkontakt · ${g.name}`)),
+    h("p", { class: "muted small adult-note" }, icon("lock"), h("span", {}, "Bare foresatte i gruppa ser dette. Barna ser det ikke.")),
+    h("section", { class: "card adult-compose" }, h("div", { class: "editor" }, text), warning, h("div", { class: "composer-foot" }, h("span", { class: "to" }), send)),
+    messages.length ? messages.map(message) : h("div", { class: "card empty" },
+      h("div", { class: "end-icon" }, icon("users")),
+      h("p", {}, "Ingen meldinger ennå. Her kan dere gi beskjeder og avtale ting sammen.")));
 }
 
 // ---------- Load-skjerm ----------

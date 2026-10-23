@@ -1,5 +1,5 @@
 import express from "express";
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { mkdirSync, writeFileSync, readdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,7 +29,7 @@ export const KINDS = {
 export const COLORS = ["lilla", "bla", "gronn", "gul", "oransje", "rosa"];
 export const STICKERS = ["", "⚽", "🏀", "🎮", "🎨", "📚", "🎵", "🎬", "🍕", "🚲", "🐶", "☀️"];
 // Profilbilder til barna: «Critters» fra DiceBear (CC0), farget med paletten. Filene ligger i public/avatars/
-// og lages med scripts/avatars.mjs. Foresatte har fortsatt en emoji.
+// og lages med scripts/avatars.mjs. Foresatte får en tilfeldig figur automatisk.
 export const AVATARS = Array.from({ length: 24 }, (_, i) => `c${String(i + 1).padStart(2, "0")}`);
 
 // Grenser for opplasting. Kan endres med miljøvariabler.
@@ -213,7 +213,7 @@ export function createApp({
     do username = `foresatt-${randomBytes(5).toString("hex")}`;
     while (q("SELECT 1 FROM users WHERE username = ?").get(username));
     const { lastInsertRowid } = q(`INSERT INTO users (username, password_hash, role, display_name, email, avatar, created_at)
-      VALUES (?, ?, 'parent', ?, ?, '🧑', ?)`).run(username, hashPassword(password), displayName, email, now());
+      VALUES (?, ?, 'parent', ?, ?, ?, ?)`).run(username, hashPassword(password), displayName, email, AVATARS[randomInt(AVATARS.length)], now());
     const token = createSession(db, lastInsertRowid);
     await sendVerification({ id: lastInsertRowid, display_name: displayName }, email);
     res.set("Set-Cookie", sessionCookie(token, secureCookies)).status(201).json({ ok: true });
@@ -697,6 +697,8 @@ export function createApp({
             WHERE m.group_id = ? AND m.approved = 0 ORDER BY u.display_name`).all(g.id) : undefined,
           openReports: isOwner ? q(`SELECT COUNT(DISTINCT r.post_id) AS n FROM reports r JOIN posts p ON p.id = r.post_id
             WHERE p.group_id = ? AND r.resolved = 0`).get(g.id).n : undefined,
+          // Voksenkontakten finnes for eieren og foresatte med godkjente barn i gruppa.
+          adultUnread: canTalk(req.user.id, g) ? unreadAdult(req.user.id, g.id) : undefined,
         };
       }),
     });
@@ -805,6 +807,59 @@ export function createApp({
         AND (md.id IS NULL OR md.approved = 1 OR ? OR u.parent_id = ?)`)
       .get(g.id, since, g.isOwner ? 1 : 0, g.isOwner ? 1 : 0, req.user.id);
     res.json({ count: n });
+  });
+
+  // ---------- Voksenkontakt ----------
+  // Meldinger mellom foresatte i en gruppe: eieren og foresatte med et godkjent barn i gruppa. Barna ser det aldri.
+  const canTalk = (userId, g) => g.owner_id === userId || !!q(`SELECT 1 FROM memberships m JOIN users u ON u.id = m.user_id
+    WHERE m.group_id = ? AND m.approved = 1 AND u.parent_id = ?`).get(g.id, userId);
+  const unreadAdult = (userId, groupId) => q(`SELECT COUNT(*) AS n FROM adult_messages
+    WHERE group_id = ? AND author_id != ? AND id > COALESCE((SELECT last_id FROM adult_reads WHERE group_id = ? AND user_id = ?), 0)`)
+    .get(groupId, userId, groupId, userId).n;
+  function adultGroup(req) {
+    const g = q("SELECT * FROM groups WHERE id = ?").get(req.params.groupId);
+    if (!g || !canTalk(req.user.id, g)) fail(404, "Fant ikke gruppa");
+    return g;
+  }
+
+  app.get("/api/groups/:groupId/adult", parent, (req, res) => {
+    const g = adultGroup(req);
+    const messages = q(`SELECT m.id, m.text, m.created_at AS createdAt, u.display_name AS author, u.avatar,
+        (m.author_id = ?) AS mine
+      FROM adult_messages m JOIN users u ON u.id = m.author_id
+      WHERE m.group_id = ? ORDER BY m.id DESC LIMIT 200`).all(req.user.id, g.id);
+    // Å åpne voksenkontakten betyr at man har lest alt.
+    const last = messages[0]?.id || 0;
+    q(`INSERT INTO adult_reads (group_id, user_id, last_id) VALUES (?, ?, ?)
+      ON CONFLICT (group_id, user_id) DO UPDATE SET last_id = MAX(last_id, excluded.last_id)`).run(g.id, req.user.id, last);
+    res.json({
+      group: { id: g.id, name: g.name, isOwner: g.owner_id === req.user.id },
+      messages: messages.map((m) => ({ ...m, mine: !!m.mine, canDelete: !!m.mine || g.owner_id === req.user.id })),
+    });
+  });
+
+  app.post("/api/groups/:groupId/adult", parent, (req, res) => {
+    const g = adultGroup(req);
+    const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
+    if (text.length < 1 || text.length > 1000) fail(400, "Meldingen må ha 1–1000 tegn");
+    q("INSERT INTO adult_messages (group_id, author_id, text, created_at) VALUES (?, ?, ?, ?)").run(g.id, req.user.id, text, now());
+    res.status(201).json({ ok: true });
+  });
+
+  app.get("/api/groups/:groupId/adult/new", parent, (req, res) => {
+    const g = adultGroup(req);
+    const since = Number(req.query.since) || 0;
+    const { n } = q("SELECT COUNT(*) AS n FROM adult_messages WHERE group_id = ? AND id > ? AND author_id != ?").get(g.id, since, req.user.id);
+    res.json({ count: n });
+  });
+
+  // Egne meldinger kan slettes, og eieren av gruppa kan slette alle.
+  app.delete("/api/adult/:id", parent, (req, res) => {
+    const m = q(`SELECT m.id FROM adult_messages m JOIN groups g ON g.id = m.group_id
+      WHERE m.id = ? AND (m.author_id = ? OR g.owner_id = ?)`).get(req.params.id, req.user.id, req.user.id);
+    if (!m) fail(404, "Fant ikke meldingen");
+    q("DELETE FROM adult_messages WHERE id = ?").run(m.id);
+    res.json({ ok: true });
   });
 
   app.post("/api/posts/:id/moderate", parent, (req, res) => {

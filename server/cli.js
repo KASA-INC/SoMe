@@ -98,7 +98,7 @@ function resetAll(confirm) {
   }
 
   db.exec("BEGIN");
-  for (const table of ["sessions", "password_resets", "email_verifications", "usage", "reports", "media", "posts", "memberships", "groups", "users"]) {
+  for (const table of ["sessions", "password_resets", "email_verifications", "usage", "reports", "media", "posts", "adult_reads", "adult_messages", "memberships", "groups", "users"]) {
     db.exec(`DELETE FROM ${table}`);
   }
   db.exec("COMMIT");

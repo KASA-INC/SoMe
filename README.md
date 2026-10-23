@@ -18,7 +18,9 @@ En ekte, men rolig sosial kanal for barn (laget for mellomtrinnet), og det motsa
 
 **Bunntekst:** Alle sider unntatt feeder og det barn ser, har en bunntekst (`public/footer.js`) med lenker til Om quipu, Hvem står bak, Kontakt, Slik gjør vi det trygt, Teknisk sikkerhet, Personvern, Logg inn og Lag konto (`/#registrer`).
 
-**Profilbilder:** Barna har tegnede figurer, 24 «Critters» fra DiceBear (CC0 1.0), farget med paletten og lagret som SVG i `public/avatars/` (lages med `scripts/avatars.mjs`). Foresatte velger figur når de lager kontoen, og barnet kan bytte selv ved å trykke på profilbildet sitt øverst, eller på «Bytt profilbilde» nederst i feeden. Gamle emoji-profilbilder ble gjort om til figurer automatisk.
+**Profilbilder:** Barna har tegnede figurer, 24 «Critters» fra DiceBear (CC0 1.0), farget med paletten og lagret som SVG i `public/avatars/` (lages med `scripts/avatars.mjs`). Foresatte velger figur når de lager kontoen, og barnet kan bytte selv ved å trykke på profilbildet sitt øverst, eller på «Bytt profilbilde» nederst i feeden. Gamle emoji-profilbilder ble gjort om til figurer automatisk, også for foresatte.
+
+**Voksenkontakt:** Hver gruppe har en egen kanal for foresatte (under **Grupper → Voksenkontakt**) der de kan gi beskjeder og diskutere. Bare eieren av gruppa og foresatte med et godkjent barn i gruppa har tilgang, og barna ser den aldri. Antall uleste meldinger vises på knappen og på fanen. Man kan slette egne meldinger, og eieren kan slette alle. Nye meldinger dukker opp som «1 ny melding»-knapp mens den er åpen, akkurat som i feeden. Foresatte får også en figur som profilbilde, valgt automatisk.
 
 **Hjemskjermen:** Registreringssiden og Konto-fanen viser en steg-for-steg-veiledning for å legge quipu på hjemskjermen på iPhone/iPad og Android. Veiledningen for telefonen man bruker, er åpen fra start, og den skjules når appen allerede er åpnet fra hjemskjermen.
 
