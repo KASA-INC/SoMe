@@ -345,24 +345,6 @@ select {
 .auth-switch { text-align: center; margin-top: 16px; color: var(--text-2); font-size: 0.95rem; }
 
 /* ---------- Feed ---------- */
-.compose-prompt { display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 12px 14px; }
-.compose-prompt .fake-input {
-  flex: 1;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--text-3);
-  border: 1px solid var(--border);
-  text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-.compose-prompt .icon-btn { background: var(--coral); color: var(--coral-ink); }
 .compose-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin: -4px 4px 14px; font-size: 0.85rem; color: var(--text-3); }
 
 .notice { display: flex; gap: 12px; align-items: flex-start; }
@@ -475,7 +457,6 @@ select {
 
 .audience { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .audience svg.icon { width: 15px; height: 15px; flex: none; }
-.composer .audience { margin: 12px 0 0; font-size: 0.8rem; color: var(--text-3); }
 
 /* ---------- Ark (bottom sheet) ---------- */
 .sheet-layer { position: fixed; inset: 0; z-index: 30; display: flex; align-items: flex-end; justify-content: center; }
@@ -865,3 +846,13 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
   font: inherit; font-size: 0.9rem; font-weight: 650; cursor: pointer; box-shadow: var(--shadow);
 }
 .new-posts svg.icon { width: 16px; height: 16px; }
+
+/* ---------- Skrivefelt i feeden ---------- */
+.composer-inline { padding: 12px; }
+.composer-inline .kinds-label { margin-top: 14px; }
+.composer-inline .composer-foot .btn.ghost { min-width: 0; }
+/* Sammenlagt: bare et smalt skrivefelt. Resten kommer fram når barnet trykker i det. */
+.composer-inline.collapsed .kinds-label, .composer-inline.collapsed .kinds,
+.composer-inline.collapsed .composer-foot, .composer-inline.collapsed .editor .toolbar,
+.composer-inline.collapsed .picker { display: none; }
+.composer-inline.collapsed .editor textarea { min-height: 0; height: 48px; padding-top: 12px; padding-bottom: 12px; }

@@ -632,10 +632,6 @@ function showIntro({ again = false } = {}) {
   draw();
 }
 
-// Vises der barnet deler, så det alltid er tydelig hvem som kan lese.
-const audienceNote = (groupName) => h("p", { class: "audience" }, icon("eye"),
-  h("span", {}, `${groupName} og foreldrene i gruppa kan se det du deler.`));
-
 async function showChild() {
   if (!config.me.onboarded) return showIntro();
   let data;
@@ -704,13 +700,13 @@ function composePrompt(groups, status) {
       h("div", {}, h("strong", {}, "Du har delt det du kan i dag"),
         h("p", { class: "muted small" }, "Du kan dele mer i morgen.")));
   }
-  const open = () => openSheet("Nytt innlegg", (close) => composer(groups, close));
+  // Skrivefeltet ligger rett i feeden. Det er smalt til barnet trykker i det, og da kommer resten fram.
   const groupName = groups.length === 1 ? groups[0].name : "gruppene dine";
+  const card = h("section", { class: "card composer-inline collapsed" });
+  card.append(composer(groups, () => showChild()));
+  card.addEventListener("focusin", () => card.classList.remove("collapsed"));
   return [
-    h("div", { class: "card compose-prompt", onclick: open, role: "button", tabindex: "0", onkeydown: (e) => e.key === "Enter" && open() },
-      avatar(config.me.avatar),
-      h("span", { class: "fake-input" }, "Del noe …"),
-      h("span", { class: "icon-btn", "aria-hidden": "true" }, icon("plus"))),
+    card,
     h("div", { class: "compose-meta" },
       h("span", { class: "audience" }, icon("eye"), h("span", {}, `${groupName} og foreldrene i gruppa ser det du deler`)),
       h("span", {}, (status.postsLeft === 1 ? "1 innlegg igjen i dag" : `${status.postsLeft} innlegg igjen i dag`)
@@ -718,8 +714,10 @@ function composePrompt(groups, status) {
   ];
 }
 
+// Skrivefeltet øverst i feeden. «close» legger det sammen igjen (tegner feeden på nytt).
 function composer(groups, close) {
-  const text = h("textarea", { maxlength: 200, placeholder: DEFAULT_PROMPT, "aria-label": "Innlegg", rows: 4 });
+  const text = h("textarea", { maxlength: 200, placeholder: "Del noe …", "aria-label": "Innlegg", rows: 4 });
+  text.addEventListener("focus", () => { if (text.placeholder === "Del noe …") text.placeholder = DEFAULT_PROMPT; }, { once: true });
   // Merkelapp er valgfri: trykk for å velge, trykk igjen for å fjerne.
   const kindRow = h("div", { class: "kinds", role: "group", "aria-label": "Merkelapp (valgfritt)" });
   kindRow.value = "";
@@ -833,7 +831,6 @@ function composer(groups, close) {
           sticker: stickerRow.value, mediaId: attachment?.id,
         },
       });
-      close();
       toast(pending ? "Delt. En voksen ser på bildet eller videoen først." : "Delt!");
       showChild();
     } catch (err) {
@@ -844,20 +841,22 @@ function composer(groups, close) {
   });
 
   editor.append(h("div", { class: "toolbar" }, attachBtn, emojiBtn, count));
-  setTimeout(() => text.focus(), 300);
 
+  // Skriv først, merkelapp etterpå. «Avbryt» legger feltet sammen igjen.
+  const cancel = h("button", { type: "button", class: "btn ghost" }, "Avbryt");
+  cancel.addEventListener("click", () => close());
   return h("div", { class: "composer" },
-    h("div", { class: "kinds-label" }, "Merkelapp ", h("span", { class: "faint" }, "(valgfritt)")),
-    kindRow,
     editor,
     fileInput,
     emojiPanel,
     preview,
+    h("div", { class: "kinds-label" }, "Merkelapp ", h("span", { class: "faint" }, "(valgfritt)")),
+    kindRow,
     warning,
     h("div", { class: "composer-foot" },
       groups.length > 1 ? groupSelect : h("span", { class: "to" }, `Til ${groups[0].name}`),
-      send),
-    audienceNote(groups.length > 1 ? "Gruppa" : groups[0].name));
+      cancel,
+      send));
 }
 
 function postCard(p, { actions } = {}) {
