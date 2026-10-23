@@ -720,7 +720,7 @@ function composer(groups, close) {
 
   const clearAttachment = () => {
     attachment = null;
-    prerender();
+    preview.replaceChildren();
     preview.classList.add("hidden");
     fileInput.value = "";
   };
@@ -756,7 +756,7 @@ function composer(groups, close) {
     const media = isVideo
       ? h("video", { src: localUrl, controls: true, playsinline: true, muted: true, preload: "metadata" })
       : h("img", { src: localUrl, alt: "Bildet du har valgt" });
-    prerender(media, h("div", { class: "upload-row" }, status, bar,
+    preview.replaceChildren(media, h("div", { class: "upload-row" }, status, bar,
       h("button", { type: "button", class: "link danger small", onclick: clearAttachment }, "Fjern")));
     preview.classList.remove("hidden");
 
