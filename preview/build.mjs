@@ -70,6 +70,7 @@ const switcher = `
     padding: 4px 6px 4px 12px; border-radius: 999px; background: var(--ink); color: var(--cream); font: 600 12px/1.2 var(--font-sans); box-shadow: var(--shadow-lg); opacity: .92; }
   .preview-bar button { font: inherit; color: inherit; background: transparent; border: 1px solid rgba(248, 248, 244, .35); border-radius: 999px; padding: 5px 10px; cursor: pointer; }
   .preview-bar button:hover { background: rgba(248, 248, 244, .14); }
+  body.no-scroll .preview-bar { display: none; } /* ikke over knappene i et åpent ark */
   body { padding-bottom: 48px; }
 </style>
 <script>document.querySelector(".preview-bar").addEventListener("click", (e) => { const b = e.target.closest("button[data-as]"); if (b) window.__quipuPreview.as(b.dataset.as || null); });</script>`;

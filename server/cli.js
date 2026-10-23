@@ -20,9 +20,11 @@ if (command === "reset-link" && arg) resetLink(arg);
 else if (command === "reset-all") resetAll(arg);
 else if (command === "test-mail" && arg) await testMail(arg);
 else if (command === "verify-email" && arg) verifyEmail(arg);
+else if (command === "admin" && arg) setAdmin(arg, process.argv[4] !== "av");
 else {
   console.log("Bruk:\n  npm run reset-link -- <e-post eller brukernavn>\n  npm run reset-all -- " + CONFIRM_WORD
-    + "\n  npm run test-mail -- <e-postadresse>\n  npm run verify-email -- <e-postadresse>");
+    + "\n  npm run test-mail -- <e-postadresse>\n  npm run verify-email -- <e-postadresse>"
+    + "\n  npm run admin -- <e-postadresse> [av]");
   process.exit(1);
 }
 
@@ -49,6 +51,17 @@ function verifyEmail(email) {
   }
   db.prepare("DELETE FROM email_verifications WHERE user_id = (SELECT id FROM users WHERE email = ?)").run(email.trim().toLowerCase());
   console.log(`E-postadressen ${email} er bekreftet.`);
+}
+
+// Gjør en foresatt til administrator (eller tar det bort med «av»). Finnes bare her, aldri i appen,
+// så ingen kan gjøre seg selv til administrator.
+function setAdmin(email, on) {
+  const { changes } = db.prepare("UPDATE users SET is_admin = ? WHERE email = ? AND role = 'parent'").run(on ? 1 : 0, email.trim().toLowerCase());
+  if (!changes) {
+    console.error(`Fant ingen foresatt med «${email}».`);
+    process.exit(1);
+  }
+  console.log(on ? `${email} er nå administrator. Fanen «Admin» vises neste gang appen lastes.` : `${email} er ikke administrator lenger.`);
 }
 
 // Sender en test-e-post med samme oppsett som «Glemt passord» bruker.
@@ -98,7 +111,7 @@ function resetAll(confirm) {
   }
 
   db.exec("BEGIN");
-  for (const table of ["sessions", "password_resets", "email_verifications", "parent_invites", "child_shares", "group_invitations", "guardians", "usage", "reports", "media", "posts", "adult_reads", "adult_messages", "memberships", "groups", "users"]) {
+  for (const table of ["sessions", "password_resets", "email_verifications", "parent_invites", "child_shares", "group_invitations", "guardians", "admin_log", "banned_emails", "daily_stats", "usage", "reports", "media", "posts", "adult_reads", "adult_messages", "memberships", "groups", "users"]) {
     db.exec(`DELETE FROM ${table}`);
   }
   db.exec("COMMIT");

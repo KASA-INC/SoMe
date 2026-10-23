@@ -1043,6 +1043,7 @@ async function showParent() {
     barn: () => childrenTab(children, invitations),
     grupper: () => groupsTab(groups),
     konto: accountTab,
+    admin: adminTab,
   }[parentTab]();
 
   const emailNotice = !config.me.email && parentTab !== "konto" && h("div", { class: "card notice" }, icon("mail"),
@@ -1052,7 +1053,8 @@ async function showParent() {
 
   render(
     emailNotice,
-    h("div", { class: "tabs", role: "tablist" }, tab("barn", "Barn"), tab("grupper", "Grupper"), tab("konto", "Konto")),
+    h("div", { class: `tabs${config.me.isAdmin ? " four" : ""}`, role: "tablist" }, tab("barn", "Barn"), tab("grupper", "Grupper"), tab("konto", "Konto"),
+      config.me.isAdmin && tab("admin", "Admin")),
     content);
 }
 
@@ -1406,6 +1408,7 @@ const INVITE_RESULT = {
   invited: "Har konto, fikk beskjed om gruppa",
   invited_not_sent: "Har konto og er invitert, men e-posten ble ikke sendt",
   exists: "Har allerede konto",
+  blocked: "Kan ikke inviteres",
 };
 
 // En foresatt inviterer andre foresatte, til quipu eller til en bestemt gruppe.
@@ -1475,6 +1478,146 @@ function accountTab() {
         start();
       }, "danger", "trash")),
   ];
+}
+
+// ---------- Administrasjon (bare for den som drifter quipu) ----------
+// Statistikk som tall, meldte innlegg fra alle grupper, og utestenging. Alt som gjøres, logges på serveren.
+function adminTab() {
+  const stats = h("div", {}, h("p", { class: "muted" }, "Henter tall …"));
+  const reports = h("div", {});
+  const users = h("div", {});
+  const log = h("div", {});
+  loadAdminStats(stats);
+  loadAdminReports(reports);
+  loadAdminLog(log);
+  const search = h("input", { id: "admin-search", type: "search", placeholder: "Navn, brukernavn eller e-post", autocomplete: "off", autocapitalize: "none" });
+  let timer;
+  search.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => loadAdminUsers(users, search.value), 300); });
+  return [
+    h("div", { class: "section-title" }, h("h2", {}, "Admin")),
+    h("p", { class: "muted small admin-note" }, `Bare for drift av ${APP_NAME}. Statistikken er tall uten navn. Du ser bare innlegg som noen har meldt, og alt du gjør her, logges.`),
+    h("section", { class: "card" }, h("h3", {}, "Bruk"), stats),
+    h("section", { class: "card" }, h("h3", {}, "Meldte innlegg"), reports),
+    h("section", { class: "card" }, h("h3", {}, "Kontoer"), field("Søk etter en konto", search), users),
+    h("section", { class: "card" }, h("h3", {}, "Logg"), log),
+  ];
+}
+
+const fmtDay = (day) => new Date(`${day}T12:00:00`).toLocaleDateString("nb-NO", { weekday: "short", day: "numeric", month: "short" });
+const fmtTime = (t) => new Date(t).toLocaleString("nb-NO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+async function loadAdminStats(box) {
+  try {
+    const { totals: t, today, days } = await api("/admin/stats");
+    const tile = (label, value, sub) => h("div", { class: "stat" }, h("div", { class: "value" }, String(value)), h("div", { class: "label" }, label), sub && h("div", { class: "sub" }, sub));
+    const avg = (d) => (d.activeChildren ? Math.round(d.minutes / d.activeChildren) : 0);
+    box.replaceChildren(
+      h("div", { class: "stats" },
+        tile("Foresatte", t.parents, `${t.parentsVerified} bekreftet · ${t.invitedParents} invitert`),
+        tile("Barn", t.children, `${t.sharedChildren} med flere foresatte`),
+        tile("Grupper", t.groups),
+        tile("Aktive barn i dag", today.activeChildren, `${today.minutes} min · ${today.posts} innlegg`),
+        tile("Åpne meldinger", t.openReports),
+        tile("Stengte kontoer", t.suspended),
+        tile("Enheter med push", t.pushDevices)),
+      days.length
+        ? h("div", { class: "info-table-wrap" }, h("table", { class: "info-table admin-days" },
+          h("thead", {}, h("tr", {}, ["Dag", "Aktive barn", "Min. per barn", "Innlegg", "Med bilde", "Meldt", "Nye foresatte", "Nye barn"].map((x) => h("th", { scope: "col" }, x)))),
+          h("tbody", {}, days.map((d) => h("tr", {},
+            h("th", { scope: "row" }, fmtDay(d.day)),
+            ...[["Aktive barn", d.activeChildren], ["Min. per barn", avg(d)], ["Innlegg", d.posts], ["Med bilde", d.postsMedia], ["Meldt", d.reports], ["Nye foresatte", d.newParents], ["Nye barn", d.newChildren]]
+              .map(([label, v]) => h("td", { "data-label": label }, String(v))))))))
+        : h("p", { class: "muted small" }, "Dagssummene kommer når den første dagen er over."));
+  } catch (err) { box.replaceChildren(h("p", { class: "warning" }, icon("alert"), h("span", {}, err.message))); }
+}
+
+async function loadAdminReports(box) {
+  try {
+    const { posts } = await api("/admin/reports");
+    if (!posts.length) return box.replaceChildren(h("p", { class: "muted small" }, "Ingen meldte innlegg akkurat nå."));
+    const act = (p, action) => async () => {
+      try {
+        await api(`/admin/posts/${p.id}`, { method: "POST", body: { action } });
+        toast(action === "remove" ? "Innlegget er fjernet" : "Innlegget vises igjen");
+        loadAdminReports(box);
+        loadAdminLog(document.querySelector(".admin-log-box") || h("div"));
+      } catch (err) { toast(err.message); }
+    };
+    box.replaceChildren(...posts.map((p) => h("div", { class: "admin-report" },
+      h("div", { class: "meta" }, h("strong", {}, p.author), ` @${p.username} · ${p.groupName} · ${timeAgo(p.createdAt)}`,
+        h("span", { class: "badge" }, `${p.reports} ${p.reports === 1 ? "melding" : "meldinger"}`),
+        p.authorSuspended && h("span", { class: "badge warn" }, "stengt")),
+      h("p", { class: "text" }, p.text),
+      p.media && mediaView(p),
+      h("div", { class: "row" },
+        btn("Fjern innlegget", act(p, "remove"), "danger small", "trash"),
+        btn("Vis igjen", act(p, "restore"), "secondary small", "eye"),
+        !p.authorSuspended && btn(`Steng @${p.username}`, () => suspendForm(box, { id: p.authorId, displayName: p.author, role: "child" }, () => loadAdminReports(box)), "ghost small", "lock")))));
+  } catch (err) { box.replaceChildren(h("p", { class: "warning" }, icon("alert"), h("span", {}, err.message))); }
+}
+
+// Liten form for å stenge en konto. Grunnen lagres og vises i loggen.
+function suspendForm(anchor, u, done) {
+  openSheet(`Steng ${u.displayName}`, (close) => {
+    const warning = warningBox();
+    const reason = h("input", { name: "reason", required: true, minlength: 3, maxlength: 300, placeholder: "F.eks. truende meldinger" });
+    const form = h("form", {},
+      h("p", { class: "muted small" }, u.role === "child"
+        ? "Barnet logges ut og kommer ikke inn igjen før du åpner kontoen. Foresatte kan fortsatt se barnet."
+        : "Den foresatte logges ut, kommer ikke inn igjen og kan ikke registrere seg på nytt med samme e-post. Barn som ikke har en annen foresatt, stenges også."),
+      field("Grunn (lagres i loggen)", reason),
+      h("button", { class: "btn block danger" }, icon("lock"), "Steng kontoen"),
+      warning);
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        const { alsoSuspended } = await api(`/admin/users/${u.id}/suspend`, { method: "POST", body: { reason: reason.value } });
+        close();
+        toast(alsoSuspended.length ? `Stengt. Også stengt: ${alsoSuspended.join(", ")}` : "Kontoen er stengt");
+        done();
+        loadAdminLog(document.querySelector(".admin-log-box") || h("div"));
+      } catch (err) { showWarning(warning, err.message); }
+    });
+    return form;
+  });
+}
+
+async function loadAdminUsers(box, term) {
+  if (term.trim().length < 2) return box.replaceChildren();
+  try {
+    const { users } = await api(`/admin/users?q=${encodeURIComponent(term.trim())}`);
+    if (!users.length) return box.replaceChildren(h("p", { class: "muted small" }, "Fant ingen."));
+    const reload = () => loadAdminUsers(box, term);
+    box.replaceChildren(h("ul", { class: "admin-users" }, users.map((u) => h("li", {},
+      h("div", { class: "who" },
+        h("strong", {}, u.displayName), " ", h("span", { class: "muted small" }, u.role === "child" ? `barn · @${u.username}` : `foresatt · ${u.email}`),
+        u.suspended && h("span", { class: "badge" }, "stengt"),
+        h("div", { class: "muted small" }, u.role === "child" ? `Foresatte: ${u.related.join(", ") || "ingen"}` : `Barn: ${u.related.join(", ") || "ingen"}`,
+          ` · laget ${fmtTime(u.createdAt)}`),
+        u.suspended && h("div", { class: "muted small" }, `Grunn: ${u.suspendedReason}${u.suspendedCause === "parent" ? " (foresatt stengt)" : ""}`)),
+      u.id === config.me.id ? h("span", { class: "muted small" }, "deg")
+        : u.suspended
+          ? btn("Åpne", async () => {
+            try {
+              const { alsoOpened } = await api(`/admin/users/${u.id}/unsuspend`, { method: "POST" });
+              toast(alsoOpened.length ? `Åpnet. Også åpnet: ${alsoOpened.join(", ")}` : "Kontoen er åpnet");
+              reload();
+              loadAdminLog(document.querySelector(".admin-log-box") || h("div"));
+            } catch (err) { toast(err.message); }
+          }, "secondary small", "check")
+          : btn("Steng", () => suspendForm(box, u, reload), "danger small", "lock")))));
+  } catch (err) { box.replaceChildren(h("p", { class: "warning" }, icon("alert"), h("span", {}, err.message))); }
+}
+
+async function loadAdminLog(box) {
+  box.classList.add("admin-log-box");
+  try {
+    const { log } = await api("/admin/log");
+    box.replaceChildren(log.length
+      ? h("ul", { class: "admin-log" }, log.map((l) => h("li", {},
+        h("span", { class: "muted small" }, fmtTime(l.createdAt)), " ", h("strong", {}, l.action), ` ${l.target}`, l.detail && h("span", { class: "muted" }, ` · ${l.detail}`))))
+      : h("p", { class: "muted small" }, "Ingenting ennå."));
+  } catch (err) { box.replaceChildren(h("p", { class: "warning" }, icon("alert"), h("span", {}, err.message))); }
 }
 
 // ---------- Varsler fra voksenkontakten ----------

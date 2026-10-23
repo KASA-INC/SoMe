@@ -159,6 +159,33 @@ CREATE TABLE IF NOT EXISTS child_shares (
   expires_at INTEGER NOT NULL
 );
 
+-- Administrasjon. Bare den som drifter quipu, er administrator (settes med «npm run admin», aldri i appen).
+-- Statistikk lagres som dagssummer uten navn eller id-er, så ingen kan spores.
+CREATE TABLE IF NOT EXISTS daily_stats (
+  day TEXT PRIMARY KEY,
+  active_children INTEGER NOT NULL,
+  minutes INTEGER NOT NULL,
+  posts INTEGER NOT NULL,
+  posts_media INTEGER NOT NULL,
+  reports INTEGER NOT NULL,
+  new_parents INTEGER NOT NULL,
+  new_children INTEGER NOT NULL
+);
+-- E-postadresser som ikke kan registreres igjen etter utestenging. Bare en hash lagres.
+CREATE TABLE IF NOT EXISTS banned_emails (
+  email_hash TEXT PRIMARY KEY,
+  created_at INTEGER NOT NULL
+);
+-- Alt en administrator gjør, logges.
+CREATE TABLE IF NOT EXISTS admin_log (
+  id INTEGER PRIMARY KEY,
+  admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,
+  target TEXT NOT NULL,
+  detail TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL
+);
+
 -- Foresatte som er invitert til en gruppe. Med invitasjonen kan de melde inn barnet uten invitasjonskode.
 -- Har eieren av gruppa invitert, slipper barnet rett inn (auto_approve). Ellers må eieren godkjenne som vanlig.
 CREATE TABLE IF NOT EXISTS group_invitations (
@@ -223,6 +250,13 @@ function migrate(db) {
     db.exec("ALTER TABLE media ADD COLUMN adult_message_id INTEGER REFERENCES adult_messages(id) ON DELETE CASCADE");
   }
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS media_adult_message ON media (adult_message_id) WHERE adult_message_id IS NOT NULL");
+  if (!columns("users").includes("is_admin")) {
+    db.exec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0");
+    // Utestengt: når, hvorfor, og om det var fordi den eneste foresatte ble utestengt («parent»).
+    db.exec("ALTER TABLE users ADD COLUMN suspended_at INTEGER");
+    db.exec("ALTER TABLE users ADD COLUMN suspended_reason TEXT");
+    db.exec("ALTER TABLE users ADD COLUMN suspended_cause TEXT");
+  }
   if (!columns("parent_invites").includes("group_id")) {
     db.exec("ALTER TABLE parent_invites ADD COLUMN group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE");
   }

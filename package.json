@@ -15,7 +15,8 @@
     "reset-all": "node --disable-warning=ExperimentalWarning server/cli.js reset-all",
     "test-mail": "node --disable-warning=ExperimentalWarning server/cli.js test-mail",
     "verify-email": "node --disable-warning=ExperimentalWarning server/cli.js verify-email",
-    "tokens": "node scripts/build-tokens.mjs"
+    "tokens": "node scripts/build-tokens.mjs",
+    "admin": "node --disable-warning=ExperimentalWarning server/cli.js admin"
   },
   "dependencies": {
     "express": "5.1.0",

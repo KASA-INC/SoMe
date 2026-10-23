@@ -114,20 +114,6 @@
      "media": null
     },
     {
-     "id": 6,
-     "kind": "takk",
-     "text": "Takk til Sara som hjalp meg med brøkene i matten i dag.",
-     "sticker": "",
-     "color": "lilla",
-     "createdAt": 1792411020000,
-     "author": "Ola",
-     "avatar": "c03",
-     "groupId": 1,
-     "groupName": "6B",
-     "mine": true,
-     "media": null
-    },
-    {
      "id": 5,
      "kind": "laget",
      "text": "Jeg har bygget en fuglekasse med bestefar. Nå håper jeg noen flytter inn i vår.",
@@ -214,10 +200,11 @@
   "/me": {
    "me": {
     "id": 1,
-    "username": "foresatt-9c849e0038",
+    "username": "foresatt-12d036812d",
     "role": "parent",
     "displayName": "Kristin",
-    "avatar": "c13",
+    "avatar": "c12",
+    "isAdmin": true,
     "email": "kristin@example.com",
     "emailVerified": true,
     "pendingEmail": ""
@@ -337,7 +324,7 @@
      "id": 1,
      "name": "6B",
      "isOwner": true,
-     "inviteCode": "363691140D",
+     "inviteCode": "F8928E7CF1",
      "mediaReview": true,
      "pendingMedia": 0,
      "members": [
@@ -363,7 +350,7 @@
        "parentEmail": "lars@example.com"
       }
      ],
-     "openReports": 0,
+     "openReports": 1,
      "adultUnread": 2
     },
     {
@@ -388,11 +375,210 @@
   },
   "/notify": {
    "email": "soon",
-   "pushKey": "BFyjHgnyumOEwjQ3ZoitRzVy2XqdQ5MTnVd9OKs6s7MHgkHea8Tkx_2AdiqBjwy5Utsh8dORtEQzZHHxTlffua8"
+   "pushKey": "BEO_ODnMIgeRkv9pDS5iEz-35ijkwlDrYqI7pnsnT9qqDLbqtnQU_P-2ItLMrfi81PkfcaplX5KlRjCwcNas7vw"
+  },
+  "/admin/stats": {
+   "totals": {
+    "parents": 4,
+    "parentsVerified": 4,
+    "children": 4,
+    "groups": 2,
+    "invitedParents": 0,
+    "sharedChildren": 0,
+    "openReports": 1,
+    "suspended": 0,
+    "pushDevices": 0
+   },
+   "today": {
+    "day": "2026-10-20",
+    "activeChildren": 0,
+    "minutes": 0,
+    "posts": 1
+   },
+   "days": [
+    {
+     "day": "2026-10-19",
+     "activeChildren": 0,
+     "minutes": 0,
+     "posts": 3,
+     "postsMedia": 0,
+     "reports": 0,
+     "newParents": 0,
+     "newChildren": 0
+    },
+    {
+     "day": "2026-10-18",
+     "activeChildren": 0,
+     "minutes": 0,
+     "posts": 3,
+     "postsMedia": 0,
+     "reports": 0,
+     "newParents": 0,
+     "newChildren": 0
+    }
+   ]
+  },
+  "/admin/reports": {
+   "posts": [
+    {
+     "id": 6,
+     "kind": "takk",
+     "text": "Takk til Sara som hjalp meg med brøkene i matten i dag.",
+     "sticker": "",
+     "color": "lilla",
+     "createdAt": 1792411020000,
+     "status": "hidden",
+     "author": "Ola",
+     "avatar": "c03",
+     "groupId": 1,
+     "groupName": "6B",
+     "username": "ola",
+     "authorId": 5,
+     "authorSuspended": false,
+     "reports": 1,
+     "reportedAt": 1792489200000,
+     "media": null
+    }
+   ]
+  },
+  "/admin/log": {
+   "log": []
+  },
+  "/admin/users": {
+   "users": [
+    {
+     "id": 3,
+     "role": "parent",
+     "username": "foresatt-f544cec1ee",
+     "displayName": "Hanne",
+     "email": "hanne@example.com",
+     "createdAt": 1792490400000,
+     "suspended": false,
+     "suspendedReason": "",
+     "suspendedCause": "",
+     "related": [
+      "Jonas"
+     ]
+    },
+    {
+     "id": 1,
+     "role": "parent",
+     "username": "foresatt-12d036812d",
+     "displayName": "Kristin",
+     "email": "kristin@example.com",
+     "createdAt": 1792490400000,
+     "suspended": false,
+     "suspendedReason": "",
+     "suspendedCause": "",
+     "related": [
+      "Ola"
+     ]
+    },
+    {
+     "id": 4,
+     "role": "parent",
+     "username": "foresatt-d5676554e3",
+     "displayName": "Lars",
+     "email": "lars@example.com",
+     "createdAt": 1792490400000,
+     "suspended": false,
+     "suspendedReason": "",
+     "suspendedCause": "",
+     "related": [
+      "Mia"
+     ]
+    },
+    {
+     "id": 2,
+     "role": "parent",
+     "username": "foresatt-34b586dec8",
+     "displayName": "Thomas",
+     "email": "thomas@example.com",
+     "createdAt": 1792490400000,
+     "suspended": false,
+     "suspendedReason": "",
+     "suspendedCause": "",
+     "related": [
+      "Sara"
+     ]
+    },
+    {
+     "id": 5,
+     "role": "child",
+     "username": "ola",
+     "displayName": "Ola",
+     "email": "",
+     "createdAt": 1792490400000,
+     "suspended": false,
+     "suspendedReason": "",
+     "suspendedCause": "",
+     "related": [
+      "Kristin"
+     ]
+    },
+    {
+     "id": 6,
+     "role": "child",
+     "username": "sara",
+     "displayName": "Sara",
+     "email": "",
+     "createdAt": 1792490400000,
+     "suspended": false,
+     "suspendedReason": "",
+     "suspendedCause": "",
+     "related": [
+      "Thomas"
+     ]
+    },
+    {
+     "id": 7,
+     "role": "child",
+     "username": "jonas",
+     "displayName": "Jonas",
+     "email": "",
+     "createdAt": 1792490400000,
+     "suspended": false,
+     "suspendedReason": "",
+     "suspendedCause": "",
+     "related": [
+      "Hanne"
+     ]
+    },
+    {
+     "id": 8,
+     "role": "child",
+     "username": "mia",
+     "displayName": "Mia",
+     "email": "",
+     "createdAt": 1792490400000,
+     "suspended": false,
+     "suspendedReason": "",
+     "suspendedCause": "",
+     "related": [
+      "Lars"
+     ]
+    }
+   ]
   },
   "/groups/1/posts": {
    "isOwner": true,
    "posts": [
+    {
+     "id": 6,
+     "kind": "takk",
+     "text": "Takk til Sara som hjalp meg med brøkene i matten i dag.",
+     "sticker": "",
+     "color": "lilla",
+     "createdAt": 1792411020000,
+     "status": "hidden",
+     "author": "Ola",
+     "avatar": "c03",
+     "groupId": 1,
+     "groupName": "6B",
+     "reports": 1,
+     "byMyChild": true,
+     "media": null
+    },
     {
      "id": 7,
      "kind": "tips",
@@ -407,22 +593,6 @@
      "groupName": "6B",
      "reports": 0,
      "byMyChild": false,
-     "media": null
-    },
-    {
-     "id": 6,
-     "kind": "takk",
-     "text": "Takk til Sara som hjalp meg med brøkene i matten i dag.",
-     "sticker": "",
-     "color": "lilla",
-     "createdAt": 1792411020000,
-     "status": "visible",
-     "author": "Ola",
-     "avatar": "c03",
-     "groupId": 1,
-     "groupName": "6B",
-     "reports": 0,
-     "byMyChild": true,
      "media": null
     },
     {
@@ -503,7 +673,7 @@
      "text": "Jeg kan kjøre, har plass til tre barn.",
      "createdAt": 1792487400000,
      "author": "Kristin",
-     "avatar": "c13",
+     "avatar": "c12",
      "mine": true,
      "imageId": null,
      "canDelete": true
@@ -513,7 +683,7 @@
      "text": "Takk! Jeg kan ta med kake. Er det noen som kan kjøre til turdagen på fredag?",
      "createdAt": 1792486920000,
      "author": "Hanne",
-     "avatar": "c24",
+     "avatar": "c09",
      "mine": false,
      "imageId": null,
      "canDelete": true
@@ -523,7 +693,7 @@
      "text": "Hei alle! Husk foreldremøtet tirsdag kl. 18 i klasserommet. Det blir kaffe og kake.",
      "createdAt": 1792485420000,
      "author": "Thomas",
-     "avatar": "c20",
+     "avatar": "c10",
      "mine": false,
      "imageId": null,
      "canDelete": true

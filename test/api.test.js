@@ -1016,3 +1016,86 @@ test("migrering: barn fra før flere foresatte fantes, får den som laget dem so
   db5.close();
   rmSync(dirname(file), { recursive: true, force: true });
 });
+
+test("admin: bare administratoren slipper inn, og statistikken er bare tall", async () => {
+  const a = await setupFamily("adm");
+  const sjef = client();
+  await registerParent(sjef, "adm-sjef@example.com", "Sjef");
+  assert.equal((await sjef("/admin/stats")).status, 404, "vanlige foresatte ser ikke at admin finnes");
+  db.prepare("UPDATE users SET is_admin = 1 WHERE email = ?").run("adm-sjef@example.com");
+  assert.equal((await sjef("/me")).body.me.isAdmin, true);
+  await post(a.kid, a.groupId, "Hei fra statistikken");
+  const start = clock;
+  clock += 864e5; // neste dag: i går blir en dagssum
+  try {
+    const { body } = await sjef("/admin/stats");
+    assert.ok(body.totals.children >= 1 && body.totals.groups >= 1);
+    const yesterday = body.days.find((d) => d.day === "2026-10-20");
+    assert.ok(yesterday.posts >= 1);
+    assert.deepEqual(Object.keys(yesterday).sort(), ["activeChildren", "day", "minutes", "newChildren", "newParents", "posts", "postsMedia", "reports"]);
+  } finally {
+    clock = start;
+  }
+  assert.equal((await a.parent("/admin/users?q=adm")).status, 404);
+  assert.equal((await a.kid("/admin/stats")).status, 403);
+});
+
+test("admin: ser meldte innlegg og kan fjerne dem eller vise dem igjen", async () => {
+  const a = await setupFamily("admr");
+  const b = await secondParent(a, "admr");
+  const sjef = client();
+  await registerParent(sjef, "admr-sjef@example.com", "Sjef");
+  db.prepare("UPDATE users SET is_admin = 1 WHERE email = ?").run("admr-sjef@example.com");
+  const { body: { posts: [p] } } = await (await post(a.kid, a.groupId, "Et innlegg som blir meldt"), a.kid("/feed"));
+  // Innlegg som ikke er meldt, ser ikke administratoren.
+  assert.equal((await sjef("/admin/reports")).body.posts.some((x) => x.id === p.id), false);
+  const tor = client();
+  await tor("/login", { method: "POST", body: { username: "admr-tor", password: "tor12345" } });
+  await tor(`/posts/${p.id}/report`, { method: "POST" });
+  const reported = (await sjef("/admin/reports")).body.posts.find((x) => x.id === p.id);
+  assert.equal(reported.text, "Et innlegg som blir meldt");
+  assert.equal(reported.reports, 1);
+  await sjef(`/admin/posts/${p.id}`, { method: "POST", body: { action: "restore" } });
+  assert.equal((await sjef("/admin/reports")).body.posts.some((x) => x.id === p.id), false);
+  assert.equal((await tor("/feed")).body.posts.some((x) => x.id === p.id), true);
+  assert.match((await sjef("/admin/log")).body.log[0].action, /viste innlegg igjen/);
+  void b;
+});
+
+test("admin: utestenging av foresatt stenger barn uten annen foresatt, og e-posten kan ikke brukes igjen", async () => {
+  const a = await setupFamily("ban"); // mor med Ola
+  const sjef = client();
+  await registerParent(sjef, "ban-sjef@example.com", "Sjef");
+  db.prepare("UPDATE users SET is_admin = 1 WHERE email = ?").run("ban-sjef@example.com");
+  // Lise har to barn: Kari (bare Lise) og Ola deles med mor.
+  const lise = client();
+  await registerParent(lise, "ban-lise@example.com", "Lise");
+  await lise("/children", { method: "POST", body: { username: "ban-kari", password: "kari12345", displayName: "Kari", avatar: "c09" } });
+  const link = await a.parent(`/children/${a.childId}/share`, { method: "POST", body: {} });
+  await lise(`/shares/${link.body.url.split("=")[1]}/accept`, { method: "POST" });
+  const kari = client();
+  await kari("/login", { method: "POST", body: { username: "ban-kari", password: "kari12345" } });
+
+  const found = (await sjef("/admin/users?q=ban-lise")).body.users;
+  assert.equal(found.length, 1);
+  assert.deepEqual(found[0].related.sort(), ["Kari", "Ola"]);
+  assert.equal((await sjef(`/admin/users/${found[0].id}/suspend`, { method: "POST", body: {} })).status, 400, "grunn kreves");
+  const res = await sjef(`/admin/users/${found[0].id}/suspend`, { method: "POST", body: { reason: "Truende meldinger" } });
+  assert.deepEqual(res.body.alsoSuspended, ["Kari"]);
+  // Lise og Kari er logget ut og kommer ikke inn. Ola har mor igjen og kan fortsatt logge inn.
+  assert.equal((await lise("/me")).status, 401);
+  assert.equal((await kari("/me")).status, 401);
+  assert.equal((await client()("/login", { method: "POST", body: { login: "ban-lise@example.com", password: "hemmelig123" } })).body.code, "SUSPENDED");
+  assert.equal((await client()("/login", { method: "POST", body: { username: "ban-kari", password: "kari12345" } })).status, 403);
+  assert.equal((await a.kid("/me")).status, 200);
+  // Samme e-post kan ikke brukes til en ny konto eller invitasjon.
+  assert.equal((await client()("/register", { method: "POST", body: { displayName: "Lise", email: "BAN-lise@example.com", password: "hemmelig123" } })).status, 403);
+  assert.deepEqual((await a.parent("/invites", { method: "POST", body: { emails: ["ban-lise@example.com"] } })).body.results, [{ email: "ban-lise@example.com", status: "blocked" }]);
+  assert.equal((await sjef(`/admin/users/${(await sjef("/admin/users?q=ban-sjef")).body.users[0].id}/suspend`, { method: "POST", body: { reason: "test" } })).status, 400);
+
+  // Åpner man Lise igjen, åpnes også Kari.
+  assert.deepEqual((await sjef(`/admin/users/${found[0].id}/unsuspend`, { method: "POST" })).body.alsoOpened, ["Kari"]);
+  assert.equal((await client()("/login", { method: "POST", body: { username: "ban-kari", password: "kari12345" } })).status, 200);
+  assert.equal((await client()("/login", { method: "POST", body: { login: "ban-lise@example.com", password: "hemmelig123" } })).status, 200);
+  assert.deepEqual((await sjef("/admin/log")).body.log.slice(0, 2).map((l) => l.action), ["åpnet", "stengte"]);
+});

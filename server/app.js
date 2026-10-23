@@ -132,6 +132,8 @@ export function createApp({
 
   app.use("/api", (req, res, next) => {
     req.user = userFromToken(db, readCookie(req, COOKIE));
+    // En utestengt konto regnes som utlogget (øktene slettes også når den stenges).
+    if (req.user?.suspended_at) req.user = null;
     next();
   });
 
@@ -214,6 +216,8 @@ export function createApp({
   });
 
   app.get("/api/signup-info", (req, res) => res.json({ codeRequired: !!registrationCode }));
+
+  const isBanned = (email) => !!q("SELECT 1 FROM banned_emails WHERE email_hash = ?").get(sha256(String(email).trim().toLowerCase()));
 
   // Invitasjon fra en annen foresatt: gyldig, ubrukt og ikke utløpt.
   const findInvite = (token) => typeof token === "string" && /^[0-9a-f]{64}$/.test(token)
@@ -299,6 +303,7 @@ export function createApp({
 
     const results = [];
     for (const email of emails) {
+      if (isBanned(email)) { results.push({ email, status: "blocked" }); continue; }
       const existing = q("SELECT id, role FROM users WHERE email = ?").get(email);
       if (existing) {
         // Har adressen allerede konto, trengs ingen ny konto. Gjelder det en gruppe, blir hen invitert til den.
@@ -331,6 +336,7 @@ export function createApp({
     // En delingslenke for et barn virker også som invitasjon.
     const share = req.body.share ? findShare(req.body.share) : undefined;
     if (req.body.share && !share) fail(400, SHARE_GONE);
+    if (typeof req.body.email === "string" && isBanned(req.body.email)) fail(403, `Denne e-postadressen kan ikke brukes i ${APP_NAME}.`);
     if (!invite && !share && registrationCode && !safeEqual(String(req.body.code || "").trim(), registrationCode)) {
       fail(403, "Feil registreringskode. Be en foresatt som allerede bruker quipu, om en invitasjon.");
     }
@@ -367,6 +373,11 @@ export function createApp({
       fail(401, "Feil e-post, brukernavn eller passord");
     }
     clearFailures(key);
+    if (user.suspended_at) {
+      fail(403, user.role === "child"
+        ? "Kontoen er stengt. Snakk med en voksen."
+        : `Kontoen er stengt fordi den ikke fulgte reglene. Ta kontakt med ${CONTACT_EMAIL} hvis du mener dette er feil.`, "SUSPENDED");
+    }
     const token = createSession(db, user.id);
     res.set("Set-Cookie", sessionCookie(token, secureCookies)).json({ ok: true });
   });
@@ -380,6 +391,7 @@ export function createApp({
   app.get("/api/me", needUser(), (req, res) => {
     const me = publicUser(req.user);
     if (req.user.role === "parent") {
+      me.isAdmin = !!req.user.is_admin;
       me.email = req.user.email || "";
       me.emailVerified = !!req.user.email_verified;
       me.pendingEmail = q(`SELECT email FROM email_verifications WHERE user_id = ? AND expires_at > ? AND email != ?
@@ -412,6 +424,7 @@ export function createApp({
     const email = typeof value === "string" ? value.trim().toLowerCase() : "";
     if (!EMAIL.test(email)) fail(400, "Skriv inn en gyldig e-postadresse");
     if (q("SELECT 1 FROM users WHERE email = ? AND id != ?").get(email, userId)) fail(409, "E-postadressen er allerede i bruk");
+    if (isBanned(email)) fail(403, `Denne e-postadressen kan ikke brukes i ${APP_NAME}.`);
     return email;
   }
 
@@ -664,7 +677,10 @@ export function createApp({
     const me = req.user;
     if (me.role === "child") childGate(req, res, () => {});
     const adultGroup = m.adultGroupId && q("SELECT * FROM groups WHERE id = ?").get(m.adultGroupId);
-    const allowed = m.owner_id === me.id || (adultGroup ? me.role === "parent" && canTalk(me.id, adultGroup) : m.groupId && m.status !== "removed" && (
+    // Administratoren kan se bilder og video i innlegg som er meldt.
+    const reportedForAdmin = !!me.is_admin && me.role === "parent" && m.post_id
+      && !!q("SELECT 1 FROM reports WHERE post_id = ? AND resolved = 0").get(m.post_id);
+    const allowed = reportedForAdmin || m.owner_id === me.id || (adultGroup ? me.role === "parent" && canTalk(me.id, adultGroup) : m.groupId && m.status !== "removed" && (
       me.role === "child"
         ? m.approved && m.status === "visible" && q("SELECT 1 FROM memberships WHERE group_id = ? AND user_id = ? AND approved = 1").get(m.groupId, me.id)
         : visibleGroup(me.id, m.groupId)));
@@ -686,10 +702,165 @@ export function createApp({
   }
   app.locals.sweepMedia = sweepMedia;
 
+  // ---------- Administrasjon ----------
+  // Bare for den som drifter quipu: statistikk som tall, meldte innlegg og utestenging.
+  const admin = [parent, (req, res, next) => {
+    if (!req.user.is_admin) fail(404, "Finnes ikke");
+    next();
+  }];
+  const adminLog = (req, action, target, detail = "") =>
+    q("INSERT INTO admin_log (admin_id, action, target, detail, created_at) VALUES (?, ?, ?, ?, ?)").run(req.user.id, action, target, detail, now());
+
+  // Dagssummer for dager som er ferdige. Kjøres før gamle skjermtidsdata slettes, så tallene tas vare på.
+  function recordDailyStats() {
+    const { day: today } = clock();
+    const days = q(`SELECT day FROM usage WHERE day < ? UNION SELECT day FROM posts WHERE day < ?
+      EXCEPT SELECT day FROM daily_stats`).all(today, today).map((r) => r.day);
+    for (const day of days) {
+      // Tidspunkter telles på Oslo-dagen. Vinduet er romslig, og clock() avgjør hvilken dag de hører til.
+      const from = Date.parse(`${day}T00:00:00Z`) - 3 * 3600e3;
+      const onDay = (rows) => rows.filter((r) => clock(r.t).day === day).length;
+      const created = (role) => onDay(q("SELECT created_at AS t FROM users WHERE role = ? AND created_at >= ? AND created_at < ?").all(role, from, from + 30 * 3600e3));
+      const u = q("SELECT COUNT(*) AS n, COALESCE(SUM(minutes), 0) AS m FROM usage WHERE day = ? AND minutes > 0").get(day);
+      const p = q("SELECT COUNT(*) AS n, COUNT(md.id) AS media FROM posts p LEFT JOIN media md ON md.post_id = p.id WHERE p.day = ?").get(day);
+      const r = onDay(q("SELECT created_at AS t FROM reports WHERE created_at >= ? AND created_at < ?").all(from, from + 30 * 3600e3));
+      q(`INSERT OR IGNORE INTO daily_stats (day, active_children, minutes, posts, posts_media, reports, new_parents, new_children)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(day, u.n, u.m, p.n, p.media, r, created("parent"), created("child"));
+    }
+  }
+  app.locals.recordDailyStats = recordDailyStats;
+
+  app.get("/api/admin/stats", admin, (req, res) => {
+    const count = (sql, ...a) => q(sql).get(...a).n;
+    const { day } = clock();
+    recordDailyStats();
+    res.json({
+      totals: {
+        parents: count("SELECT COUNT(*) AS n FROM users WHERE role = 'parent'"),
+        parentsVerified: count("SELECT COUNT(*) AS n FROM users WHERE role = 'parent' AND email_verified = 1"),
+        children: count("SELECT COUNT(*) AS n FROM users WHERE role = 'child'"),
+        groups: count("SELECT COUNT(*) AS n FROM groups"),
+        invitedParents: count("SELECT COUNT(*) AS n FROM users WHERE invited_by IS NOT NULL"),
+        sharedChildren: count("SELECT COUNT(*) AS n FROM (SELECT child_id FROM guardians GROUP BY child_id HAVING COUNT(*) > 1)"),
+        openReports: count("SELECT COUNT(DISTINCT post_id) AS n FROM reports WHERE resolved = 0"),
+        suspended: count("SELECT COUNT(*) AS n FROM users WHERE suspended_at IS NOT NULL"),
+        pushDevices: count("SELECT COUNT(*) AS n FROM push_subscriptions"),
+      },
+      today: {
+        day,
+        activeChildren: count("SELECT COUNT(*) AS n FROM usage WHERE day = ? AND minutes > 0", day),
+        minutes: count("SELECT COALESCE(SUM(minutes), 0) AS n FROM usage WHERE day = ?", day),
+        posts: count("SELECT COUNT(*) AS n FROM posts WHERE day = ?", day),
+      },
+      days: q("SELECT * FROM daily_stats ORDER BY day DESC LIMIT 30").all().map((d) => ({
+        day: d.day, activeChildren: d.active_children, minutes: d.minutes, posts: d.posts, postsMedia: d.posts_media,
+        reports: d.reports, newParents: d.new_parents, newChildren: d.new_children,
+      })),
+    });
+  });
+
+  // Meldte innlegg fra alle grupper. Administratoren ser bare innlegg noen har meldt, ikke resten.
+  app.get("/api/admin/reports", admin, (req, res) => {
+    const posts = q(`SELECT ${POST_FIELDS}, u.username, u.id AS authorId, u.suspended_at AS authorSuspended,
+        (SELECT COUNT(*) FROM reports r WHERE r.post_id = p.id AND r.resolved = 0) AS reports,
+        (SELECT MIN(created_at) FROM reports r WHERE r.post_id = p.id AND r.resolved = 0) AS reportedAt
+      ${POST_JOINS}
+      WHERE EXISTS (SELECT 1 FROM reports r WHERE r.post_id = p.id AND r.resolved = 0) AND p.status != 'removed'
+      ORDER BY reportedAt LIMIT 100`).all();
+    res.json({ posts: posts.map((p) => withMedia({ ...p, authorSuspended: !!p.authorSuspended })) });
+  });
+
+  app.post("/api/admin/posts/:id", admin, (req, res) => {
+    const post = q("SELECT * FROM posts WHERE id = ?").get(req.params.id);
+    if (!post) fail(404, "Fant ikke innlegget");
+    if (!["remove", "restore"].includes(req.body.action)) fail(400, "Ugyldig valg");
+    q("UPDATE posts SET status = ? WHERE id = ?").run(req.body.action === "remove" ? "removed" : "visible", post.id);
+    q("UPDATE reports SET resolved = 1 WHERE post_id = ?").run(post.id);
+    adminLog(req, req.body.action === "remove" ? "fjernet innlegg" : "viste innlegg igjen", `innlegg ${post.id}`, post.text.slice(0, 80));
+    res.json({ ok: true });
+  });
+
+  // Søk etter kontoer for å stenge eller åpne dem.
+  app.get("/api/admin/users", admin, (req, res) => {
+    const term = String(req.query.q || "").trim().toLowerCase();
+    if (term.length < 2) return res.json({ users: [] });
+    const like = `%${term.replace(/[%_]/g, "")}%`;
+    const users = q(`SELECT id, role, username, display_name, email, created_at, suspended_at, suspended_reason, suspended_cause FROM users
+      WHERE lower(display_name) LIKE ? OR lower(username) LIKE ? OR lower(COALESCE(email, '')) LIKE ? OR CAST(id AS TEXT) = ?
+      ORDER BY role, display_name LIMIT 50`).all(like, like, like, term);
+    res.json({
+      users: users.map((u) => ({
+        id: u.id, role: u.role, username: u.username, displayName: u.display_name, email: u.email || "",
+        createdAt: u.created_at, suspended: !!u.suspended_at, suspendedReason: u.suspended_reason || "", suspendedCause: u.suspended_cause || "",
+        // For barn: foresatte. For foresatte: barna.
+        related: u.role === "child"
+          ? guardiansOf(u.id).map((g) => g.display_name)
+          : q("SELECT c.display_name FROM guardians gd JOIN users c ON c.id = gd.child_id WHERE gd.parent_id = ?").all(u.id).map((c) => c.display_name),
+      })),
+    });
+  });
+
+  // Stenger en konto. En foresatt mister også e-postadressen (kan ikke registrere seg på nytt med den).
+  // Barn der den stengte er eneste foresatt som ikke er stengt, stenges også. Barn med en annen foresatt beholder kontoen.
+  app.post("/api/admin/users/:id/suspend", admin, (req, res) => {
+    const u = q("SELECT * FROM users WHERE id = ?").get(req.params.id);
+    if (!u) fail(404, "Fant ikke kontoen");
+    if (u.id === req.user.id) fail(400, "Du kan ikke stenge din egen konto");
+    const reason = String(req.body.reason || "").trim().slice(0, 300);
+    if (reason.length < 3) fail(400, "Skriv en kort grunn");
+    const suspend = (id, cause) => {
+      q("UPDATE users SET suspended_at = ?, suspended_reason = ?, suspended_cause = ? WHERE id = ? AND suspended_at IS NULL").run(now(), reason, cause, id);
+      q("DELETE FROM sessions WHERE user_id = ?").run(id);
+      q("DELETE FROM push_subscriptions WHERE user_id = ?").run(id);
+    };
+    suspend(u.id, "admin");
+    const alsoSuspended = [];
+    if (u.role === "parent") {
+      if (u.email) q("INSERT OR IGNORE INTO banned_emails (email_hash, created_at) VALUES (?, ?)").run(sha256(u.email), now());
+      for (const { child_id } of q("SELECT child_id FROM guardians WHERE parent_id = ?").all(u.id)) {
+        const active = q(`SELECT COUNT(*) AS n FROM guardians gd JOIN users p ON p.id = gd.parent_id
+          WHERE gd.child_id = ? AND p.suspended_at IS NULL`).get(child_id).n;
+        if (!active) {
+          suspend(child_id, "parent");
+          alsoSuspended.push(q("SELECT display_name FROM users WHERE id = ?").get(child_id).display_name);
+        }
+      }
+    }
+    adminLog(req, "stengte", `${u.role === "child" ? "barn" : "foresatt"} ${u.display_name} (${u.id})`,
+      reason + (alsoSuspended.length ? ` · også stengt: ${alsoSuspended.join(", ")}` : ""));
+    res.json({ ok: true, alsoSuspended });
+  });
+
+  app.post("/api/admin/users/:id/unsuspend", admin, (req, res) => {
+    const u = q("SELECT * FROM users WHERE id = ?").get(req.params.id);
+    if (!u) fail(404, "Fant ikke kontoen");
+    q("UPDATE users SET suspended_at = NULL, suspended_reason = NULL, suspended_cause = NULL WHERE id = ?").run(u.id);
+    const alsoOpened = [];
+    if (u.role === "parent") {
+      if (u.email) q("DELETE FROM banned_emails WHERE email_hash = ?").run(sha256(u.email));
+      // Barn som ble stengt fordi denne var eneste foresatt, åpnes igjen.
+      for (const c of q(`SELECT c.id, c.display_name FROM guardians gd JOIN users c ON c.id = gd.child_id
+        WHERE gd.parent_id = ? AND c.suspended_cause = 'parent'`).all(u.id)) {
+        q("UPDATE users SET suspended_at = NULL, suspended_reason = NULL, suspended_cause = NULL WHERE id = ?").run(c.id);
+        alsoOpened.push(c.display_name);
+      }
+    }
+    adminLog(req, "åpnet", `${u.role === "child" ? "barn" : "foresatt"} ${u.display_name} (${u.id})`, alsoOpened.length ? `også åpnet: ${alsoOpened.join(", ")}` : "");
+    res.json({ ok: true, alsoOpened });
+  });
+
+  app.get("/api/admin/log", admin, (req, res) => {
+    res.json({
+      log: q(`SELECT l.action, l.target, l.detail, l.created_at AS createdAt, u.display_name AS admin FROM admin_log l
+        LEFT JOIN users u ON u.id = l.admin_id ORDER BY l.id DESC LIMIT 100`).all(),
+    });
+  });
+
   // Sletter det vi ikke trenger lenger (se lagringstidene på /personvern):
   // utløpte innlogginger og lenker, skjermtid eldre enn 30 dager, og innlegg som en voksen fjernet for over 30 dager siden.
   function cleanup() {
     const t = now();
+    recordDailyStats();
     q("DELETE FROM sessions WHERE expires_at < ?").run(t);
     q("DELETE FROM password_resets WHERE expires_at < ?").run(t);
     q("DELETE FROM email_verifications WHERE expires_at < ?").run(t);
@@ -875,6 +1046,7 @@ export function createApp({
     const email = req.body.email ? String(req.body.email).trim().toLowerCase() : null;
     if (email && !EMAIL.test(email)) fail(400, "Skriv inn en gyldig e-postadresse");
     if (email && email === req.user.email) fail(400, "Det er din egen adresse");
+    if (email && isBanned(email)) fail(403, `Denne e-postadressen kan ikke brukes i ${APP_NAME}.`);
     const recent = q("SELECT COUNT(*) AS n FROM child_shares WHERE inviter_id = ? AND created_at > ?").get(req.user.id, now() - 864e5).n;
     if (recent >= SHARES_PER_DAY) fail(429, `Du kan lage ${SHARES_PER_DAY} delingslenker i døgnet. Prøv igjen i morgen.`);
     const token = randomBytes(32).toString("hex");

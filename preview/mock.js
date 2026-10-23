@@ -78,9 +78,23 @@
     }
 
     // Foresatt
+    let m;
+    if (method === "GET" && p === "/admin/users") {
+      const term = (new URLSearchParams(path.split("?")[1]).get("q") || "").toLowerCase();
+      return { users: parent["/admin/users"].users.filter((u) => `${u.displayName} ${u.username} ${u.email}`.toLowerCase().includes(term)) };
+    }
+    if ((m = p.match(/^\/admin\/users\/(\d+)\/(suspend|unsuspend)$/))) {
+      const u = parent["/admin/users"].users.find((x) => x.id === Number(m[1]));
+      if (u) Object.assign(u, { suspended: m[2] === "suspend", suspendedReason: body.reason || "" });
+      parent["/admin/log"].log.unshift({ action: m[2] === "suspend" ? "stengte" : "åpnet", target: u?.displayName || "", detail: body.reason || "", createdAt: Date.now(), admin: "Kristin" });
+      return m[2] === "suspend" ? { ok: true, alsoSuspended: [] } : { ok: true, alsoOpened: [] };
+    }
+    if ((m = p.match(/^\/admin\/posts\/(\d+)$/))) {
+      parent["/admin/reports"].posts = parent["/admin/reports"].posts.filter((x) => x.id !== Number(m[1]));
+      return ok;
+    }
     if (method === "GET" && parent[p]) return parent[p];
     if (/^\/groups\/\d+\/(posts|adult)\/new$/.test(p)) return { count: 0 };
-    let m;
     if ((m = p.match(/^\/groups\/(\d+)\/adult$/)) && method === "POST") {
       const me = parent["/me"].me;
       const img = body.mediaId ? String(body.mediaId) : null;

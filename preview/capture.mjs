@@ -85,13 +85,26 @@ await thomas(`/groups/${g6b}/adult`, { method: "POST", body: { text: "Hei alle! 
 await hanne(`/groups/${g6b}/adult`, { method: "POST", body: { text: "Takk! Jeg kan ta med kake. Er det noen som kan kjøre til turdagen på fredag?" } }); minutes(8);
 await kristin(`/groups/${g6b}/adult`, { method: "POST", body: { text: "Jeg kan kjøre, har plass til tre barn." } }); minutes(30);
 
+// Jonas melder innlegget om turdagen, så administrasjonen har noe å vise. Kristin er administrator i forhåndsvisningen.
+const jonasFeed = await jonas.k("/feed");
+await jonas.k(`/posts/${jonasFeed.posts.find((p) => p.author === "Ola").id}/report`, { method: "POST" });
+db.prepare("UPDATE users SET is_admin = 1 WHERE email = 'kristin@example.com'").run();
+app.locals.recordDailyStats();
+
 const capturedAt = clock;
 const childFix = { "/me": await ola.k("/me"), "/feed": await ola.k("/feed") };
 childFix["/me"].me.onboarded = false; // introen vises første gang i forhåndsvisningen
 const parentFix = {
   "/me": await kristin("/me"), "/children": await kristin("/children"), "/groups": await kristin("/groups"),
   "/notify": await kristin("/notify"),
+  "/admin/stats": await kristin("/admin/stats"),
+  "/admin/reports": await kristin("/admin/reports"),
+  "/admin/log": await kristin("/admin/log"),
 };
+// Alle kontoene, til søket i administrasjonen (søket krever minst to tegn).
+const found = new Map();
+for (const term of ["example", "ola", "sara", "jonas", "mia"]) for (const u of (await kristin(`/admin/users?q=${term}`)).users) found.set(u.id, u);
+parentFix["/admin/users"] = { users: [...found.values()] };
 for (const g of parentFix["/groups"].groups) {
   parentFix[`/groups/${g.id}/posts`] = await kristin(`/groups/${g.id}/posts`).catch(() => undefined);
   parentFix[`/groups/${g.id}/adult`] = await kristin(`/groups/${g.id}/adult`).catch(() => undefined);
