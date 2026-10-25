@@ -182,9 +182,9 @@ select {
   font-weight: 600;
   background: var(--accent);
   color: var(--accent-ink);
-  border: none;
+  border: 1px solid transparent; /* samme høyde på alle varianter, også de med kantlinje */
   border-radius: 999px; /* helt runde kortsider på alle knapper */
-  padding: 12px 20px;
+  padding: 11px 20px;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
@@ -192,9 +192,8 @@ select {
   text-decoration: none;
 }
 .btn.block { width: 100%; }
-.btn.small { min-height: 40px; font-size: var(--fs-small); padding: 8px 16px; border-radius: 999px; }
+.btn.small { min-height: 40px; font-size: var(--fs-small); padding: 7px 16px; }
 .btn.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--surface-3); }
-.btn.soft { background: var(--accent-soft); color: var(--accent-soft-ink); }
 .btn.danger { background: var(--danger-soft); color: var(--danger); }
 .btn.ghost { background: transparent; color: var(--text-2); }
 .btn:active { transform: scale(0.98); }
@@ -202,7 +201,6 @@ select {
 @media (hover: hover) {
   .btn:hover { background: var(--accent-hover); }
   .btn.secondary:hover, .btn.ghost:hover { background: var(--surface-3); }
-  .btn.soft:hover { filter: brightness(0.97); }
   .btn.danger:hover { filter: brightness(0.97); }
 }
 
@@ -221,7 +219,8 @@ select {
 .icon-btn:active { background: var(--surface-3); }
 @media (hover: hover) { .icon-btn:hover { background: var(--surface-2); color: var(--text); } }
 
-.link { background: none; border: none; color: var(--link); font-weight: 600; cursor: pointer; padding: 10px 2px; min-height: var(--tap); }
+/* Tekstlenker ser like ut overalt: tekstfargen, fet og understreket. */
+.link { background: none; border: none; color: var(--text); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 10px 2px; min-height: var(--tap); }
 .link.danger { color: var(--danger); }
 
 .pill {
@@ -547,6 +546,9 @@ body.auth-page .topbar { display: none; }
 .notice.invitation .btn svg.icon { color: currentColor; margin-top: 0; }
 .guardians { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; font-size: var(--fs-small); }
 .chip.add.invited { border-style: solid; background: var(--accent-soft); color: var(--accent-soft-ink); }
+/* Koden og kopier-ikonet står sammen. Lange lenker brytes, ikonet står fast til høyre. */
+.code-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.code-row code { min-width: 0; }
 .code-box code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: var(--fs-code); font-weight: 600; letter-spacing: 0.08em; user-select: all; -webkit-user-select: all; }
 
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--surface-2); cursor: pointer; font-size: var(--fs-small); }

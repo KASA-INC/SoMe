@@ -1156,7 +1156,7 @@ async function showParent() {
   const emailNotice = !config.me.email && parentTab !== "konto" && h("div", { class: "card notice" }, icon("mail"),
     h("div", {}, h("strong", {}, "Legg inn e-posten din"),
       h("p", { class: "muted small" }, "Da kan du få en lenke for å velge nytt passord hvis du glemmer det."),
-      btn("Legg inn e-post", () => { parentTab = "konto"; showParent(); }, "soft small")));
+      btn("Legg inn e-post", () => { parentTab = "konto"; showParent(); }, "secondary small")));
 
   render(
     emailNotice,
@@ -1168,7 +1168,7 @@ async function showParent() {
 function childrenTab(children, invitations) {
   return [
     ...invitations.map((inv) => invitationCard(inv, children)),
-    h("div", { class: "section-title" }, h("h2", {}, "Barna mine"), btn("Legg til", openAddChild, "soft small", "plus")),
+    h("div", { class: "section-title" }, h("h2", {}, "Barna mine"), btn("Legg til", openAddChild, "secondary small", "plus")),
     children.length ? null : h("div", { class: "card empty" },
       h("div", { class: "end-icon" }, icon("user")),
       h("p", {}, "Lag en konto til barnet ditt for å komme i gang.")),
@@ -1330,8 +1330,8 @@ function openShareChild(c) {
             h("div", {}, h("strong", {}, "Lenken er sendt"), h("p", { class: "muted small" }, `Vi sendte den til ${email}. Du får en e-post når den er tatt i bruk.`))),
           status === "not_sent" && h("p", { class: "warning" }, icon("alert"), h("span", {}, "E-posten ble ikke sendt. Kopier lenken og send den selv.")),
           h("div", { class: "code-box invite-link" },
-            h("div", {}, h("div", { class: "label" }, "Delingslenke"), h("code", {}, url)),
-            h("div", { class: "row" }, btn("Kopier", () => copyText(url, "Lenken"), "secondary small", "copy"), share)),
+            h("div", {}, h("div", { class: "label" }, "Delingslenke"), h("div", { class: "code-row" }, h("code", {}, url), copyBtn(url, "Lenken"))),
+            share && h("div", { class: "row" }, share)),
         ].filter(Boolean));
         form.replaceWith(box);
       } catch (err) { showWarning(warning, err.message); }
@@ -1367,7 +1367,7 @@ function openAddChild() {
 
 function groupsTab(groups) {
   return [
-    h("div", { class: "section-title" }, h("h2", {}, "Grupper"), btn("Ny gruppe", openNewGroup, "soft small", "plus")),
+    h("div", { class: "section-title" }, h("h2", {}, "Grupper"), btn("Ny gruppe", openNewGroup, "secondary small", "plus")),
     h("p", { class: "muted small", style: "margin:-6px 2px 14px" },
       "Barn ser bare innlegg fra gruppene de er med i. Del invitasjonskoden med de andre foresatte i klassen."),
     groups.length ? null : h("div", { class: "card empty" },
@@ -1407,9 +1407,8 @@ function groupCard(g) {
     g.pendingMembers?.length ? pendingMembers(g) : null,
     g.isOwner && g.members.length ? membersList(g) : null,
     g.isOwner && h("div", { class: "code-box" },
-      h("div", {}, h("div", { class: "label" }, "Invitasjonskode"), h("code", {}, g.inviteCode)),
+      h("div", {}, h("div", { class: "label" }, "Invitasjonskode"), h("div", { class: "code-row" }, h("code", {}, g.inviteCode), copyBtn(g.inviteCode, "Koden"))),
       h("div", { class: "row" },
-        btn("Kopier", () => copyText(g.inviteCode), "secondary small", "copy"),
         btn("Ny kode", async () => {
           if (!confirm(`Lage en ny invitasjonskode for ${g.name}? Den gamle slutter å virke med en gang. Barn som er med, blir værende.`)) return;
           try {
@@ -1417,7 +1416,7 @@ function groupCard(g) {
             toast("Ny kode er laget");
             showParent();
           } catch (err) { toast(err.message); }
-        }, "ghost small", "refresh"))),
+        }, "secondary small", "refresh"))),
     g.isOwner && reviewSwitch(g),
     h("div", { class: "card-actions" },
       btn("Se innlegg", () => showGroupPosts(g), "", "eye"),
@@ -1467,6 +1466,17 @@ function pendingMembers(g) {
       h("div", { class: "row-actions" },
         btn("Avslå", answer(m, "reject"), "ghost small"),
         btn("Godta", answer(m, "approve"), "small")))));
+}
+
+// Kopier-knapp: et kopier-ikon rett ved koden eller lenken. Viser en hake et øyeblikk etter kopiering.
+function copyBtn(text, what = "Koden") {
+  const b = h("button", { type: "button", class: "icon-btn", "aria-label": `Kopier ${what.toLowerCase()}`, title: "Kopier" }, icon("copy"));
+  b.addEventListener("click", async () => {
+    await copyText(text, what);
+    b.replaceChildren(icon("check"));
+    setTimeout(() => b.replaceChildren(icon("copy")), 1500);
+  });
+  return b;
 }
 
 async function copyText(text, what = "Koden") {
@@ -1597,8 +1607,8 @@ function openInvite(group) {
             r.url && btn("Kopier lenke", () => copyText(r.url, "Lenken"), "secondary small", "copy")))),
           results.some((r) => r.url) && h("p", { class: "muted small" }, "E-posten kom ikke fram. Kopier lenken og send den selv, for eksempel på SMS. Hver lenke virker bare for den ene personen."),
           url && h("div", { class: "code-box invite-link" },
-            h("div", {}, h("div", { class: "label" }, "Invitasjonslenke"), h("code", {}, url)),
-            h("div", { class: "row" }, btn("Kopier", () => copyText(url, "Lenken"), "secondary small", "copy"), share)),
+            h("div", {}, h("div", { class: "label" }, "Invitasjonslenke"), h("div", { class: "code-row" }, h("code", {}, url), copyBtn(url, "Lenken"))),
+            share && h("div", { class: "row" }, share)),
           btn("Inviter flere", () => { close(); setTimeout(() => openInvite(group), 260); }, "ghost small"),
         ].filter(Boolean));
         form.replaceWith(box);
@@ -1693,7 +1703,7 @@ function mfaSetupCard() {
         const form = h("form", {},
           h("ol", { class: "steps" },
             h("li", {}, "Åpne autentiseringsappen og legg til en ny konto. På telefonen kan du trykke ", h("a", { class: "link", href: uri }, "Åpne i appen"), "."),
-            h("li", {}, "Eller skriv inn nøkkelen for hånd:", h("div", { class: "code-box" }, h("code", {}, secret.match(/.{1,4}/g).join(" ")), btn("Kopier", () => copyText(secret, "Nøkkelen"), "secondary small", "copy"))),
+            h("li", {}, "Eller skriv inn nøkkelen for hånd:", h("div", { class: "code-box" }, h("div", { class: "code-row" }, h("code", {}, secret.match(/.{1,4}/g).join(" ")), copyBtn(secret, "Nøkkelen")))),
             h("li", {}, "Skriv inn koden appen viser nå.")),
           field("Kode fra appen", code),
           h("button", { class: "btn block" }, icon("lock"), "Slå på"),

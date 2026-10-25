@@ -29,7 +29,6 @@
   --accent-ink: var(--cream);
   --accent-soft: var(--coral-600);
   --accent-soft-ink: var(--ink);
-  --link: var(--petrol-800);
   --danger: var(--coral-900);
   --danger-ink: var(--cream);
   --danger-soft: var(--coral-200);
@@ -96,7 +95,6 @@
     --accent-ink: var(--ink);
     --accent-soft: var(--petrol-600);
     --accent-soft-ink: var(--cream);
-    --link: var(--coral-400);
     --danger: var(--coral-400);
     --danger-ink: var(--ink);
     --danger-soft: var(--petrol-900);

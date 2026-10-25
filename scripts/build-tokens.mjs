@@ -59,7 +59,7 @@ const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
 // Tekst på flatene den står på (4,5:1), og markeringer som må synes (3:1).
 const PAIRS = [
   ...["bg", "surface", "surface-2"].flatMap((g) => ["text", "text-2", "text-3"].map((f) => [f, g, 4.5])),
-  ["on-bg", "bg", 4.5], ["on-bg-2", "bg", 4.5], ["link", "surface", 4.5], ["link", "bg", 4.5],
+  ["on-bg", "bg", 4.5], ["on-bg-2", "bg", 4.5],
   ["accent-ink", "accent", 4.5], ["accent-soft-ink", "accent-soft", 4.5], ["danger", "danger-soft", 4.5], ["danger-ink", "danger", 4.5],
   ["warn", "warn-soft", 4.5], ["bubble-ink", "bubble", 4.5], ["bubble-mine-ink", "bubble-mine", 4.5],
   ["accent", "surface", 3], ["accent", "bg", 3], ["brand", "bg", 3], ["icon-mark", "icon-tile", 3],
