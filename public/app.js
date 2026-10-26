@@ -144,7 +144,7 @@ function markSvg(cls = "mark", viewBox = MARK_TIGHT_VIEWBOX) {
 }
 const wordmarkSvg = (cls = "wordmark") => brandSvg(WORDMARK_VIEWBOX, WORDMARK_PATH, cls);
 
-// Appikonet: kremhvit Q på petrol.
+// Appikonet: kremhvit Q på aubergine.
 function logo() {
   return h("span", { class: "app-icon", "aria-hidden": "true" }, markSvg("mark", MARK_VIEWBOX));
 }

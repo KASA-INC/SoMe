@@ -6,14 +6,15 @@ import { writeFileSync } from "node:fs";
 import { Avatar, Style } from "@dicebear/core";
 import definition from "@dicebear/styles/critters.json" with { type: "json" };
 
-const P = { p900: "#1f3437", p800: "#1f4144", p600: "#145b5e", p300: "#94a5a8", c800: "#b86351", c600: "#f3785b", c400: "#f7a98e", c200: "#f9dccc", n300: "#b6b3b2", cream: "#f8f8f4", ink: "#161619" };
+// a = aubergine, f = fersken (samme trinn som i design/tokens.json).
+const P = { a900: "#2e0d26", a800: "#3b1432", a600: "#4a1d3f", a300: "#be8daf", f800: "#de6a54", f600: "#ff9e8a", f400: "#ffc4b7", f200: "#fee7e2", n300: "#b6b3b2", cream: "#f8f8f4", ink: "#161619" };
 
 // [bakgrunn, kropp, aksent]: lys kropp på mørk eller sterk bakgrunn, så ansiktet (strek i nesten svart) synes godt.
 const COMBOS = [
-  ["p600", "c400", "c200"], ["p600", "cream", "c400"], ["p600", "c600", "c200"], ["p600", "p300", "cream"], ["p600", "c200", "c600"], ["p600", "n300", "cream"],
-  ["c600", "c200", "c400"], ["c600", "cream", "p300"], ["c600", "p300", "cream"], ["c600", "c200", "p300"], ["c600", "n300", "c200"], ["c600", "cream", "c200"],
-  ["p800", "c600", "c200"], ["p800", "c400", "cream"], ["p800", "p300", "c200"], ["p800", "cream", "c600"], ["p800", "c200", "c400"], ["p800", "n300", "c400"],
-  ["c800", "c200", "cream"], ["c800", "cream", "c400"], ["c800", "c400", "c200"], ["c800", "p300", "c200"], ["c800", "cream", "p300"], ["c800", "c200", "p300"],
+  ["a600", "f400", "f200"], ["a600", "cream", "f400"], ["a600", "f600", "f200"], ["a600", "a300", "cream"], ["a600", "f200", "f600"], ["a600", "n300", "cream"],
+  ["f600", "f200", "f400"], ["f600", "cream", "a300"], ["f600", "a300", "cream"], ["f600", "f200", "a300"], ["f600", "n300", "f200"], ["f600", "cream", "f200"],
+  ["a800", "f600", "f200"], ["a800", "f400", "cream"], ["a800", "a300", "f200"], ["a800", "cream", "f600"], ["a800", "f200", "f400"], ["a800", "n300", "f400"],
+  ["f800", "f200", "cream"], ["f800", "cream", "f400"], ["f800", "f400", "f200"], ["f800", "a300", "f200"], ["f800", "cream", "a300"], ["f800", "f200", "a300"],
 ];
 // Bare blide fjes: ingen sinte, triste eller søvnige varianter.
 const EYES = ["round", "dots", "bigPupils", "sideeye", "happy", "wink", "wide", "trio", "uneven", "four"];
@@ -29,7 +30,7 @@ COMBOS.forEach(([bg, body, accent], i) => {
     eyesVariant: EYES, mouthVariant: MOUTHS, animationVariant: "none",
   }).toString()
     // Farger som ligger fast i tegningene, byttes til palettfarger.
-    .replaceAll("#ffffff", P.cream).replaceAll("#fb7185", P.c800);
+    .replaceAll("#ffffff", P.cream).replaceAll("#fb7185", P.f800);
   const stray = [...new Set(svg.match(/#[0-9a-f]{6}/gi))].filter((c) => !Object.values(P).includes(c.toLowerCase()));
   if (stray.length) throw new Error(`${id} har farger utenfor paletten: ${stray}`);
   writeFileSync(new URL(`${id}.svg`, out), svg);

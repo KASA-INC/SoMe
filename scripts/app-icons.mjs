@@ -1,5 +1,5 @@
 // Lager appikonene i public/icons/ fra logoen i brand.js og fargene i design/tokens.json.
-// Lys modus: kremhvitt merke på petrol. Mørk modus: korall merke på nesten svart.
+// Lys modus: kremhvitt merke på aubergine. Mørk modus: fersken merke på nesten svart.
 // Kjør på nytt hvis logoen eller ikonfargene endres (krever Playwright og Chromium):
 //   npm install --no-save playwright && node scripts/app-icons.mjs
 import { readFileSync, writeFileSync } from "node:fs";
@@ -22,7 +22,7 @@ const rx = Math.round(size * 0.221); // samme runding som iOS bruker på ikoner
 // Nettleserfanen: SVG som bytter farge med modusen.
 writeFileSync(new URL("icon.svg", out), `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${brand.MARK_VIEWBOX}">
   <style>
-    /* Lys modus: kremhvitt merke på petrol. Mørk modus: korall merke på nesten svart. Lages av scripts/app-icons.mjs. */
+    /* Lys modus: kremhvitt merke på aubergine. Mørk modus: fersken merke på nesten svart. Lages av scripts/app-icons.mjs. */
     .tile { fill: ${tile.light}; } .mark { fill: ${mark.light}; }
     @media (prefers-color-scheme: dark) { .tile { fill: ${tile.dark}; } .mark { fill: ${mark.dark}; } }
   </style>

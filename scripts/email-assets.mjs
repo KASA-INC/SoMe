@@ -7,7 +7,7 @@ import * as brand from "../public/brand.js";
 import { EMAIL_BUTTONS } from "../server/email.js";
 
 const out = new URL("../server/assets/", import.meta.url).pathname;
-const CREAM = "#f8f8f4", CORAL = "#f3785b", INK = "#161619";
+const CREAM = "#f8f8f4", FERSKEN = "#ff9e8a", INK = "#161619";
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium", args: ["--headless=new"] });
 
 async function shoot(html, file) {
@@ -25,9 +25,9 @@ await shoot(`<svg width="${H + 9 + wordW}" height="${H}" style="display:block">
   <svg x="${H + 9}" y="${(H - wordH) / 2 + 2}" width="${wordW}" height="${wordH}" viewBox="${brand.WORDMARK_VIEWBOX}"><path fill="${CREAM}" fill-rule="evenodd" d="${brand.WORDMARK_PATH}"/></svg>
 </svg>`, "email-logo.png");
 
-// Knapper: korall med nesten svart tekst, som i appens mørke modus.
+// Knapper: fersken med nesten svart tekst, som i appens mørke modus.
 for (const [label, file] of Object.entries(EMAIL_BUTTONS)) {
-  await shoot(`<div style="background:${CORAL};color:${INK};border-radius:999px;padding:14px 28px;
+  await shoot(`<div style="background:${FERSKEN};color:${INK};border-radius:999px;padding:14px 28px;
     font:600 16px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;white-space:nowrap">${label}</div>`, file);
 }
 await browser.close();

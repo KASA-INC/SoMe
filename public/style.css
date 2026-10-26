@@ -2,10 +2,10 @@
 
 /* Farger, avstander, radier, skygger og skrift kommer fra tokens.css, som bygges fra design/tokens.json
    (det samme som designsystemet) med «npm run tokens». Endre verdiene der, ikke her.
-   Lys og mørk modus speiler hverandre: lys bruker korallskalaen der mørk bruker petrolskalaen. */
+   Lys modus: kremhvit bakgrunn, fersken flater og aubergine knapper. Mørk modus: aubergine bakgrunn og flater, fersken knapper. */
 :root {
-  --coral: var(--coral-600);
-  --coral-ink: var(--ink);
+  --fersken: var(--fersken-600);
+  --fersken-ink: var(--ink);
   /* Halen fra logoen (nederste høyre kvadrant av Q-sirkelen) */
   --bubble-tail: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='584.5 888.5 554.5 554.5' preserveAspectRatio='none'%3E%3Cpath d='M861 1368C940 1415 1050 1442 1138 1442C1070 1415 990 1360 953 1302L584.5 888.5Z'/%3E%3C/svg%3E");
   --safe-top: env(safe-area-inset-top, 0px);
@@ -390,7 +390,7 @@ a.help-line strong { text-decoration: underline; text-underline-offset: 3px; }
 .intro p { color: var(--text-2); margin: 0 0 10px; text-align: left; }
 .intro-dots { display: flex; justify-content: center; gap: 6px; }
 .intro-dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--surface-3); transition: width 0.2s, background 0.2s; }
-.intro-dots i.on { width: 20px; background: var(--coral); }
+.intro-dots i.on { width: 20px; background: var(--fersken); }
 .intro-nav { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 18px; }
 .intro-nav .btn:last-child { min-width: 140px; }
 
@@ -643,8 +643,8 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 .khipu svg { display: block; width: 100%; height: auto; }
 .khipu .cord path, .khipu .cord.main { fill: none; stroke: var(--text-3); stroke-width: 3; stroke-linecap: round; }
 .khipu .cord.main { stroke: var(--text); stroke-width: 7; }
-.khipu .knot.petrol { fill: var(--brand-petrol); }
-.khipu .knot.coral { fill: var(--coral); }
+.khipu .knot.deco { fill: var(--brand-deco); }
+.khipu .knot.fersken { fill: var(--fersken); }
 .khipu .knot.ink { fill: var(--text); }
 
 .info-grid { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
@@ -656,15 +656,15 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 .info-grid li strong { color: var(--text); }
 .info-grid li::before {
   content: ""; position: absolute; left: 14px; top: 15px; width: 18px; height: 18px; border-radius: 50%;
-  background: var(--coral) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23161619' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M7 7l10 10M17 7 7 17'/%3E%3C/svg%3E") center / 10px no-repeat;
+  background: var(--fersken) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23161619' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M7 7l10 10M17 7 7 17'/%3E%3C/svg%3E") center / 10px no-repeat;
 }
 /* Liste over ting vi har gjort (sikkerhet.html): hake i stedet for kryss. */
 .info-grid.checks li::before {
-  background: #145b5e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f8f8f4' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 11px no-repeat;
+  background: #4a1d3f url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f8f8f4' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 11px no-repeat;
 }
 /* Om-siden: minus foran det vi har valgt bort, pluss foran det vi har valgt. */
 .info-grid.minus li::before {
-  background: var(--coral) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23161619' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E") center / 10px no-repeat;
+  background: var(--fersken) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23161619' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E") center / 10px no-repeat;
 }
 /* Kortene med pluss ser ut som punktene med minus: samme boks, ikon som henger til venstre, og tekst 44px inn. */
 .info-cards.plus { gap: 10px; }
@@ -672,14 +672,14 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 .info-cards.plus h3 { margin: 0 0 2px; font: inherit; font-weight: 700; color: var(--text); }
 .info-cards.plus h3::before {
   content: ""; position: absolute; left: 14px; top: 15px; width: 18px; height: 18px; border-radius: 50%;
-  background: #145b5e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f8f8f4' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M12 6v12M6 12h12'/%3E%3C/svg%3E") center / 10px no-repeat;
+  background: #4a1d3f url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f8f8f4' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M12 6v12M6 12h12'/%3E%3C/svg%3E") center / 10px no-repeat;
 }
 @media (prefers-color-scheme: dark) {
   .info-cards.plus h3::before {
-    background: #f3785b url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23161619' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M12 6v12M6 12h12'/%3E%3C/svg%3E") center / 10px no-repeat;
+    background: #ff9e8a url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23161619' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M12 6v12M6 12h12'/%3E%3C/svg%3E") center / 10px no-repeat;
   }
   .info-grid.checks li::before {
-    background: #f3785b url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23161619' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 11px no-repeat;
+    background: #ff9e8a url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23161619' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 11px no-repeat;
   }
 }
 .info-cards { display: grid; gap: 12px; }
@@ -698,7 +698,7 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 }
 
 /* ---------- Tekst rett på bakgrunnsfargen ---------- */
-/* Korall (lys) og petrol (mørk) er sterke farger, så tekst utenfor kortene bruker egne farger med god kontrast. */
+/* Tekst rett på bakgrunnen bruker egne farger med god kontrast (on-bg og on-bg-2). */
 .topbar .icon-btn, .back-head .icon-btn { color: var(--on-bg); }
 .compose-meta, .feed-end, .feed-end p, .footer, .auth-hero p, .auth-switch,
 #view > p.muted, .section-title + p.muted, .back-head,
@@ -816,7 +816,7 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 .install-guide .ui svg.icon { width: 18px; height: 18px; padding: 2px; border-radius: 5px; background: var(--surface-2); box-sizing: content-box; }
 
 /* ---------- Bunntekst med lenker (footer.js) ---------- */
-/* Eget felt i full bredde nederst på siden: ett hakk mørkere korall i lys modus, ett hakk lysere petrol i mørk. */
+/* Eget felt i full bredde nederst på siden, i samme farge som kortene (surface). */
 body { display: flex; flex-direction: column; }
 main { width: 100%; }
 .site-footer {
