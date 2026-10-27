@@ -20,6 +20,6 @@
   },
   "dependencies": {
     "express": "5.1.0",
-    "nodemailer": "10.0.16"
+    "nodemailer": "10.2.1"
   }
 }
