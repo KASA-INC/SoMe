@@ -280,7 +280,7 @@ letter_paths = {c: curves(transform(letters[c]["subs"], s_logo, s_logo, QX, QY),
 splash = f'''<!-- splash:start (lages av scripts/logo.py) -->
   <div class="splash" id="splash" aria-hidden="true">
     <div class="splash-inner">
-      <svg class="splash-logo" viewBox="0 {num(LOGO_TOP, 0)} {num(QR_RIGHT, 0)} {num(BOTTOM - LOGO_TOP, 0)}" style="--start: {num(START, 0)}px; --ply: {num(PLY_SHIFT * s_logo, 0)}px; --drop: {num(DROP, 0)}px">
+      <svg class="splash-logo" viewBox="0 {num(LOGO_TOP, 0)} {num(QR_RIGHT, 0)} {num(BOTTOM - LOGO_TOP, 0)}">
         <g class="sp-all">
           <g class="sp-a">
             {g(RING)}
@@ -288,13 +288,13 @@ splash = f'''<!-- splash:start (lages av scripts/logo.py) -->
             {g(EYE_R, "sp-eye sp-eye-right")}
             {g(MOUTH, "sp-mouth")}
             {g(letter_paths["u"] + letter_paths["i"])}
-            {g(NEW["c"], "sp-new", ' style="--i: 0"')}
-            {g(NEW["k"], "sp-new", ' style="--i: 1"')}
+            {g(NEW["c"], "sp-new sp-first")}
+            {g(NEW["k"], "sp-new sp-second")}
           </g>
           <g class="sp-b">
             {g(letter_paths["p"] + letter_paths["l"] + letter_paths["y"])}
-            {g(BACK["r"], "sp-new", ' style="--i: 1"')}
-            {g(BACK["e"], "sp-new", ' style="--i: 0"')}
+            {g(BACK["r"], "sp-new sp-second")}
+            {g(BACK["e"], "sp-new sp-first")}
             {g(BACK["comma"], "sp-late")}
           </g>
           <g class="sp-late" transform="translate({num(x2, 0)} {num(Y2, 0)}) scale({S2})">{g(LINE2)}</g>
@@ -303,6 +303,15 @@ splash = f'''<!-- splash:start (lages av scripts/logo.py) -->
     </div>
   </div>
   <!-- splash:end -->'''
+# Hvor langt qui-, -ply og det hele flytter seg, i logoens enheter. Står i style.css mellom markørene,
+# fordi Content-Security-Policy (default-src 'self') blokkerer style-attributter i HTML-en.
+css_path = ROOT / "public/style.css"
+lengths = (f"/* splash-mål:start (lages av scripts/logo.py) */\n"
+           f".splash-logo {{ --start: {num(START, 0)}px; --ply: {num(PLY_SHIFT * s_logo, 0)}px; --drop: {num(DROP, 0)}px; }}\n"
+           f"/* splash-mål:end */")
+css_text, n = re.subn(r"/\* splash-mål:start.*?/\* splash-mål:end \*/", lengths, css_path.read_text(), flags=re.S)
+assert n == 1, "Fant ikke /* splash-mål:start */ ... /* splash-mål:end */ i style.css"
+css_path.write_text(css_text)
 idx = ROOT / "public/index.html"
 html = idx.read_text()
 html, n = re.subn(r"<!-- splash:start.*?<!-- splash:end -->", splash.strip(), html, flags=re.S)

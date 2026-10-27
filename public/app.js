@@ -2258,11 +2258,11 @@ async function showAdultChat(g) {
 }
 
 // ---------- Load-skjerm ----------
-// Skjermen ligger i index.html. Den vises til «then goodbye.» har kommet og blunket (rundt 3,6 s), og forsvinner
+// Skjermen ligger i index.html. Den vises til «then goodbye.» har kommet og blunket (rundt 5,6 s), og forsvinner
 // med en ut-animasjon når første visning er tegnet. Et trykk hopper over resten.
 const splash = document.getElementById("splash");
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-let splashMinMs = reducedMotion ? 1200 : 3600;
+let splashMinMs = reducedMotion ? 1200 : 5600;
 let splashReady = false;
 
 function removeSplash() {

@@ -756,33 +756,37 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 }
 
 /* ---------- Load-skjerm ---------- */
-/* «quiply» spretter inn og smiler. Så trekkes qui- og -ply fra hverandre, ck og re kommer inn i mellomrommet,
-   og et sekund etter kommer «then goodbye.» under, med et blunk. Formene lages av scripts/logo.py.
-   --start, --ply og --drop står på svg-en: hvor langt qui-, -ply og det hele flytter seg (i logoens enheter).
-   Ut: .out legges til fra app.js. Fallback: skjermen tones ut av seg selv etter 9 s. */
+/* «quiply» glir rolig inn og smiler. Så trekkes qui- og -ply fra hverandre, ck og re tones inn i mellomrommet,
+   og litt etter kommer «then goodbye.» under, med et blunk. Formene lages av scripts/logo.py.
+   Ut: .out legges til fra app.js. Fallback: skjermen tones ut av seg selv etter 10 s. */
+/* splash-mål:start (lages av scripts/logo.py) */
+.splash-logo { --start: 2159px; --ply: 4156px; --drop: 595px; }
+/* splash-mål:end */
 .splash {
   position: fixed; inset: 0; z-index: 1000;
   display: grid; place-items: center;
   background: var(--bg); color: var(--brand);
-  animation: splash-fade .4s ease-in 9s forwards;
+  animation: splash-fade .5s ease-in 10s forwards;
 }
 .splash-inner { display: grid; place-items: center; }
-.splash-logo { width: min(84vw, 460px); height: auto; overflow: visible; animation: splash-in .6s cubic-bezier(.34, 1.56, .64, 1) both; }
+.splash-logo { width: min(84vw, 460px); height: auto; overflow: visible; animation: splash-in .9s cubic-bezier(.22, 1, .36, 1) both; }
 .splash-logo path { transform-box: fill-box; }
-.sp-all { transform: translateY(var(--drop)); animation: sp-up .6s cubic-bezier(.65, 0, .35, 1) 2.5s forwards; }
-.sp-a { transform: translateX(var(--start)); animation: sp-a .7s cubic-bezier(.65, 0, .35, 1) 1s forwards; }
-.sp-b { transform: translateX(var(--start)); animation: sp-b .7s cubic-bezier(.65, 0, .35, 1) 1s forwards; }
+.sp-all, .sp-a, .sp-b { will-change: transform; }
+.sp-all { transform: translateY(var(--drop)); animation: sp-up 1s cubic-bezier(.45, 0, .2, 1) 3.7s forwards; }
+.sp-a { transform: translateX(var(--start)); animation: sp-a 1.3s cubic-bezier(.45, 0, .2, 1) 1.5s forwards; }
+.sp-b { transform: translateX(var(--start)); animation: sp-b 1.3s cubic-bezier(.45, 0, .2, 1) 1.5s forwards; }
 /* c og e (ved siden av i og p) kommer først, k og r midt i mellomrommet når det har åpnet seg. */
-.sp-new { opacity: 0; transform-origin: 50% 100%; animation: sp-pop .4s cubic-bezier(.34, 1.56, .64, 1) calc(1.3s + var(--i) * 180ms) forwards; }
-.sp-late { opacity: 0; animation: sp-late .6s ease-out 2.6s forwards; }
+.sp-new { opacity: 0; transform-origin: 50% 100%; animation: sp-pop .8s cubic-bezier(.22, 1, .36, 1) 2s forwards; }
+.sp-new.sp-second { animation-delay: 2.3s; }
+.sp-late { opacity: 0; animation: sp-late 1s ease-out 3.8s forwards; }
 .sp-eye, .sp-mouth { transform-origin: center; }
-.sp-eye { animation: splash-eyes 1.6s ease-in-out both; }
-.sp-eye-right { animation: splash-eyes 1.6s ease-in-out both, q-wink .5s ease-in-out 3s; }
-.sp-mouth { animation: splash-smile .7s cubic-bezier(.34, 1.56, .64, 1) .55s both, q-smile .6s ease-in-out 3s; }
-.splash.out { animation: splash-fade .45s ease-in forwards; }
-.splash.out .splash-inner { animation: splash-grow .45s ease-in forwards; }
+.sp-eye { animation: splash-eyes 1.8s ease-in-out both; }
+.sp-eye-right { animation: splash-eyes 1.8s ease-in-out both, q-wink .6s ease-in-out 4.6s; }
+.sp-mouth { animation: splash-smile .9s cubic-bezier(.34, 1.4, .64, 1) .7s both, q-smile .7s ease-in-out 4.6s; }
+.splash.out { animation: splash-fade .6s ease-in-out forwards; }
+.splash.out .splash-inner { animation: splash-grow .6s ease-in-out forwards; }
 
-@keyframes splash-in { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes splash-in { from { transform: translateY(12px) scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes splash-eyes {
   0%, 25% { transform: scaleY(.1); }
   38%, 80% { transform: none; }
@@ -791,15 +795,15 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 }
 @keyframes splash-smile {
   from { transform: scale(.75, .12); }
-  60% { transform: scale(1.12, 1.3); }
+  60% { transform: scale(1.08, 1.2); }
   to { transform: none; }
 }
 @keyframes sp-a { to { transform: none; } }
 @keyframes sp-b { to { transform: translateX(var(--ply)); } }
-@keyframes sp-pop { from { opacity: 0; transform: translateY(18%) scale(.6); } to { opacity: 1; transform: none; } }
+@keyframes sp-pop { from { opacity: 0; transform: translateY(8%) scale(.85); } to { opacity: 1; transform: none; } }
 @keyframes sp-up { to { transform: none; } }
 @keyframes sp-late { to { opacity: 1; } }
-@keyframes splash-grow { to { transform: scale(1.1); } }
+@keyframes splash-grow { to { transform: scale(1.06); } }
 @keyframes splash-fade { to { opacity: 0; visibility: hidden; } }
 
 /* Uten bevegelse: hele setningen står der med en gang. */
