@@ -1,7 +1,7 @@
 // quiply — klient. All brukertekst settes med textContent, aldri som HTML.
 import {
   APP_NAME, MARK_VIEWBOX, MARK_TIGHT_VIEWBOX, MARK_RING, MARK_EYE_LEFT, MARK_EYE_RIGHT, MARK_MOUTH,
-  LOGO_VIEWBOX, LOGO_LETTERS, STACK_VIEWBOX, WORDMARK_PATH,
+  LOGO_VIEWBOX, LOGO_LETTERS, STACK_VIEWBOX, WORDMARK_PATH, SWATCH_VIEWBOX, SWATCH_LEFT, SWATCH_RIGHT,
 } from "./brand.js";
 import { fillFooter } from "./footer.js";
 import { shrinkVideo } from "./video.js";
@@ -207,6 +207,32 @@ const avatarPicker = (selected) => {
   }, selected, "avatar-pick");
   return row;
 };
+
+// Profilfarger: fargen på snakkeboblene til den som skriver. Fargene står i style.css (.pc-<navn>).
+const PROFILE_COLOR_NAMES = {
+  standard: "Champ og serenity", salvie: "Havre og salvie", kakao: "Rosa og kakao", laks: "Laks og blågrønn",
+  mynte: "Mynte og havblå", aprikos: "Aprikos og rust", indigo: "Sjøskum og indigo",
+};
+const pc = (color) => (color && color !== "standard" ? ` pc pc-${color}` : "");
+// Fargeprøve: snakkeboblen delt på midten, lys farge til venstre og mørk til høyre.
+function swatch(color) {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", SWATCH_VIEWBOX);
+  svg.setAttribute("class", `swatch pc-${color}`);
+  svg.setAttribute("aria-hidden", "true");
+  for (const [d, side] of [[SWATCH_LEFT, "l"], [SWATCH_RIGHT, "r"]]) {
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", d);
+    path.setAttribute("class", side);
+    svg.append(path);
+  }
+  return svg;
+}
+const colorPicker = (selected) => choiceRow(config.profileColors, (b, c) => {
+  b.append(swatch(c));
+  b.setAttribute("aria-label", PROFILE_COLOR_NAMES[c] || c);
+  b.title = PROFILE_COLOR_NAMES[c] || c;
+}, selected, "color-pick");
 const field = (label, input) => h("label", { class: "field" }, label, input);
 
 // Passordfelt med knapp for å vise passordet (nyttig når mobilen har laget et langt passord).
@@ -281,28 +307,32 @@ function setHeader(status) {
     right.append(h("span", { class: `pill${status.minutesLeft <= 5 ? " low" : ""}`, id: "timeLeft", title: "Tid igjen i dag" },
       icon("clock"), h("span", {}, `${status.minutesLeft} min`)));
   }
-  // Barnet trykker på profilbildet sitt for å bytte det.
-  const mine = me.role === "child"
-    ? h("button", { type: "button", class: "avatar-btn", "aria-label": "Bytt profilbilde", title: "Bytt profilbilde", onclick: openAvatarSheet }, avatar(me.avatar, "sm"))
-    : avatar(me.avatar, "sm");
+  // Trykk på profilbildet for å bytte profilfarge (og figur for barn).
+  const mine = h("button", { type: "button", class: "avatar-btn", "aria-label": "Min profil", title: "Min profil", onclick: openAvatarSheet }, avatar(me.avatar, "sm"));
   right.append(mine, iconBtn("logout", "Logg ut", logout));
 }
 
+// Min profil: farge på snakkeboblene for alle, og figur for barn.
 function openAvatarSheet() {
-  openSheet("Velg profilbilde", (close) => {
-    const picker = avatarPicker(config.me.avatar);
+  const me = config.me;
+  openSheet("Min profil", (close) => {
+    const figures = me.role === "child" ? avatarPicker(me.avatar) : null;
+    const colors = colorPicker(me.profileColor || "standard");
     const warning = warningBox();
     return h("div", {},
-      h("p", { class: "muted small" }, "De andre i gruppa ser bildet ved innleggene dine."),
-      picker,
+      figures && [h("h3", { class: "sheet-sub" }, "Profilbilde"), h("p", { class: "muted small" }, "De andre i gruppa ser bildet ved innleggene dine."), figures],
+      h("h3", { class: "sheet-sub" }, "Farge"),
+      h("p", { class: "muted small" }, me.role === "child" ? "Innleggene dine får denne fargen." : "Meldingene dine får denne fargen."),
+      colors,
       h("button", {
         class: "btn block", type: "button",
         onclick: async () => {
           try {
-            await api("/me/avatar", { method: "POST", body: { avatar: picker.value } });
-            config.me.avatar = picker.value;
+            if (figures && figures.value !== me.avatar) await api("/me/avatar", { method: "POST", body: { avatar: figures.value } });
+            if (colors.value !== me.profileColor) await api("/me/color", { method: "POST", body: { profileColor: colors.value } });
+            Object.assign(me, { avatar: figures?.value ?? me.avatar, profileColor: colors.value });
             close();
-            toast("Profilbildet er byttet");
+            toast("Profilen er oppdatert");
             start();
           } catch (err) { showWarning(warning, err.message); }
         },
@@ -732,7 +762,7 @@ async function showChild() {
       h("p", {},
         h("button", { type: "button", class: "link small", onclick: () => showIntro({ again: true }) }, `Slik fungerer ${APP_NAME}`),
         " · ",
-        h("button", { type: "button", class: "link small", onclick: openAvatarSheet }, "Bytt profilbilde")),
+        h("button", { type: "button", class: "link small", onclick: openAvatarSheet }, "Bytt profilbilde og farge")),
       h("p", {}, h("button", { type: "button", class: "link small", onclick: openSafety }, icon("flag"), "Si fra om noe annet"))));
 }
 
@@ -967,7 +997,7 @@ function postCard(p, { actions } = {}) {
         h("div", { class: "meta" }, `${p.groupName} · ${timeAgo(p.createdAt)}`)),
       config.kinds[p.kind] && h("span", { class: "kind-tag" }, icon(KIND_ICONS[p.kind] || "sparkles"), config.kinds[p.kind])),
     // Snakkeboble med logoens form: halen til venstre for andre, til høyre for egne innlegg.
-    h("div", { class: `body bubble${p.mine ? " mine" : ""}` }, p.text, p.sticker && h("span", { class: "sticker" }, p.sticker)),
+    h("div", { class: `body bubble${p.mine ? " mine" : ""}${pc(p.profileColor)}` }, p.text, p.sticker && h("span", { class: "sticker" }, p.sticker)),
     p.media && mediaView(p),
     h("div", { class: "actions" }, actions ? actions(p) : childActions(p)));
 }
@@ -2237,7 +2267,7 @@ async function showAdultChat(g) {
     h("div", { class: "head" },
       avatar(m.avatar),
       h("div", { class: "who" }, h("div", { class: "name" }, m.author), h("div", { class: "meta" }, timeAgo(m.createdAt)))),
-    m.text && h("div", { class: `body bubble${m.mine ? " mine" : ""}` }, m.text),
+    m.text && h("div", { class: `body bubble${m.mine ? " mine" : ""}${pc(m.profileColor)}` }, m.text),
     m.imageId && h("div", { class: "media" }, h("img", { src: `/api/media/${m.imageId}`, alt: `Bilde fra ${m.author}`, loading: "lazy" })),
     m.canDelete && h("div", { class: "actions" }, btn("Slett", async () => {
       if (!confirm("Slette meldingen?")) return;

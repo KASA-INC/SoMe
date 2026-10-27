@@ -10,6 +10,7 @@ Krever pdftocairo (poppler-utils) og shapely. Skriver:
   public/om.html           den stående logoen øverst på siden
   public/style.css         --bubble-tail (halen på snakkeboblene, fra design/logo/quiply-shapes.pdf)
   public/hvem.html         bilderammen (den hele snakkeboblen fra quiply-shapes.pdf)
+  public/brand.js          også fargeprøven for profilfarger (den delte boblen fra quiply-shapes.pdf)
   public/brand/logo-*.svg  den stående logoen som egne filer
 
 Logofila må ha samme oppsett som nå, øverste halvdel (den svarte), fra venstre:
@@ -372,5 +373,21 @@ s, n = re.subn(r'<svg class="person-frame".*?</svg>', f'''<svg class="person-fra
       </svg>''', hvem.read_text(), flags=re.S)
 assert n == 1
 hvem.write_text(s)
+
+# Fargeprøven for profilfarger: boblen delt på midten (nede til venstre i shapes-fila). Lys farge til venstre, mørk til høyre.
+halves = by_x([s for s in bubbles if s["b"][1] > 540 and s["b"][2] < 700])
+assert len(halves) == 2, f"Fant {len(halves)} halvdeler av den delte boblen nede til venstre i shapes-fila"
+hx0, hy0 = halves[0]["b"][0], min(h["b"][1] for h in halves)
+hs = 1000 / (max(h["b"][3] for h in halves) - hy0)  # høyden blir 1000
+hw = (halves[1]["b"][2] - hx0) * hs
+SWATCH = [curves(transform(h["subs"], hs, hs, hx0, hy0), 0) for h in halves]
+bj = ROOT / "public/brand.js"
+b = re.sub(r"\n// Fargeprøven for profilfarger.*", "", bj.read_text(), flags=re.S)
+bj.write_text(b + f'''
+// Fargeprøven for profilfarger: snakkeboblen delt på midten, fra design/logo/quiply-shapes.pdf.
+export const SWATCH_VIEWBOX = "0 0 {num(hw, 0)} 1000";
+export const SWATCH_LEFT = "{SWATCH[0]}";
+export const SWATCH_RIGHT = "{SWATCH[1]}";
+''')
 
 print(f"Logo: tynnet {D:.2f} px per side, bredde {XS:.3f}, avstand +{PAD:.2f} px. «quick reply,» er {QR_RIGHT / LOGO_RIGHT:.2f} × «quiply».")

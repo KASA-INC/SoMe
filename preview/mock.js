@@ -66,6 +66,11 @@
       if (p === "/feed/new") return { count: 0 };
       if (p === "/heartbeat") return { status: me.status };
       if (p === "/onboarded") { me.onboarded = true; return ok; }
+      if (p === "/me/color") {
+        me.profileColor = body.profileColor;
+        for (const post of child["/feed"].posts) if (post.mine) post.profileColor = body.profileColor;
+        return ok;
+      }
       if (p === "/me/avatar") {
         me.avatar = body.avatar;
         for (const post of child["/feed"].posts) if (post.mine) post.avatar = body.avatar;
@@ -150,6 +155,7 @@
       return ok;
     }
     if (p === "/notify" && method === "PATCH") { Object.assign(parent["/notify"], body); return ok; }
+    if (p === "/me/color") { parent["/me"].me.profileColor = body.profileColor; return ok; }
     if (p === "/me" && method === "PATCH") {
       if (body.displayName) parent["/me"].me.displayName = body.displayName;
       return ok;

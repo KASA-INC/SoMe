@@ -767,6 +767,19 @@ test("barnet kan bytte profilbilde selv, men bare til figurene i settet", async 
   assert.equal((await a.parent("/me/avatar", { method: "POST", body: { avatar: "c01" } })).status, 403);
 });
 
+test("alle kan velge profilfarge fra listen, og andre ser den ved innleggene", async () => {
+  const a = await setupFamily("pc");
+  assert.equal((await a.kid("/me")).body.me.profileColor, "standard");
+  assert.equal((await a.kid("/me/color", { method: "POST", body: { profileColor: "indigo" } })).status, 200);
+  assert.equal((await a.parent("/me/color", { method: "POST", body: { profileColor: "mynte" } })).status, 200);
+  assert.equal((await a.parent("/me")).body.me.profileColor, "mynte");
+  assert.equal((await a.kid("/me/color", { method: "POST", body: { profileColor: "#ff0000" } })).status, 400);
+  assert.ok((await a.kid("/me")).body.profileColors.includes("laks"));
+  await post(a.kid, a.groupId);
+  const { body } = await a.parent(`/groups/${a.groupId}/posts`);
+  assert.equal(body.posts[0].profileColor, "indigo");
+});
+
 test("gamle emoji-profilbilder blir til figurer, også for foresatte", () => {
   const dir = mkdtempSync(join(tmpdir(), "quiply-"));
   const path = join(dir, "old.db");

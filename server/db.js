@@ -287,6 +287,9 @@ function migrate(db) {
     db.exec("ALTER TABLE groups ADD COLUMN last_activity INTEGER; ALTER TABLE groups ADD COLUMN deletion_warned_at INTEGER");
     db.prepare("UPDATE groups SET last_activity = ?").run(Date.now());
   }
+  if (!columns("users").includes("profile_color")) {
+    db.exec("ALTER TABLE users ADD COLUMN profile_color TEXT NOT NULL DEFAULT 'standard'");
+  }
   if (!columns("users").includes("email")) {
     db.exec("ALTER TABLE users ADD COLUMN email TEXT");
   }

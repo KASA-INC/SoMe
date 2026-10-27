@@ -318,6 +318,20 @@ select {
 }
 .post .body.mine { background: var(--bubble-mine); color: var(--bubble-mine-ink); }
 .post .body.mine::after { left: auto; right: 0; transform: none; }
+/* Profilfarger: boblen får fargen til den som skriver. Lys modus: den lyse fargen med mørk tekst.
+   Mørk modus: den mørke fargen med lys tekst. Salvie og mynte er gjort litt mørkere enn originalen
+   (#517c61 og #01949a), så lys tekst holder 4,5 : 1. Navnene står i PROFILE_COLORS i server/app.js. */
+.pc-standard { --pc-light: #ecd5bb; --pc-dark: #364356; }
+.pc-salvie { --pc-light: #d3c6ad; --pc-dark: #4e795e; }
+.pc-kakao { --pc-light: #fadcdc; --pc-dark: #996350; }
+.pc-laks { --pc-light: #fcb5ac; --pc-dark: #3d5b59; }
+.pc-mynte { --pc-light: #dbe8d8; --pc-dark: #007c82; }
+.pc-aprikos { --pc-light: #f0ae88; --pc-dark: #7c2e28; }
+.pc-indigo { --pc-light: #92d2bf; --pc-dark: #313668; }
+.body.bubble.pc, .body.bubble.pc.mine { background: var(--pc-light); color: var(--ink); }
+@media (prefers-color-scheme: dark) {
+  .body.bubble.pc, .body.bubble.pc.mine { background: var(--pc-dark); color: var(--cream); }
+}
 .post .body .sticker { margin-left: 6px; font-size: 1.3em; vertical-align: -0.1em; }
 .post .actions { display: flex; gap: 2px; margin-top: 4px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
 .post .actions .btn.ghost { min-height: 40px; padding: 8px 10px; font-size: var(--fs-small); font-weight: 600; color: var(--on-bg-2); }
@@ -579,6 +593,13 @@ body.auth-page .topbar { display: none; }
 .post .avatar.figure { width: 32px; height: 32px; }
 .avatar-btn { padding: 0; border: none; background: none; border-radius: 50%; cursor: pointer; display: inline-grid; }
 .avatar-pick button.selected { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.sheet-sub { font-size: var(--fs-heading-sm); font-weight: 600; margin: 4px 0 2px; color: var(--text); }
+.color-pick { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin: 8px 0 16px; }
+.color-pick button { min-height: 48px; min-width: 0; padding: 6px; border: none; border-radius: var(--radius-sm); background: transparent; cursor: pointer; display: grid; place-items: center; }
+.color-pick button.selected { box-shadow: 0 0 0 2px var(--accent); }
+.swatch { display: block; width: 100%; max-width: 44px; height: auto; }
+.swatch .l { fill: var(--pc-light); }
+.swatch .r { fill: var(--pc-dark); }
 
 .footer p { margin: 0 0 2px; }
 a.info-link { display: flex; text-decoration: none; color: inherit; }

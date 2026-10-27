@@ -31,7 +31,8 @@
       "id": 2,
       "name": "Skolekorpset"
      }
-    ]
+    ],
+    "profileColor": "salvie"
    },
    "kinds": {
     "glad": "Glad for",
@@ -117,7 +118,16 @@
      "label": "Noe annet",
      "serious": false
     }
-   }
+   },
+   "profileColors": [
+    "standard",
+    "salvie",
+    "kakao",
+    "laks",
+    "mynte",
+    "aprikos",
+    "indigo"
+   ]
   },
   "/feed": {
    "posts": [
@@ -133,7 +143,8 @@
      "groupId": 1,
      "groupName": "6B",
      "mine": false,
-     "media": null
+     "media": null,
+     "profileColor": "laks"
     },
     {
      "id": 5,
@@ -147,7 +158,8 @@
      "groupId": 1,
      "groupName": "6B",
      "mine": false,
-     "media": null
+     "media": null,
+     "profileColor": "indigo"
     },
     {
      "id": 4,
@@ -161,7 +173,8 @@
      "groupId": 2,
      "groupName": "Skolekorpset",
      "mine": false,
-     "media": null
+     "media": null,
+     "profileColor": "laks"
     },
     {
      "id": 3,
@@ -175,7 +188,8 @@
      "groupId": 1,
      "groupName": "6B",
      "mine": true,
-     "media": null
+     "media": null,
+     "profileColor": "salvie"
     },
     {
      "id": 2,
@@ -189,7 +203,8 @@
      "groupId": 1,
      "groupName": "6B",
      "mine": false,
-     "media": null
+     "media": null,
+     "profileColor": "indigo"
     },
     {
      "id": 1,
@@ -203,7 +218,8 @@
      "groupId": 1,
      "groupName": "6B",
      "mine": false,
-     "media": null
+     "media": null,
+     "profileColor": "laks"
     }
    ],
    "status": {
@@ -229,7 +245,8 @@
     "isAdmin": true,
     "email": "kristin@example.com",
     "emailVerified": true,
-    "pendingEmail": ""
+    "pendingEmail": "",
+    "profileColor": "mynte"
    },
    "kinds": {
     "glad": "Glad for",
@@ -315,7 +332,16 @@
      "label": "Noe annet",
      "serious": false
     }
-   }
+   },
+   "profileColors": [
+    "standard",
+    "salvie",
+    "kakao",
+    "laks",
+    "mynte",
+    "aprikos",
+    "indigo"
+   ]
   },
   "/children": {
    "children": [
@@ -492,7 +518,8 @@
      "hold": false,
      "postStatus": "hidden",
      "serious": true,
-     "media": null
+     "media": null,
+     "profileColor": "salvie"
     }
    ],
    "categories": {
@@ -766,7 +793,8 @@
      "groupName": "6B",
      "reports": 1,
      "byMyChild": true,
-     "media": null
+     "media": null,
+     "profileColor": "salvie"
     },
     {
      "id": 7,
@@ -782,7 +810,8 @@
      "groupName": "6B",
      "reports": 0,
      "byMyChild": false,
-     "media": null
+     "media": null,
+     "profileColor": "laks"
     },
     {
      "id": 5,
@@ -798,7 +827,8 @@
      "groupName": "6B",
      "reports": 0,
      "byMyChild": false,
-     "media": null
+     "media": null,
+     "profileColor": "indigo"
     },
     {
      "id": 3,
@@ -814,7 +844,8 @@
      "groupName": "6B",
      "reports": 0,
      "byMyChild": true,
-     "media": null
+     "media": null,
+     "profileColor": "salvie"
     },
     {
      "id": 2,
@@ -830,7 +861,8 @@
      "groupName": "6B",
      "reports": 0,
      "byMyChild": false,
-     "media": null
+     "media": null,
+     "profileColor": "indigo"
     },
     {
      "id": 1,
@@ -846,7 +878,8 @@
      "groupName": "6B",
      "reports": 0,
      "byMyChild": false,
-     "media": null
+     "media": null,
+     "profileColor": "laks"
     }
    ]
   },
@@ -865,7 +898,8 @@
      "avatar": "c08",
      "mine": true,
      "imageId": null,
-     "canDelete": true
+     "canDelete": true,
+     "profileColor": "mynte"
     },
     {
      "id": 2,
@@ -875,7 +909,8 @@
      "avatar": "c16",
      "mine": false,
      "imageId": null,
-     "canDelete": true
+     "canDelete": true,
+     "profileColor": "standard"
     },
     {
      "id": 1,
@@ -885,7 +920,8 @@
      "avatar": "c05",
      "mine": false,
      "imageId": null,
-     "canDelete": true
+     "canDelete": true,
+     "profileColor": "standard"
     }
    ]
   },
@@ -906,7 +942,8 @@
      "groupName": "Skolekorpset",
      "reports": 0,
      "byMyChild": false,
-     "media": null
+     "media": null,
+     "profileColor": "laks"
     }
    ]
   },

@@ -41,6 +41,8 @@ export const STICKERS = ["", "⚽", "🏀", "🎮", "🎨", "📚", "🎵", "�
 // Profilbilder til barna: «Critters» fra DiceBear (CC0), farget med paletten. Filene ligger i public/avatars/
 // og lages med scripts/avatars.mjs. Foresatte får en tilfeldig figur automatisk.
 export const AVATARS = Array.from({ length: 24 }, (_, i) => `c${String(i + 1).padStart(2, "0")}`);
+// Profilfarger: fargen på snakkeboblene til den som skriver. Fargene står i style.css (.pc-<navn>).
+export const PROFILE_COLORS = ["standard", "salvie", "kakao", "laks", "mynte", "aprikos", "indigo"];
 
 // Grenser for opplasting. Kan endres med miljøvariabler.
 export const DEFAULT_MEDIA_LIMITS = {
@@ -252,6 +254,7 @@ export function createApp({
 
   const publicUser = (u) => ({
     id: u.id, username: u.username, role: u.role, displayName: u.display_name, avatar: u.avatar,
+    profileColor: u.profile_color,
   });
 
   const childSettings = (u) => ({
@@ -519,13 +522,20 @@ export function createApp({
       me.groups = q(`SELECT g.id, g.name FROM groups g JOIN memberships m ON m.group_id = g.id AND m.approved = 1
         WHERE m.user_id = ? ORDER BY g.name`).all(req.user.id);
     }
-    res.json({ me, kinds: KINDS, colors: COLORS, stickers: STICKERS, avatars: AVATARS, media: mediaLimits, reportCategories: REPORT_CATEGORIES });
+    res.json({ me, kinds: KINDS, colors: COLORS, stickers: STICKERS, avatars: AVATARS, profileColors: PROFILE_COLORS, media: mediaLimits, reportCategories: REPORT_CATEGORIES });
   });
 
   // Barnet bytter profilbilde selv.
   app.post("/api/me/avatar", needUser("child"), (req, res) => {
     if (!AVATARS.includes(req.body.avatar)) fail(400, "Ugyldig profilbilde");
     q("UPDATE users SET avatar = ? WHERE id = ?").run(req.body.avatar, req.user.id);
+    res.json({ ok: true });
+  });
+
+  // Alle velger profilfarge selv, fra en fast liste.
+  app.post("/api/me/color", needUser(), (req, res) => {
+    if (!PROFILE_COLORS.includes(req.body.profileColor)) fail(400, "Ugyldig profilfarge");
+    q("UPDATE users SET profile_color = ? WHERE id = ?").run(req.body.profileColor, req.user.id);
     res.json({ ok: true });
   });
 
@@ -756,7 +766,7 @@ export function createApp({
   });
 
   const POST_FIELDS = `p.id, p.kind, p.text, p.sticker, p.color, p.created_at AS createdAt, p.status,
-    u.display_name AS author, u.avatar, g.id AS groupId, g.name AS groupName,
+    u.display_name AS author, u.avatar, u.profile_color AS profileColor, g.id AS groupId, g.name AS groupName,
     md.id AS mediaId, md.type AS mediaType, md.approved AS mediaApproved`;
   const POST_JOINS = `FROM posts p JOIN users u ON u.id = p.author_id JOIN groups g ON g.id = p.group_id
     LEFT JOIN media md ON md.post_id = p.id`;
@@ -1781,7 +1791,7 @@ export function createApp({
 
   app.get("/api/groups/:groupId/adult", parent, (req, res) => {
     const g = adultGroup(req);
-    const messages = q(`SELECT m.id, m.text, m.created_at AS createdAt, u.display_name AS author, u.avatar,
+    const messages = q(`SELECT m.id, m.text, m.created_at AS createdAt, u.display_name AS author, u.avatar, u.profile_color AS profileColor,
         (m.author_id = ?) AS mine, md.id AS imageId
       FROM adult_messages m JOIN users u ON u.id = m.author_id LEFT JOIN media md ON md.adult_message_id = m.id
       WHERE m.group_id = ? ORDER BY m.id DESC LIMIT 200`).all(req.user.id, g.id);
