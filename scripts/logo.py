@@ -287,12 +287,12 @@ splash = f'''<!-- splash:start (lages av scripts/logo.py) -->
             {g(EYE_L, "sp-eye")}
             {g(EYE_R, "sp-eye sp-eye-right")}
             {g(MOUTH, "sp-mouth")}
-            {g(letter_paths["u"] + letter_paths["i"])}
+            {g(letter_paths["u"] + letter_paths["i"], "sp-letters")}
             {g(NEW["c"], "sp-new sp-first")}
             {g(NEW["k"], "sp-new sp-second")}
           </g>
           <g class="sp-b">
-            {g(letter_paths["p"] + letter_paths["l"] + letter_paths["y"])}
+            {g(letter_paths["p"] + letter_paths["l"] + letter_paths["y"], "sp-letters")}
             {g(BACK["r"], "sp-new sp-second")}
             {g(BACK["e"], "sp-new sp-first")}
             {g(BACK["comma"], "sp-late")}

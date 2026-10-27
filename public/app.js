@@ -2259,36 +2259,52 @@ async function showAdultChat(g) {
 
 // ---------- Load-skjerm ----------
 // Skjermen ligger i index.html. «quick reply, then goodbye.» blir til «quiply» (ferdig etter 2,6 s), og så flyr
-// logoen opp og lander oppå logoen i toppen mens bakgrunnen tones bort (0,8 s). Er toppen skjult (innlogging),
-// tones skjermen bare ut. Venter appen fortsatt på data, venter skjermen også. Et trykk hopper over resten.
+// logoen opp og lander oppå logoen i toppen mens bakgrunnen tones bort (0,8 s). På innloggingen vokser Q-en og
+// lander på den store snakkeboblen i hovedlogoen. Venter appen fortsatt på data, venter skjermen også. Et trykk hopper over resten.
 const splash = document.getElementById("splash");
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let splashMinMs = reducedMotion ? 1200 : 2800;
 let splashReady = false;
 
+// Flytter og skalerer splash-logoen så et utsnitt av den (x, y, bredde i logoens enheter) lander på rektangelet to.
+function flySplash(logo, x, y, w, to) {
+  const box = logo.getBoundingClientRect();
+  const k = box.width / logo.viewBox.baseVal.width;
+  const css = getComputedStyle(logo);
+  const sx = (parseFloat(css.getPropertyValue("--start")) + x) * k;
+  const sy = (parseFloat(css.getPropertyValue("--drop")) + y) * k;
+  void logo.getBoundingClientRect();
+  logo.style.transformOrigin = `${sx}px ${sy}px`;
+  logo.style.transform = `translate(${to.left - box.left - sx}px, ${to.top - box.top - sy}px) scale(${to.width / (w * k)})`;
+}
+
 function removeSplash() {
   if (!splash || splash.dataset.hiding) return;
   splash.dataset.hiding = "1";
   const logo = splash.querySelector(".splash-logo");
-  const brand = document.querySelector("#brand .logo");
-  const to = brand?.getBoundingClientRect();
-  if (!reducedMotion && splashMinMs && logo && to?.width) {
-    // Hvor «quiply» står nå: forskyvningene i style.css er i logoens enheter (viewBox).
-    const box = logo.getBoundingClientRect();
-    const k = box.width / logo.viewBox.baseVal.width;
-    const css = getComputedStyle(logo);
-    const x = parseFloat(css.getPropertyValue("--start")) * k;
-    const y = parseFloat(css.getPropertyValue("--drop")) * k;
-    const scale = to.width / (Number(LOGO_VIEWBOX.split(" ")[2]) * k);
+  const visible = (el) => (el?.getBoundingClientRect().width ? el : null);
+  const header = visible(document.querySelector("#brand .logo"));
+  const hero = visible(document.querySelector(".hero-lockup .logo"));
+  if (!reducedMotion && splashMinMs && logo && (header || hero)) {
     splash.classList.add("fly");
-    document.getElementById("brand").style.visibility = "hidden"; // logoen i toppen vises når den andre har landet
-    void logo.getBoundingClientRect();
-    logo.style.transformOrigin = `${x}px ${y}px`;
-    logo.style.transform = `translate(${to.left - box.left - x}px, ${to.top - box.top - y}px) scale(${scale})`;
+    if (header) {
+      // Innlogget: hele «quiply» lander på logoen i toppen.
+      header.style.visibility = "hidden"; // vises når den andre har landet
+      flySplash(logo, 0, 0, Number(LOGO_VIEWBOX.split(" ")[2]), header.getBoundingClientRect());
+    } else {
+      // Innloggingen: Q-en vokser og lander på den store snakkeboblen, «uiply» tones ut og «quiply» inn under.
+      const lockupEl = hero.closest(".lockup");
+      lockupEl.classList.add("landing");
+      splash.classList.add("fly-mark");
+      const r = hero.getBoundingClientRect();
+      flySplash(logo, 0, 0, 1000, { left: r.left, top: r.top, width: r.width }); // merket er 1000 bredt øverst i den stående logoen
+      requestAnimationFrame(() => lockupEl.classList.add("show-word"));
+    }
     setTimeout(() => {
-      document.getElementById("brand").style.visibility = "";
+      if (header) header.style.visibility = "";
+      hero?.closest(".lockup").classList.remove("landing", "show-word");
       splash.remove();
-    }, 850);
+    }, header ? 850 : 1000); // på innloggingen tones «quiply» inn helt til slutt
     return;
   }
   splash.classList.add("out");

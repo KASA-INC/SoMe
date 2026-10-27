@@ -785,6 +785,11 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 /* Flyturen: app.js setter transform på logoen, så den lander oppå logoen i toppen. */
 .splash.fly { background: transparent; transition: background-color .8s ease-in-out; animation: none; }
 .splash.fly .splash-logo { animation: none; transition: transform .8s cubic-bezier(.65, 0, .35, 1); }
+.splash.fly-mark .sp-letters { opacity: 0; transition: opacity .35s ease-out; }
+/* Hovedlogoen på innloggingen mens Q-en lander: merket skjult, «quiply» tones inn. */
+.lockup.landing .logo > :not(.letters) { opacity: 0; }
+.lockup.landing .letters { opacity: 0; }
+.lockup.landing.show-word .letters { opacity: 1; transition: opacity .35s ease-out .6s; }
 .splash.out { animation: splash-fade .5s ease-in-out forwards; }
 .splash.out .splash-inner { animation: splash-grow .5s ease-in-out forwards; }
 
