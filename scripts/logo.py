@@ -336,7 +336,7 @@ s, n = re.subn(r'<svg class="info-logo".*?</svg>',
       </svg>''', om.read_text(), flags=re.S)
 assert n == 1
 om.write_text(s)
-for name, color in (("logo-ink.svg", "#161619"), ("logo-cream.svg", "#f8f8f4")):
+for name, color in (("logo-ink.svg", "#0f1621"), ("logo-cream.svg", "#fbf6f0")):
     (ROOT / "public/brand" / name).write_text(stack_svg('xmlns="http://www.w3.org/2000/svg"', color) + "\n")
 
 # ---------- Snakkeboblene og bilderammen, fra quiply-shapes.pdf ----------

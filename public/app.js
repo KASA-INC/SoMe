@@ -138,7 +138,7 @@ function markSvg(cls = "mark", viewBox = MARK_TIGHT_VIEWBOX, extra) {
   return svg;
 }
 
-// Appikonet: kremhvit Q på aubergine.
+// Appikonet: champ Q på serenity.
 function logo() {
   return h("span", { class: "app-icon", "aria-hidden": "true" }, markSvg("mark", MARK_VIEWBOX));
 }

@@ -7,7 +7,7 @@ import * as brand from "../public/brand.js";
 import { EMAIL_BUTTONS } from "../server/email.js";
 
 const out = new URL("../server/assets/", import.meta.url).pathname;
-const CREAM = "#f8f8f4", FERSKEN = "#ff9e8a", INK = "#161619";
+const CREAM = "#fbf6f0", CHAMP = "#ecd5bb", INK = "#0f1621";
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium", args: ["--headless=new"] });
 
 async function shoot(html, file) {
@@ -24,9 +24,9 @@ await shoot(`<svg width="${Math.round((H * vw) / vh)}" height="${H}" viewBox="${
   <path fill="${CREAM}" fill-rule="evenodd" d="${brand.MARK_PATH}"/><path fill="${CREAM}" d="${brand.LOGO_LETTERS}"/>
 </svg>`, "email-logo.png");
 
-// Knapper: fersken med nesten svart tekst, som i appens mørke modus.
+// Knapper: champ med nesten svart tekst, som i appens mørke modus.
 for (const [label, file] of Object.entries(EMAIL_BUTTONS)) {
-  await shoot(`<div style="background:${FERSKEN};color:${INK};border-radius:999px;padding:14px 28px;
+  await shoot(`<div style="background:${CHAMP};color:${INK};border-radius:999px;padding:14px 28px;
     font:600 16px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;white-space:nowrap">${label}</div>`, file);
 }
 await browser.close();

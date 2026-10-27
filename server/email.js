@@ -5,7 +5,7 @@ import { APP_NAME, CONTACT_EMAIL } from "./config.js";
 //
 // Mørk modus: Gmail på iPhone snur alle farger i e-poster når telefonen står i mørk modus, men lar
 // bilder være. Derfor:
-// - Bakgrunnen er vanlig aubergine, satt både som farge og som background-image (gradient), som Gmail ikke snur.
+// - Bakgrunnen er serenity, satt både som farge og som background-image (gradient), som Gmail ikke snur.
 // - All tekst er kremhvit og ligger inni .gm-screen/.gm-diff. Blandingsmodusene snur Gmails snuing
 //   tilbake, så teksten forblir lys. Andre e-postprogrammer ser ikke klassene (u + .body treffer bare Gmail).
 // - Logo og knapper er bilder (se scripts/email-assets.mjs). De legges ved inni e-posten (cid),
@@ -24,7 +24,7 @@ export const EMAIL_BUTTONS = {
   "Bli foresatt": "button-share.png",
 };
 
-const C = { bg: "#4a1d3f", text: "#f8f8f4", button: "#ff9e8a", buttonInk: "#161619" };
+const C = { bg: "#364356", text: "#fbf6f0", button: "#ecd5bb", buttonInk: "#0f1621" };
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 // Farge som Gmail ikke snur: samme farge som både bakgrunnsfarge og gradient.
 const lockedBg = (color) => `background-color:${color};background-image:linear-gradient(${color},${color})`;

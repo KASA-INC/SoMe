@@ -6,15 +6,15 @@ import { writeFileSync } from "node:fs";
 import { Avatar, Style } from "@dicebear/core";
 import definition from "@dicebear/styles/critters.json" with { type: "json" };
 
-// a = aubergine, f = fersken (samme trinn som i design/tokens.json).
-const P = { a900: "#2e0d26", a800: "#3b1432", a600: "#4a1d3f", a300: "#be8daf", f800: "#de6a54", f600: "#ff9e8a", f400: "#ffc4b7", f200: "#fee7e2", n300: "#b6b3b2", cream: "#f8f8f4", ink: "#161619" };
+// s = serenity, c = champ (samme trinn som i design/tokens.json; c100 er mellom champ-200 og cream).
+const P = { s900: "#192230", s800: "#263142", s700: "#364356", s300: "#98a6b9", c500: "#c8ac8b", c300: "#ecd5bb", c200: "#f4e3d1", c100: "#f8eee3", n300: "#babec3", cream: "#fbf6f0", ink: "#0f1621" };
 
 // [bakgrunn, kropp, aksent]: lys kropp på mørk eller sterk bakgrunn, så ansiktet (strek i nesten svart) synes godt.
 const COMBOS = [
-  ["a600", "f400", "f200"], ["a600", "cream", "f400"], ["a600", "f600", "f200"], ["a600", "a300", "cream"], ["a600", "f200", "f600"], ["a600", "n300", "cream"],
-  ["f600", "f200", "f400"], ["f600", "cream", "a300"], ["f600", "a300", "cream"], ["f600", "f200", "a300"], ["f600", "n300", "f200"], ["f600", "cream", "f200"],
-  ["a800", "f600", "f200"], ["a800", "f400", "cream"], ["a800", "a300", "f200"], ["a800", "cream", "f600"], ["a800", "f200", "f400"], ["a800", "n300", "f400"],
-  ["f800", "f200", "cream"], ["f800", "cream", "f400"], ["f800", "f400", "f200"], ["f800", "a300", "f200"], ["f800", "cream", "a300"], ["f800", "f200", "a300"],
+  ["s700", "c200", "c100"], ["s700", "cream", "c200"], ["s700", "c300", "c100"], ["s700", "s300", "cream"], ["s700", "c100", "c300"], ["s700", "n300", "cream"],
+  ["c300", "c100", "c200"], ["c300", "cream", "s300"], ["c300", "s300", "cream"], ["c300", "c100", "s300"], ["c300", "n300", "c100"], ["c300", "cream", "c100"],
+  ["s800", "c300", "c100"], ["s800", "c200", "cream"], ["s800", "s300", "c100"], ["s800", "cream", "c300"], ["s800", "c100", "c200"], ["s800", "n300", "c200"],
+  ["c500", "c100", "cream"], ["c500", "cream", "c200"], ["c500", "c200", "c100"], ["c500", "s300", "c100"], ["c500", "cream", "s300"], ["c500", "c100", "s300"],
 ];
 // Bare blide fjes: ingen sinte, triste eller søvnige varianter.
 const EYES = ["round", "dots", "bigPupils", "sideeye", "happy", "wink", "wide", "trio", "uneven", "four"];
