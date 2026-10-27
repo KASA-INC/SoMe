@@ -1,6 +1,6 @@
 // Felles bunntekst med lenker til all nyttig info. Brukes av appen (app.js) og av de statiske sidene,
 // som har <footer class="site-footer" data-site-footer> og laster denne fila.
-import { APP_NAME, MARK_PATH, MARK_TIGHT_VIEWBOX, WORDMARK_PATH, WORDMARK_VIEWBOX } from "./brand.js";
+import { APP_NAME, MARK_PATH, LOGO_LETTERS, LOGO_VIEWBOX } from "./brand.js";
 
 const LINKS = [
   ["Kom i gang", [["Logg inn", "/"], ["Lag konto", "/#registrer"], ["Legg på hjemskjermen", "/#registrer"]]],
@@ -26,7 +26,12 @@ function logo() {
   a.href = "/";
   a.className = "lockup footer-lockup";
   a.setAttribute("aria-label", APP_NAME);
-  a.append(svg(MARK_TIGHT_VIEWBOX, MARK_PATH, "mark"), svg(WORDMARK_VIEWBOX, WORDMARK_PATH, "wordmark"));
+  const s = svg(LOGO_VIEWBOX, MARK_PATH, "logo");
+  const letters = document.createElementNS(SVG_NS, "path");
+  letters.setAttribute("d", LOGO_LETTERS);
+  letters.setAttribute("fill", "currentColor");
+  s.append(letters);
+  a.append(s);
   return a;
 }
 

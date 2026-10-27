@@ -1,7 +1,7 @@
 // quiply — klient. All brukertekst settes med textContent, aldri som HTML.
 import {
   APP_NAME, MARK_VIEWBOX, MARK_TIGHT_VIEWBOX, MARK_RING, MARK_EYE_LEFT, MARK_EYE_RIGHT, MARK_MOUTH,
-  WORDMARK_VIEWBOX, WORDMARK_PATH,
+  LOGO_VIEWBOX, LOGO_LETTERS, STACK_VIEWBOX, WORDMARK_PATH,
 } from "./brand.js";
 import { fillFooter } from "./footer.js";
 import { shrinkVideo } from "./video.js";
@@ -120,7 +120,8 @@ function brandSvg(viewBox, d, cls) {
 
 // Q-boblen med et levende ansikt: øynene og munnen er egne deler som CSS animerer
 // (blunk og et blikk til siden av og til). Trykk på logoen gir et blunk med ett øye.
-function markSvg(cls = "mark", viewBox = MARK_TIGHT_VIEWBOX) {
+// Med extra legges bokstaver til i samme svg (den liggende og den stående logoen).
+function markSvg(cls = "mark", viewBox = MARK_TIGHT_VIEWBOX, extra) {
   const svg = brandSvg(viewBox, MARK_RING, `${cls} alive`);
   const part = (d, c) => {
     const p = document.createElementNS(SVG_NS, "path");
@@ -133,6 +134,7 @@ function markSvg(cls = "mark", viewBox = MARK_TIGHT_VIEWBOX) {
   face.setAttribute("class", "face");
   face.append(part(MARK_EYE_LEFT, "eye eye-left"), part(MARK_EYE_RIGHT, "eye eye-right"), part(MARK_MOUTH, "mouth"));
   svg.append(face);
+  if (extra) svg.append(part(extra, "letters"));
   svg.addEventListener("click", () => {
     svg.classList.remove("wink");
     void svg.getBoundingClientRect(); // start animasjonen på nytt ved gjentatte trykk
@@ -142,15 +144,15 @@ function markSvg(cls = "mark", viewBox = MARK_TIGHT_VIEWBOX) {
   svg.addEventListener("animationend", (e) => e.animationName === "q-smile" && svg.classList.remove("wink"));
   return svg;
 }
-const wordmarkSvg = (cls = "wordmark") => brandSvg(WORDMARK_VIEWBOX, WORDMARK_PATH, cls);
 
 // Appikonet: kremhvit Q på aubergine.
 function logo() {
   return h("span", { class: "app-icon", "aria-hidden": "true" }, markSvg("mark", MARK_VIEWBOX));
 }
 
-// Merke + ordbilde, med navnet som tekst for skjermlesere.
-const lockup = (cls) => h("span", { class: `lockup ${cls}`, role: "img", "aria-label": APP_NAME }, markSvg(), wordmarkSvg());
+// Logoen med navnet som tekst for skjermlesere. Liggende: merket er q-en i «quiply». Stående: merket med navnet under.
+const lockup = (cls, stacked = false) => h("span", { class: `lockup ${cls}`, role: "img", "aria-label": APP_NAME },
+  stacked ? markSvg("mark logo", STACK_VIEWBOX, WORDMARK_PATH) : markSvg("mark logo", LOGO_VIEWBOX, LOGO_LETTERS));
 
 const KIND_ICONS = {
   glad: "sun", laerte: "book", takk: "sparkles", laget: "pencil",
@@ -417,7 +419,7 @@ function authHero(title, text) {
   // Uten tittel vises logoen med ordbildet (innloggingssiden), ellers appikonet og tittelen.
   return title
     ? h("div", { class: "auth-hero" }, logo(), h("h1", {}, title), h("p", {}, text))
-    : h("div", { class: "auth-hero" }, h("h1", { class: "brand-title" }, lockup("hero-lockup")), text && h("p", {}, text));
+    : h("div", { class: "auth-hero" }, h("h1", { class: "brand-title" }, lockup("hero-lockup", true)), text && h("p", {}, text));
 }
 
 function showLogin() {
@@ -2263,22 +2265,32 @@ async function showAdultChat(g) {
 }
 
 // ---------- Load-skjerm ----------
-// Skjermen ligger i index.html. Den vises minst så lenge inn-animasjonen og smilet varer,
-// og forsvinner med en ut-animasjon når første visning er tegnet.
+// Skjermen ligger i index.html. Den vises til «then goodbye.» har kommet og blunket (rundt 3,6 s), og forsvinner
+// med en ut-animasjon når første visning er tegnet. Et trykk hopper over resten.
 const splash = document.getElementById("splash");
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const SPLASH_MIN_MS = reducedMotion ? 300 : 1600;
+let splashMinMs = reducedMotion ? 1200 : 3600;
+let splashReady = false;
 
-function hideSplash() {
+function removeSplash() {
   if (!splash || splash.dataset.hiding) return;
   splash.dataset.hiding = "1";
-  setTimeout(() => {
-    splash.classList.add("out");
-    const remove = () => splash.remove();
-    splash.addEventListener("animationend", (e) => e.target === splash && remove());
-    setTimeout(remove, 1000); // i tilfelle animationend ikke kommer
-  }, Math.max(0, SPLASH_MIN_MS - performance.now())); // performance.now() måles fra sidelasting
+  splash.classList.add("out");
+  const remove = () => splash.remove();
+  splash.addEventListener("animationend", (e) => e.target === splash && remove());
+  setTimeout(remove, 1000); // i tilfelle animationend ikke kommer
 }
+
+function hideSplash() {
+  if (splashReady) return;
+  splashReady = true;
+  setTimeout(removeSplash, Math.max(0, splashMinMs - performance.now())); // performance.now() måles fra sidelasting
+}
+
+splash?.addEventListener("click", () => {
+  splashMinMs = 0;
+  if (splashReady) removeSplash();
+});
 
 // En lenke for nytt passord kan åpnes i en fane der appen allerede er åpen.
 window.addEventListener("hashchange", () => /^#(reset=|verify=|voksen=|registrer$)/.test(location.hash) && start());

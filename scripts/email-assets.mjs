@@ -17,12 +17,11 @@ async function shoot(html, file) {
   await page.close();
 }
 
-// Liggende logo i kremhvitt: Q-merket og ordbildet. Vises 138 × 50 px.
-const [, , vw, vh] = brand.WORDMARK_VIEWBOX.split(" ").map(Number);
-const H = 50, wordH = 27, wordW = (wordH * vw) / vh;
-await shoot(`<svg width="${H + 9 + wordW}" height="${H}" style="display:block">
-  <svg width="${H}" height="${H}" viewBox="${brand.MARK_TIGHT_VIEWBOX}"><path fill="${CREAM}" fill-rule="evenodd" d="${brand.MARK_PATH}"/></svg>
-  <svg x="${H + 9}" y="${(H - wordH) / 2 + 2}" width="${wordW}" height="${wordH}" viewBox="${brand.WORDMARK_VIEWBOX}"><path fill="${CREAM}" fill-rule="evenodd" d="${brand.WORDMARK_PATH}"/></svg>
+// Liggende logo i kremhvitt: merket er q-en i «quiply». Vises 46 px høy.
+const [, , vw, vh] = brand.LOGO_VIEWBOX.split(" ").map(Number);
+const H = 46;
+await shoot(`<svg width="${Math.round((H * vw) / vh)}" height="${H}" viewBox="${brand.LOGO_VIEWBOX}" style="display:block">
+  <path fill="${CREAM}" fill-rule="evenodd" d="${brand.MARK_PATH}"/><path fill="${CREAM}" d="${brand.LOGO_LETTERS}"/>
 </svg>`, "email-logo.png");
 
 // Knapper: fersken med nesten svart tekst, som i appens mørke modus.
