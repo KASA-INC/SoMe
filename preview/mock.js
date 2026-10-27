@@ -156,6 +156,7 @@
     }
     if (p === "/notify" && method === "PATCH") { Object.assign(parent["/notify"], body); return ok; }
     if (p === "/me/color") { parent["/me"].me.profileColor = body.profileColor; return ok; }
+    if (p === "/me/avatar") { parent["/me"].me.avatar = body.avatar; return ok; }
     if (p === "/me" && method === "PATCH") {
       if (body.displayName) parent["/me"].me.displayName = body.displayName;
       return ok;

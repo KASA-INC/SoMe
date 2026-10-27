@@ -39,7 +39,7 @@ export const REPORT_CATEGORIES = {
 export const COLORS = ["lilla", "bla", "gronn", "gul", "oransje", "rosa"];
 export const STICKERS = ["", "⚽", "🏀", "🎮", "🎨", "📚", "🎵", "🎬", "🍕", "🚲", "🐶", "☀️"];
 // Profilbilder til barna: «Critters» fra DiceBear (CC0), farget med paletten. Filene ligger i public/avatars/
-// og lages med scripts/avatars.mjs. Foresatte får en tilfeldig figur automatisk.
+// og lages med scripts/avatars.mjs. Foresatte får en tilfeldig figur automatisk, og kan bytte den selv.
 export const AVATARS = Array.from({ length: 24 }, (_, i) => `c${String(i + 1).padStart(2, "0")}`);
 // Profilfarger: fargen på snakkeboblene til den som skriver. Fargene står i style.css (.pc-<navn>).
 export const PROFILE_COLORS = ["standard", "salvie", "kakao", "laks", "mynte", "aprikos", "indigo"];
@@ -525,8 +525,8 @@ export function createApp({
     res.json({ me, kinds: KINDS, colors: COLORS, stickers: STICKERS, avatars: AVATARS, profileColors: PROFILE_COLORS, media: mediaLimits, reportCategories: REPORT_CATEGORIES });
   });
 
-  // Barnet bytter profilbilde selv.
-  app.post("/api/me/avatar", needUser("child"), (req, res) => {
+  // Barn og foresatte bytter profilbilde selv.
+  app.post("/api/me/avatar", needUser(), (req, res) => {
     if (!AVATARS.includes(req.body.avatar)) fail(400, "Ugyldig profilbilde");
     q("UPDATE users SET avatar = ? WHERE id = ?").run(req.body.avatar, req.user.id);
     res.json({ ok: true });

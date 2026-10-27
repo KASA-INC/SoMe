@@ -307,20 +307,22 @@ function setHeader(status) {
     right.append(h("span", { class: `pill${status.minutesLeft <= 5 ? " low" : ""}`, id: "timeLeft", title: "Tid igjen i dag" },
       icon("clock"), h("span", {}, `${status.minutesLeft} min`)));
   }
-  // Trykk på profilbildet for å bytte profilfarge (og figur for barn).
+  // Trykk på profilbildet for å bytte profilbilde og farge.
   const mine = h("button", { type: "button", class: "avatar-btn", "aria-label": "Min profil", title: "Min profil", onclick: openAvatarSheet }, avatar(me.avatar, "sm"));
   right.append(mine, iconBtn("logout", "Logg ut", logout));
 }
 
-// Min profil: farge på snakkeboblene for alle, og figur for barn.
+// Min profil: profilbilde og farge på snakkeboblene, for barn og foresatte.
 function openAvatarSheet() {
   const me = config.me;
   openSheet("Min profil", (close) => {
-    const figures = me.role === "child" ? avatarPicker(me.avatar) : null;
+    const figures = avatarPicker(me.avatar);
     const colors = colorPicker(me.profileColor || "standard");
     const warning = warningBox();
     return h("div", {},
-      figures && [h("h3", { class: "sheet-sub" }, "Profilbilde"), h("p", { class: "muted small" }, "De andre i gruppa ser bildet ved innleggene dine."), figures],
+      h("h3", { class: "sheet-sub" }, "Profilbilde"),
+      h("p", { class: "muted small" }, me.role === "child" ? "De andre i gruppa ser bildet ved innleggene dine." : "De andre voksne ser bildet ved meldingene dine."),
+      figures,
       h("h3", { class: "sheet-sub" }, "Farge"),
       h("p", { class: "muted small" }, me.role === "child" ? "Innleggene dine får denne fargen." : "Meldingene dine får denne fargen."),
       colors,
@@ -328,9 +330,9 @@ function openAvatarSheet() {
         class: "btn block", type: "button",
         onclick: async () => {
           try {
-            if (figures && figures.value !== me.avatar) await api("/me/avatar", { method: "POST", body: { avatar: figures.value } });
+            if (figures.value !== me.avatar) await api("/me/avatar", { method: "POST", body: { avatar: figures.value } });
             if (colors.value !== me.profileColor) await api("/me/color", { method: "POST", body: { profileColor: colors.value } });
-            Object.assign(me, { avatar: figures?.value ?? me.avatar, profileColor: colors.value });
+            Object.assign(me, { avatar: figures.value, profileColor: colors.value });
             close();
             toast("Profilen er oppdatert");
             start();

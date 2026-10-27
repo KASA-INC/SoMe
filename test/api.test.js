@@ -759,12 +759,14 @@ test("opprydding sletter gammel skjermtid og fjernede innlegg etter 30 dager", a
   }
 });
 
-test("barnet kan bytte profilbilde selv, men bare til figurene i settet", async () => {
+test("barn og foresatte kan bytte profilbilde selv, men bare til figurene i settet", async () => {
   const a = await setupFamily("av");
   assert.equal((await a.kid("/me/avatar", { method: "POST", body: { avatar: "c17" } })).status, 200);
   assert.equal((await a.kid("/me")).body.me.avatar, "c17");
   assert.equal((await a.kid("/me/avatar", { method: "POST", body: { avatar: "<img>" } })).status, 400);
-  assert.equal((await a.parent("/me/avatar", { method: "POST", body: { avatar: "c01" } })).status, 403);
+  assert.equal((await a.parent("/me/avatar", { method: "POST", body: { avatar: "c01" } })).status, 200);
+  assert.equal((await a.parent("/me")).body.me.avatar, "c01");
+  assert.equal((await a.parent("/me/avatar", { method: "POST", body: { avatar: "🙂" } })).status, 400);
 });
 
 test("alle kan velge profilfarge fra listen, og andre ser den ved innleggene", async () => {
