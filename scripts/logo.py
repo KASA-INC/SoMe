@@ -8,7 +8,8 @@ Krever pdftocairo (poppler-utils) og shapely. Skriver:
   public/brand.js          merket, den liggende logoen, den stående logoen og boblehalen
   public/index.html        load-skjermen mellom <!-- splash:start --> og <!-- splash:end -->
   public/om.html           den stående logoen øverst på siden
-  public/style.css         --bubble-tail (halen på snakkeboblene)
+  public/style.css         --bubble-tail (halen på snakkeboblene, fra design/logo/quiply-shapes.pdf)
+  public/hvem.html         bilderammen (den hele snakkeboblen fra quiply-shapes.pdf)
   public/brand/logo-*.svg  den stående logoen som egne filer
 
 Logofila må ha samme oppsett som nå, øverste halvdel (den svarte), fra venstre:
@@ -28,6 +29,7 @@ from shapely.ops import unary_union
 
 ROOT = Path(__file__).resolve().parent.parent
 PDF = ROOT / "design/logo/quiply-logodeck.pdf"
+SHAPES = ROOT / "design/logo/quiply-shapes.pdf"  # snakkeboblene: avlang boble og hel boble
 
 
 # ---------- Lese stiene fra PDF-en ----------
@@ -161,8 +163,6 @@ hole = sorted((poly([sp]) for sp in icon_tile["subs"]), key=lambda p: -p.area)[1
 fill = (hole.bounds[2] - hole.bounds[0]) / width(icon_tile)
 side = 1000 / fill
 ICON_VIEWBOX = f"{num(500 - side / 2, 1)} {num(500 - side / 2, 1)} {num(side, 1)} {num(side, 1)}"
-# Snakkeboblene: nederste høyre fjerdedel av sirkelen med halen.
-TAIL = curves([ring_outer])
 
 # ---------- Den liggende logoen: ansikts-q + uiply, q-en er merket i 1000-skala ----------
 q = logo_row[0]
@@ -330,12 +330,38 @@ om.write_text(s)
 for name, color in (("logo-ink.svg", "#161619"), ("logo-cream.svg", "#f8f8f4")):
     (ROOT / "public/brand" / name).write_text(stack_svg('xmlns="http://www.w3.org/2000/svg"', color) + "\n")
 
-# ---------- Halen på snakkeboblene ----------
+# ---------- Snakkeboblene og bilderammen, fra quiply-shapes.pdf ----------
+# Øverst til venstre: avlang boble med halen nede til høyre. Nede i midten: hel boble uten deling.
+bubbles = []
+for fill_color, d in svg_paths(SHAPES):
+    subs = parse(d)
+    if "100%" not in fill_color or not subs: continue
+    g = poly(subs)
+    if g.bounds[2] - g.bounds[0] > 1500: continue
+    bubbles.append({"subs": subs, "g": g, "b": g.bounds})
+pill = min(bubbles, key=lambda s: (s["b"][1], s["b"][0]))  # øverst til venstre
+whole = [s for s in bubbles if len(s["subs"]) == 1 and s["b"][1] > 540 and 600 < s["b"][0] < 1200]
+assert len(whole) == 1, f"Fant {len(whole)} hele bobler nede i midten av shapes-fila"
+whole = whole[0]
+# Halen: nederste høyre hjørne av den avlange boblen, et kvadrat med sidene lik radien.
+px0, py0, px1, py1 = pill["b"]
+r = (py1 - py0) / 2
+TAIL = curves(transform(pill["subs"], 1000 / r, 1000 / r, px1 - r, py1 - r), 0)
 css = ROOT / "public/style.css"
-tail = (f"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='500 500 500 500' preserveAspectRatio='none'%3E"
+tail = (f"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000' preserveAspectRatio='none'%3E"
         f"%3Cpath d='{TAIL}'/%3E%3C/svg%3E\")")
 s, n = re.subn(r'--bubble-tail: url\("data:image/svg\+xml,[^"]*"\);', f"--bubble-tail: {tail};", css.read_text())
 assert n == 1
 css.write_text(s)
+# Bilderammen på «Hvem står bak»: den hele boblen, 1000 × 1000. Bildet er 4 : 5 og litt høyere enn rammen.
+wb = whole["b"]
+FRAME = curves(transform(whole["subs"], 1000 / (wb[2] - wb[0]), 1000 / (wb[3] - wb[1]), wb[0], wb[1]), 1)
+hvem = ROOT / "public/hvem.html"
+s, n = re.subn(r'<svg class="person-frame".*?</svg>', f'''<svg class="person-frame" viewBox="0 0 1000 1000" role="img" aria-label="Kristian Dalen, som står bak quiply">
+        <clipPath id="person-q"><path d="{FRAME}"/></clipPath>
+        <image href="img/kristian.jpg" x="0" y="-52" width="1000" height="1250" clip-path="url(#person-q)"/>
+      </svg>''', hvem.read_text(), flags=re.S)
+assert n == 1
+hvem.write_text(s)
 
 print(f"Logo: tynnet {D:.2f} px per side, bredde {XS:.3f}, avstand +{PAD:.2f} px. «quick reply,» er {QR_RIGHT / LOGO_RIGHT:.2f} × «quiply».")

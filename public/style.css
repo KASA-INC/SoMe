@@ -7,7 +7,7 @@
   --fersken: var(--fersken-600);
   --fersken-ink: var(--ink);
   /* Halen fra logoen (nederste høyre kvadrant av Q-sirkelen) */
-  --bubble-tail: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='500 500 500 500' preserveAspectRatio='none'%3E%3Cpath d='M882.7 817.3C957.4 727.2 1000 616.1 1000 497.6C1000 363.4 948 237.2 853.5 142.2C664.2-47.4 335.8-47.4 146.5 142.2C52 237.2 0 363.4 0 497.6C0 631.7 52 757.9 146.5 852.9C241 947.7 366.4 999.9 500 999.9C618.1 999.9 728.5 957 818.2 882.1L1000 1000Z'/%3E%3C/svg%3E");
+  --bubble-tail: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000' preserveAspectRatio='none'%3E%3Cpath d='M1000-5C1000-273 896-526 707-716C518-905 259-1000 0-1000L-8000-1000C-8259-1000-8518-905-8707-716C-8896-526-9000-273-9000-5C-9000 263-8896 516-8707 706C-8518 895-8267 1000-8000 1000L-8000 1000L0 1000L0 1000C236 1000 457 914 636 764L1000 1000L765 635C915 454 1000 232 1000-5Z'/%3E%3C/svg%3E");
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
