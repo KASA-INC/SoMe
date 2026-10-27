@@ -461,7 +461,7 @@ test("foresatte kan bytte passord og e-post når de er logget inn", async () => 
   await verifyEmail("ny@example.com");
   // Lenken ble åpnet på en annen enhet: de andre innloggingene er logget ut, og den gamle adressen fikk beskjed.
   assert.equal((await a.parent("/me")).status, 401);
-  assert.match(outbox.findLast((m) => m.to === "r@example.com").subject, /E-postadressen din i quipu er endret/);
+  assert.match(outbox.findLast((m) => m.to === "r@example.com").subject, /E-postadressen din i quiply er endret/);
   assert.equal((await a.parent("/login", { method: "POST", body: { login: "ny@example.com", password: "nytt-passord-123" } })).status, 200);
   assert.equal((await a.parent("/me")).body.me.email, "ny@example.com");
   // Barn har verken e-post eller tilgang til dette.
@@ -697,6 +697,17 @@ test("inaktive kontoer: uten e-post som kom fram, slettes ingenting", async () =
   assert.equal(db4.prepare("SELECT COUNT(*) AS n FROM users").get().n, 1);
 });
 
+test("gamle quipu.no-adresser sendes videre til samme side på den nye adressen", async () => {
+  // fetch lar oss ikke sette Host, så vi bruker http direkte.
+  const { request } = await import("node:http");
+  const url = new URL(base.replace(/\/api$/, "") + "/om?x=1");
+  const res = await new Promise((resolve, reject) => request(url, { headers: { host: "www.quipu.no" } }, resolve).on("error", reject).end());
+  res.resume();
+  assert.equal(res.statusCode, 301);
+  assert.equal(res.headers.location, "https://some.example/om?x=1");
+  assert.equal((await fetch(base.replace(/\/api$/, "") + "/om", { redirect: "manual" })).status, 200);
+});
+
 test("eieren kan avslå en forespørsel", async () => {
   const a = await setupFamily("g2");
   const b = client();
@@ -713,11 +724,11 @@ test("e-poster har HTML med logo, og navn fra brukere blir escapet", async () =>
   const c = client();
   await c("/register", { method: "POST", body: { password: "hemmelig123", displayName: "Ida <b>", email: "html@example.com" } });
   const mail = outbox[0];
-  assert.match(mail.html, /<img src="cid:logo@quipu"/);
+  assert.match(mail.html, /<img src="cid:logo@quiply"/);
   assert.match(mail.html, /Hei Ida &lt;b&gt;!/);
   assert.doesNotMatch(mail.html, /Ida <b>/);
   assert.match(mail.html, /href="https:\/\/some\.example\/#verify=[0-9a-f]{64}"/);
-  assert.equal(mail.attachments[0].cid, "logo@quipu");
+  assert.equal(mail.attachments[0].cid, "logo@quiply");
   assert.match(mail.text, /Bekreft e-postadressen: https:\/\/some\.example\/#verify=/);
 });
 
@@ -757,7 +768,7 @@ test("barnet kan bytte profilbilde selv, men bare til figurene i settet", async 
 });
 
 test("gamle emoji-profilbilder blir til figurer, også for foresatte", () => {
-  const dir = mkdtempSync(join(tmpdir(), "quipu-"));
+  const dir = mkdtempSync(join(tmpdir(), "quiply-"));
   const path = join(dir, "old.db");
   // En database fra før figurene kom: versjon 2 med emojier.
   const old = openDb(path);
@@ -947,7 +958,7 @@ test("e-post om beskjeder: samlet etter litt, én gang om dagen, eller av", asyn
     assert.equal(mine().length, 1);
     assert.match(mine()[0].subject, /2 nye beskjeder/);
     assert.match(mine()[0].text, /Mamma i Klasse 4B: «Husk gymtøy»/);
-    assert.match(mine()[0].html, /cid:button@quipu/);
+    assert.match(mine()[0].html, /cid:button@quiply/);
     assert.equal(outbox.filter((m) => m.to === "ev@example.com").length, 0); // ikke til forfatteren
     await app.locals.emailAdultMessages();
     assert.equal(mine().length, 1); // ikke samme beskjeder to ganger
@@ -1277,7 +1288,7 @@ test("admin: to-trinns innlogging kreves, og en kode kan ikke brukes to ganger",
   db.prepare("UPDATE users SET is_admin = 1 WHERE email = ?").run("mfa-sjef@example.com");
   assert.equal((await sjef("/admin/stats")).body.code, "MFA_SETUP");
   const { body: setup } = await sjef("/admin/mfa/setup", { method: "POST" });
-  assert.match(setup.uri, /^otpauth:\/\/totp\/quipu/);
+  assert.match(setup.uri, /^otpauth:\/\/totp\/quiply/);
   assert.equal((await sjef("/admin/mfa/confirm", { method: "POST", body: { code: "000000" } })).status, 400);
   const step = Math.floor(clock / 30000);
   assert.equal((await sjef("/admin/mfa/confirm", { method: "POST", body: { code: codeAt(setup.secret, step) } })).status, 200);
@@ -1362,7 +1373,7 @@ test("innlogginger: foresatte ser enhetene sine, kan logge dem ut, og får e-pos
   assert.equal((await mor("/me")).status, 200, "denne enheten er fortsatt logget inn");
   // Passordbytte gir e-post.
   await mor("/me/password", { method: "POST", body: { current: "hemmelig123", password: "nytt-passord-456" } });
-  assert.match(outbox.findLast((m) => m.to === "inn@example.com").subject, /Passordet ditt i quipu er endret/);
+  assert.match(outbox.findLast((m) => m.to === "inn@example.com").subject, /Passordet ditt i quiply er endret/);
 });
 
 test("bremsen mot passordgjetting lagres i databasen og gjelder etter omstart", async () => {
@@ -1431,12 +1442,12 @@ test("de andre foresatte får e-post når grenser eller passord for barnet endre
   assert.equal(outbox.slice(n).some((m) => m.to === "gr-far@example.com"), false, "ikke til den som endret");
 });
 
-test("eksport: en foresatt laster ned alt quipu har om seg og barna", async () => {
+test("eksport: en foresatt laster ned alt quiply har om seg og barna", async () => {
   const a = await setupFamily("eks");
   await post(a.kid, a.groupId, "Dette er mitt innlegg");
   const { status, headers, body } = await a.parent("/me/export");
   assert.equal(status, 200);
-  assert.match(headers.get("content-disposition"), /attachment; filename="quipu-data-/);
+  assert.match(headers.get("content-disposition"), /attachment; filename="quiply-data-/);
   assert.equal(body.konto.epost, "eks@example.com");
   assert.equal(body.barn[0].navn, "Ola");
   assert.equal(body.barn[0].innlegg[0].tekst, "Dette er mitt innlegg");

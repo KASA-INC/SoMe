@@ -45,7 +45,7 @@ const avatarUrl = "`/avatars/${id}.svg`";
 if (!appJs.includes(avatarUrl)) throw new Error("Fant ikke figur-adressen i app.js");
 appJs = appJs.replace(avatarUrl, "PREVIEW_AVATARS[id]");
 appJs = relink(appJs, '"');
-appJs = `const PREVIEW_AVATARS = ${JSON.stringify(avatars)};\n${videoJs}\n${appJs}\nwindow.__quipuRestart = () => { stopTimers(); start(); };`;
+appJs = `const PREVIEW_AVATARS = ${JSON.stringify(avatars)};\n${videoJs}\n${appJs}\nwindow.__quiplyRestart = () => { stopTimers(); start(); };`;
 
 // Plukker ut <title> og <body> fra en side i public/ og setter inn stil og skript.
 function page(file, { scripts }) {
@@ -76,7 +76,7 @@ const switcher = `
   body.no-scroll .preview-bar { display: none; } /* ikke over knappene i et åpent ark */
   body { padding-bottom: 48px; }
 </style>
-<script>document.querySelector(".preview-bar").addEventListener("click", (e) => { const b = e.target.closest("button[data-as]"); if (b) window.__quipuPreview.as(b.dataset.as || null); });</script>`;
+<script>document.querySelector(".preview-bar").addEventListener("click", (e) => { const b = e.target.closest("button[data-as]"); if (b) window.__quiplyPreview.as(b.dataset.as || null); });</script>`;
 
 // Hovedsiden publiseres som artifact-siden: skjelettet lager <html>, <head> og <body>, så her står bare innholdet.
 const main = page("index.html", {

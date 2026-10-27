@@ -1,8 +1,8 @@
 // Navnet på tjenesten, brukt i meldinger og e-post. (Klienten har sitt i public/brand.js.)
-export const APP_NAME = "quipu";
+export const APP_NAME = "quiply";
 
 // Kontaktadressen som vises til foresatte (informasjonssiden og e-poster).
-export const CONTACT_EMAIL = "hei@quipu.no";
+export const CONTACT_EMAIL = "hei@quiply.no";
 
 // Adressen appen ligger på, brukt i lenker som sendes på e-post.
 // Settes med APP_URL. På Render settes RENDER_EXTERNAL_URL automatisk.

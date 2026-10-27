@@ -5,7 +5,7 @@ self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim(
 self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data.json(); } catch { /* tomt varsel */ }
-  event.waitUntil(self.registration.showNotification(data.title || "quipu", {
+  event.waitUntil(self.registration.showNotification(data.title || "quiply", {
     body: data.body || "",
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",

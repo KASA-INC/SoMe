@@ -2,7 +2,7 @@ import { createECDH, createPrivateKey, createCipheriv, hkdfSync, randomBytes, si
 import { CONTACT_EMAIL } from "./config.js";
 
 // Push-varsler (Web Push) uten eksterne pakker:
-// - VAPID (RFC 8292): serveren signerer hver forespørsel, så push-tjenesten vet at varselet kommer fra quipu.
+// - VAPID (RFC 8292): serveren signerer hver forespørsel, så push-tjenesten vet at varselet kommer fra quiply.
 // - Kryptering (RFC 8291, aes128gcm): innholdet krypteres for den enkelte enheten. Apple, Google og Mozilla,
 //   som leverer varslene, ser bare at et varsel sendes, ikke hva det står i det.
 

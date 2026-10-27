@@ -12,9 +12,9 @@ import { codeAt } from "../server/totp.js";
 // Fast klokke: en tirsdag kl. 12:00 i Oslo, så appen er åpen. Tidene flyttes til «nå» i nettleseren.
 let clock = Date.parse("2026-10-20T10:00:00Z");
 const outbox = [];
-const mediaDir = mkdtempSync(join(tmpdir(), "quipu-preview-"));
+const mediaDir = mkdtempSync(join(tmpdir(), "quiply-preview-"));
 const db = openDb();
-const app = createApp({ db, mediaDir, now: () => clock, mailer: { send: async (m) => { outbox.push(m); } }, push: { send: async () => ({}) }, appUrl: "https://www.quipu.no" });
+const app = createApp({ db, mediaDir, now: () => clock, mailer: { send: async (m) => { outbox.push(m); } }, push: { send: async () => ({}) }, appUrl: "https://www.quiply.no" });
 const server = app.listen(0);
 await new Promise((r) => server.once("listening", r));
 const base = `http://localhost:${server.address().port}/api`;

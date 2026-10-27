@@ -56,7 +56,7 @@ const FEED_MAX = 30;
 const TZ = process.env.TZ_APP || "Europe/Oslo";
 
 const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
-// Barn skal ha en ordentlig pause fra quipu hver natt: appen er stengt minst 10 timer i strekk,
+// Barn skal ha en ordentlig pause fra quiply hver natt: appen er stengt minst 10 timer i strekk,
 // og alltid mellom kl. 23 og 06. Foresatte kan flytte åpningstiden, men ikke korte ned pausen.
 export const OPEN_EARLIEST = "06:00", CLOSE_LATEST = "23:00", MIN_PAUSE_HOURS = 10;
 const minutesOf = (hm) => Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3));
@@ -134,6 +134,9 @@ export function createApp({
   }
   const when = (t) => new Date(t).toLocaleString("nb-NO", { timeZone: "Europe/Oslo", dateStyle: "long", timeStyle: "short" });
   app.disable("x-powered-by");
+  // Appen het quipu og lå på quipu.no. Gamle adresser og bokmerker sendes videre til samme side på den nye.
+  const OLD_HOST = /(^|\.)quipu\.no$/i;
+  app.use((req, res, next) => (OLD_HOST.test(req.hostname) ? res.redirect(301, new URL(req.originalUrl, appUrl).href) : next()));
   mkdirSync(mediaDir, { recursive: true });
 
   const clock = (ts = now()) => {
@@ -164,7 +167,7 @@ export function createApp({
       // Nettsiden får ikke bruke posisjon, kamera eller mikrofon (bilder velges med telefonens egen velger).
       "Permissions-Policy": "geolocation=(), camera=(), microphone=(), payment=(), usb=()",
     });
-    // I drift: nettleseren skal alltid bruke HTTPS mot quipu i ett år framover.
+    // I drift: nettleseren skal alltid bruke HTTPS mot quiply i ett år framover.
     if (secureCookies) res.set("Strict-Transport-Security", "max-age=31536000"); // uten includeSubDomains, så e-post- og cPanel-adresser hos Domene.no ikke påvirkes
     next();
   });
@@ -342,7 +345,7 @@ export function createApp({
     }
   }
 
-  // En foresatt inviterer andre foresatte, til quipu eller til en gruppe. Med e-postadresser sendes én invitasjon
+  // En foresatt inviterer andre foresatte, til quiply eller til en gruppe. Med e-postadresser sendes én invitasjon
   // til hver. Uten adresser lages én lenke som kan deles som melding.
   app.post("/api/invites", parent, async (req, res) => {
     let group = null;
@@ -424,7 +427,7 @@ export function createApp({
     if (req.body.share && !share) fail(400, SHARE_GONE);
     if (typeof req.body.email === "string" && isBanned(req.body.email)) fail(403, `Denne e-postadressen kan ikke brukes i ${APP_NAME}.`);
     if (!invite && !share && registrationCode && !safeEqual(String(req.body.code || "").trim(), registrationCode)) {
-      fail(403, "Feil registreringskode. Be en foresatt som allerede bruker quipu, om en invitasjon.");
+      fail(403, "Feil registreringskode. Be en foresatt som allerede bruker quiply, om en invitasjon.");
     }
     const displayName = validateDisplayName(req.body.displayName);
     const email = validateEmail(req.body.email);
@@ -698,7 +701,7 @@ export function createApp({
   });
 
   // Foresatte kan slette sin egen konto. Barnekontoene og alt innholdet slettes også.
-  // Innsyn og dataportabilitet: alt quipu har om deg og barna dine, som én JSON-fil.
+  // Innsyn og dataportabilitet: alt quiply har om deg og barna dine, som én JSON-fil.
   app.get("/api/me/export", parentAny, (req, res) => {
     const me = req.user;
     const children = q("SELECT u.* FROM users u JOIN guardians gd ON gd.child_id = u.id AND gd.parent_id = ?").all(me.id);
@@ -726,7 +729,7 @@ export function createApp({
         WHERE m.author_id = ? ORDER BY m.created_at`).all(me.id).map((m) => ({ gruppe: m.gruppe, tekst: m.tekst, tidspunkt: iso(m.created_at) })),
       merknad: "Bilder og video er ikke med i fila. Skriv til " + CONTACT_EMAIL + " hvis du vil ha dem.",
     };
-    res.set("Content-Disposition", `attachment; filename="quipu-data-${clock().day}.json"`).json(data);
+    res.set("Content-Disposition", `attachment; filename="quiply-data-${clock().day}.json"`).json(data);
   });
 
   // Barn med andre foresatte beholdes (de får en ny første foresatt). Barn der du er eneste foresatt, slettes.
@@ -933,7 +936,7 @@ export function createApp({
   app.locals.escalateIncidents = escalateIncidents;
 
   // ---------- Administrasjon ----------
-  // Bare for den som drifter quipu: statistikk som tall, meldte innlegg og utestenging.
+  // Bare for den som drifter quiply: statistikk som tall, meldte innlegg og utestenging.
   // Administrator må ha to-trinns innlogging, og skrive inn en engangskode på hver enhet minst hver 12. time.
   const MFA_HOURS = 12;
   const isAdmin = (req, res, next) => {
@@ -1370,7 +1373,7 @@ export function createApp({
     res.json({ ok: true });
   });
 
-  // Barnet sier fra om noe direkte til dem som drifter quipu, utenom gruppa og foresatte.
+  // Barnet sier fra om noe direkte til dem som drifter quiply, utenom gruppa og foresatte.
   // Brukes når problemet ikke står i et innlegg, eller gjelder en voksen.
   app.post("/api/safety", needUser("child"), async (req, res) => {
     const category = Object.hasOwn(REPORT_CATEGORIES, req.body.category) ? req.body.category : "annet";
@@ -1873,7 +1876,7 @@ export function createApp({
             heading: total === 1 ? "Ny beskjed fra de andre foresatte" : `${total} nye beskjeder fra de andre foresatte`,
             paragraphs: lines,
             button: { label: "Åpne voksenkontakten", url: `${appUrl.replace(/\/$/, "")}/#voksen=${sections[0].g.id}` },
-            note: "Du får denne e-posten fordi du har slått på e-post om beskjeder i voksenkontakten. Du kan endre det under Konto i quipu.",
+            note: "Du får denne e-posten fordi du har slått på e-post om beskjeder i voksenkontakten. Du kan endre det under Konto i quiply.",
           }),
         });
       } catch (err) {

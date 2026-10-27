@@ -22,7 +22,7 @@ export function buildCss() {
   // Tekststørrelsene: --fs-<stil>, og --fs-display-sm for den største overskriften på mobil.
   const sizes = tokens.type.groups.flatMap((g) => g.styles).flatMap((st) => [
     `  --fs-${st.name}: ${st.rem};`, ...(st.remMobile ? [`  --fs-${st.name}-sm: ${st.remMobile};`] : [])]).join("\n");
-  return `/* quipu — generert fra design/tokens.json med «npm run tokens». Ikke rediger for hånd. */
+  return `/* quiply — generert fra design/tokens.json med «npm run tokens». Ikke rediger for hånd. */
 :root {
 ${decl(colors, light)}
 ${decl(shadows, light)}

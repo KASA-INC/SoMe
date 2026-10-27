@@ -1,4 +1,4 @@
-// quipu — klient. All brukertekst settes med textContent, aldri som HTML.
+// quiply — klient. All brukertekst settes med textContent, aldri som HTML.
 import {
   APP_NAME, MARK_VIEWBOX, MARK_TIGHT_VIEWBOX, MARK_RING, MARK_EYE_LEFT, MARK_EYE_RIGHT, MARK_MOUTH,
   WORDMARK_VIEWBOX, WORDMARK_PATH,
@@ -502,7 +502,7 @@ async function showRegister() {
     installGuide()));
 }
 
-// Steg for steg: legg quipu på hjemskjermen. Vises ikke når appen allerede er åpnet fra hjemskjermen.
+// Steg for steg: legg quiply på hjemskjermen. Vises ikke når appen allerede er åpnet fra hjemskjermen.
 // Veiledningen for telefonen man bruker, er åpen fra start.
 function installGuide() {
   if (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone) return null;
@@ -518,18 +518,18 @@ function installGuide() {
   return h("section", { class: "card install-guide" },
     h("div", { class: "notice" }, icon("phone"),
       h("div", {}, h("strong", {}, `Legg ${APP_NAME} på hjemskjermen`),
-        h("p", { class: "muted small" }, "Da åpnes quipu som en vanlig app, uten adresselinje. Gjør det på telefonen til barnet også."))),
+        h("p", { class: "muted small" }, "Da åpnes quiply som en vanlig app, uten adresselinje. Gjør det på telefonen til barnet også."))),
     guide("iPhone og iPad", isIos, [
-      step("Åpne ", h("strong", {}, "www.quipu.no"), " i Safari."),
+      step("Åpne ", h("strong", {}, "www.quiply.no"), " i Safari."),
       step("Trykk på Del-knappen ", ui("share", ""), " nederst på skjermen (øverst til høyre på iPad). Ser du den ikke, trykk først på ", ui("dots", ""), "."),
       step("Bla ned og trykk ", ui("plusSquare", "Legg til på Hjem-skjerm"), "."),
-      step("Trykk ", h("strong", {}, "Legg til"), " øverst til høyre. Nå ligger quipu på hjemskjermen."),
+      step("Trykk ", h("strong", {}, "Legg til"), " øverst til høyre. Nå ligger quiply på hjemskjermen."),
     ], "Bruker du Chrome eller en annen nettleser på iPhone, finner du det samme under Del-knappen."),
     guide("Android", isAndroid, [
-      step("Åpne ", h("strong", {}, "www.quipu.no"), " i Chrome."),
+      step("Åpne ", h("strong", {}, "www.quiply.no"), " i Chrome."),
       step("Trykk på menyen ", ui("dots", ""), " øverst til høyre."),
       step("Trykk ", h("strong", {}, "Legg til på startsiden"), " eller ", h("strong", {}, "Installer app"), "."),
-      step("Trykk ", h("strong", {}, "Installer"), " eller ", h("strong", {}, "Legg til"), ". Nå ligger quipu på startskjermen."),
+      step("Trykk ", h("strong", {}, "Installer"), " eller ", h("strong", {}, "Legg til"), ". Nå ligger quiply på startskjermen."),
     ], "Bruker du Samsung Internet: trykk på menyen ☰ nederst, velg «Legg til side på» og så «Startskjerm»."));
 }
 
@@ -681,8 +681,8 @@ const INTRO = [
   {
     icon: "shield",
     title: "Hvis noe føles feil",
-    text: ["Trykk «Si fra» på innlegget. Da blir det skjult, og en voksen ser på det. Den voksne som har ansvar for gruppa, og de som passer på quipu, kan lese innlegg som noen har sagt fra om.",
-      "Er det noe annet, eller gjelder det en voksen, trykker du «Si fra om noe annet» nederst i feeden. Det leser bare de som passer på quipu.",
+    text: ["Trykk «Si fra» på innlegget. Da blir det skjult, og en voksen ser på det. Den voksne som har ansvar for gruppa, og de som passer på quiply, kan lese innlegg som noen har sagt fra om.",
+      "Er det noe annet, eller gjelder det en voksen, trykker du «Si fra om noe annet» nederst i feeden. Det leser bare de som passer på quiply.",
       "Snakk gjerne med en voksen du stoler på, eller ring Alarmtelefonen for barn og unge på 116 111. Den er gratis og alltid åpen.",
       `${APP_NAME} har en tidsgrense og stenger om kvelden. Det er meningen – det er mye annet gøy å gjøre også.`],
   },
@@ -1030,7 +1030,7 @@ function openReport(p) {
   openSheet("Si fra om innlegget", (close) => {
     const warning = warningBox();
     const form = h("form", {},
-      h("p", { class: "muted small" }, "Innlegget blir skjult for de andre med en gang. Den voksne som har ansvar for gruppa, og de som passer på quipu, ser på det. Den som skrev det, får ikke vite at det var du."),
+      h("p", { class: "muted small" }, "Innlegget blir skjult for de andre med en gang. Den voksne som har ansvar for gruppa, og de som passer på quiply, ser på det. Den som skrev det, får ikke vite at det var du."),
       h("p", { class: "field-label" }, "Hva gjelder det?"),
       categoryPicker(),
       h("button", { class: "btn block" }, icon("flag"), "Si fra"),
@@ -1049,13 +1049,13 @@ function openReport(p) {
   });
 }
 
-// Si fra om noe som ikke står i et innlegg, eller som gjelder en voksen. Bare de som passer på quipu, leser det.
+// Si fra om noe som ikke står i et innlegg, eller som gjelder en voksen. Bare de som passer på quiply, leser det.
 function openSafety() {
   openSheet("Si fra om noe annet", (close) => {
     const warning = warningBox();
     const text = h("textarea", { name: "text", required: true, minlength: 3, maxlength: 1000, rows: 4, placeholder: "Skriv hva som har skjedd, og hvem det gjelder" });
     const form = h("form", {},
-      h("p", { class: "muted small" }, "Dette leser bare de som passer på quipu, ikke de andre i gruppa, og ikke foreldrene dine. Bruk det hvis noe er ekkelt eller skummelt, også hvis det gjelder en voksen."),
+      h("p", { class: "muted small" }, "Dette leser bare de som passer på quiply, ikke de andre i gruppa, og ikke foreldrene dine. Bruk det hvis noe er ekkelt eller skummelt, også hvis det gjelder en voksen."),
       h("p", { class: "field-label" }, "Hva gjelder det?"),
       categoryPicker(),
       field("Hva har skjedd?", text),
@@ -1065,7 +1065,7 @@ function openSafety() {
       e.preventDefault();
       try {
         await api("/safety", { method: "POST", body: formData(form) });
-        form.replaceWith(reportThanks(close, "Takk for at du sa fra. En voksen som passer på quipu, leser det du skrev."));
+        form.replaceWith(reportThanks(close, "Takk for at du sa fra. En voksen som passer på quiply, leser det du skrev."));
       } catch (err) { showWarning(warning, err.message); }
     });
     return form;
@@ -1574,7 +1574,7 @@ const INVITE_RESULT = {
   blocked: "Kan ikke inviteres",
 };
 
-// En foresatt inviterer andre foresatte, til quipu eller til en bestemt gruppe.
+// En foresatt inviterer andre foresatte, til quiply eller til en bestemt gruppe.
 // Med e-postadresser får hver sin invitasjon. Uten adresser lages en lenke man deler selv.
 function openInvite(group) {
   openSheet(group ? `Inviter til ${group.name}` : "Inviter foresatt", (close) => {
@@ -1646,7 +1646,7 @@ function accountTab() {
   ];
 }
 
-// ---------- Administrasjon (bare for den som drifter quipu) ----------
+// ---------- Administrasjon (bare for den som drifter quiply) ----------
 // Statistikk som tall, meldte innlegg fra alle grupper, og utestenging. Alt som gjøres, logges på serveren.
 function adminTab() {
   // Først sjekkes to-trinns innloggingen. Serveren sier fra om den mangler eller koden må skrives inn.
@@ -1970,7 +1970,7 @@ function linksCard() {
   return card;
 }
 
-// Innsyn: alt quipu har om deg og barna, som en fil.
+// Innsyn: alt quiply har om deg og barna, som en fil.
 function exportCard() {
   return h("section", { class: "card" }, h("h3", {}, "Dataene dine"),
     h("p", { class: "muted small" }, `Last ned alt ${APP_NAME} har om deg og barna dine: kontoene, grensene, gruppene, innleggene og beskjedene dine i voksenkontakten. Fila er i JSON-format, som kan åpnes i de fleste programmer.`),
@@ -1979,7 +1979,7 @@ function exportCard() {
         const res = await fetch("/api/me/export");
         if (!res.ok) throw new Error("Klarte ikke å lage fila. Prøv igjen.");
         const url = URL.createObjectURL(await res.blob());
-        const a = h("a", { href: url, download: `quipu-data-${new Date().toISOString().slice(0, 10)}.json` });
+        const a = h("a", { href: url, download: `quiply-data-${new Date().toISOString().slice(0, 10)}.json` });
         document.body.append(a);
         a.click();
         a.remove();
@@ -2041,7 +2041,7 @@ async function setPush(on) {
     return;
   }
   if (await Notification.requestPermission() !== "granted") {
-    throw new Error("Varsler er blokkert. Slå dem på for quipu i innstillingene på telefonen.");
+    throw new Error("Varsler er blokkert. Slå dem på for quiply i innstillingene på telefonen.");
   }
   let sub;
   try {
@@ -2092,7 +2092,7 @@ function notifyCard() {
     } else {
       const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
       pushRow = h("p", { class: "status-note" }, icon("phone"), ios
-        ? "På iPhone og iPad må quipu ligge på hjemskjermen for å få push-varsler. Se «Legg quipu på hjemskjermen» over, og åpne quipu derfra."
+        ? "På iPhone og iPad må quiply ligge på hjemskjermen for å få push-varsler. Se «Legg quiply på hjemskjermen» over, og åpne quiply derfra."
         : "Denne nettleseren støtter ikke push-varsler. Du kan få e-post i stedet.");
     }
     card.append(field("E-post", email), pushRow);

@@ -790,7 +790,7 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 .info-table th, .info-table td { padding: 10px 12px; text-align: left; vertical-align: top; border-top: 1px solid var(--border); }
 .info-table thead th { border-top: none; font-weight: 600; }
 .info-table tbody th { font-weight: 600; }
-/* Bare i sammenligningen (sikkerhet.html) er quipu-kolonnen uthevet. */
+/* Bare i sammenligningen (sikkerhet.html) er quiply-kolonnen uthevet. */
 .info-table.compare td:last-child { font-weight: 600; }
 /* Smal skjerm: hver rad blir et lite kort med etikett foran hver verdi. */
 @media (max-width: 560px) {

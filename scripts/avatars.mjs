@@ -1,4 +1,4 @@
-// Lager profilbildene til barna: 24 «Critters» fra DiceBear (CC0 1.0), farget med quipu-paletten.
+// Lager profilbildene til barna: 24 «Critters» fra DiceBear (CC0 1.0), farget med quiply-paletten.
 // Filene legges i public/avatars/ og sendes fra vår egen server, så ingenting hentes fra andre nettsteder.
 // Kjør på nytt hvis settet skal endres:
 //   npm install --no-save @dicebear/core@10.7.0 @dicebear/styles@10.6.0 && node scripts/avatars.mjs
@@ -25,7 +25,7 @@ const out = new URL("../public/avatars/", import.meta.url);
 COMBOS.forEach(([bg, body, accent], i) => {
   const id = `c${String(i + 1).padStart(2, "0")}`;
   const svg = new Avatar(style, {
-    seed: `quipu-${id}`,
+    seed: `quiply-${id}`,
     backgroundColor: P[bg], bodyColor: P[body], accentColor: P[accent], inkColor: P.ink,
     eyesVariant: EYES, mouthVariant: MOUTHS, animationVariant: "none",
   }).toString()

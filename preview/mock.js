@@ -16,10 +16,10 @@
   const media = new Map(); // id -> { url, type }
   let nextId = 1000;
   let session = null;
-  try { session = sessionStorage.getItem("quipu-preview-session"); } catch { /* ingen lagring */ }
+  try { session = sessionStorage.getItem("quiply-preview-session"); } catch { /* ingen lagring */ }
   const setSession = (s) => {
     session = s;
-    try { s ? sessionStorage.setItem("quipu-preview-session", s) : sessionStorage.removeItem("quipu-preview-session"); } catch { /* ingen lagring */ }
+    try { s ? sessionStorage.setItem("quiply-preview-session", s) : sessionStorage.removeItem("quiply-preview-session"); } catch { /* ingen lagring */ }
   };
 
   class HttpError extends Error { constructor(status, message, code) { super(message); this.status = status; this.code = code; } }
@@ -156,11 +156,11 @@
     }
     if ((m = p.match(/^\/children\/(\d+)\/share$/))) {
       const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
-      return { url: `https://www.quipu.no/#barn=${token}`, status: body.email ? "sent" : null };
+      return { url: `https://www.quiply.no/#barn=${token}`, status: body.email ? "sent" : null };
     }
     if (p === "/invites" && method === "POST") {
       const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
-      const url = `https://www.quipu.no/#invitasjon=${token}`;
+      const url = `https://www.quiply.no/#invitasjon=${token}`;
       const emails = body.emails || [];
       // Ingen e-post sendes fra forhåndsvisningen.
       return emails.length ? { results: emails.map((email) => ({ email, status: "sent" })) } : { url, results: [] };
@@ -228,7 +228,7 @@
   window.confirm = () => true;
 
   // Liten linje nederst for å bytte mellom barn og foresatt. Finnes bare i forhåndsvisningen.
-  window.__quipuPreview = {
-    as(who) { setSession(who); location.hash = ""; window.__quipuRestart?.(); },
+  window.__quiplyPreview = {
+    as(who) { setSession(who); location.hash = ""; window.__quiplyRestart?.(); },
   };
 })();

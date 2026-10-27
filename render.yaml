@@ -20,6 +20,9 @@ services:
         value: "22"
       - key: NODE_ENV
         value: production
+      # Adressen i lenker på e-post. Den gamle quipu.no sendes videre hit (server/app.js).
+      - key: APP_URL
+        value: https://www.quiply.no
       - key: TRUST_PROXY
         value: "1"
       - key: DB_PATH

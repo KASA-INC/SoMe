@@ -159,7 +159,7 @@ CREATE TABLE IF NOT EXISTS child_shares (
   expires_at INTEGER NOT NULL
 );
 
--- Administrasjon. Bare den som drifter quipu, er administrator (settes med «npm run admin», aldri i appen).
+-- Administrasjon. Bare den som drifter quiply, er administrator (settes med «npm run admin», aldri i appen).
 -- Statistikk lagres som dagssummer uten navn eller id-er, så ingen kan spores.
 CREATE TABLE IF NOT EXISTS daily_stats (
   day TEXT PRIMARY KEY,
@@ -193,7 +193,7 @@ CREATE TABLE IF NOT EXISTS login_failures (
   count INTEGER NOT NULL
 );
 
--- Barn kan si fra om noe direkte til dem som drifter quipu, utenom gruppa og foresatte
+-- Barn kan si fra om noe direkte til dem som drifter quiply, utenom gruppa og foresatte
 -- (for eksempel når problemet er en voksen). Bare administrator ser disse.
 CREATE TABLE IF NOT EXISTS safety_reports (
   id INTEGER PRIMARY KEY,

@@ -72,13 +72,13 @@ export function renderEmail({ preheader, heading, paragraphs, button, note }) {
     return { cid, ...pngSize(content) };
   };
 
-  const logo = embed("email-logo.png", "logo@quipu");
+  const logo = embed("email-logo.png", "logo@quiply");
   const p = (s, size = 16) => `<p style="margin:0 0 16px;font-size:${size}px;line-height:1.5;color:${C.text}">${escape(s)}</p>`;
   const link = (url) => `<a href="${escape(url)}" style="color:${C.text};text-decoration:underline;word-break:break-all">${escape(url)}</a>`;
 
   let buttonHtml = "";
   if (button) {
-    const img = EMAIL_BUTTONS[button.label] && embed(EMAIL_BUTTONS[button.label], "button@quipu");
+    const img = EMAIL_BUTTONS[button.label] && embed(EMAIL_BUTTONS[button.label], "button@quiply");
     const inner = img
       ? `<img src="cid:${img.cid}" width="${img.width}" height="${img.height}" alt="${escape(button.label)}" style="display:block;border:0">`
       : `<span style="display:inline-block;padding:14px 28px;border-radius:999px;${lockedBg(C.button)};color:${C.buttonInk};font-size:16px;font-weight:600">${escape(button.label)}</span>`;
