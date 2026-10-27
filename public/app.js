@@ -2258,16 +2258,39 @@ async function showAdultChat(g) {
 }
 
 // ---------- Load-skjerm ----------
-// Skjermen ligger i index.html. Den vises til «then goodbye.» har kommet og blunket (rundt 5,6 s), og forsvinner
-// med en ut-animasjon når første visning er tegnet. Et trykk hopper over resten.
+// Skjermen ligger i index.html. «quick reply, then goodbye.» blir til «quiply» (ferdig etter 2,6 s), og så flyr
+// logoen opp og lander oppå logoen i toppen mens bakgrunnen tones bort (0,8 s). Er toppen skjult (innlogging),
+// tones skjermen bare ut. Venter appen fortsatt på data, venter skjermen også. Et trykk hopper over resten.
 const splash = document.getElementById("splash");
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-let splashMinMs = reducedMotion ? 1200 : 5600;
+let splashMinMs = reducedMotion ? 1200 : 2800;
 let splashReady = false;
 
 function removeSplash() {
   if (!splash || splash.dataset.hiding) return;
   splash.dataset.hiding = "1";
+  const logo = splash.querySelector(".splash-logo");
+  const brand = document.querySelector("#brand .logo");
+  const to = brand?.getBoundingClientRect();
+  if (!reducedMotion && splashMinMs && logo && to?.width) {
+    // Hvor «quiply» står nå: forskyvningene i style.css er i logoens enheter (viewBox).
+    const box = logo.getBoundingClientRect();
+    const k = box.width / logo.viewBox.baseVal.width;
+    const css = getComputedStyle(logo);
+    const x = parseFloat(css.getPropertyValue("--start")) * k;
+    const y = parseFloat(css.getPropertyValue("--drop")) * k;
+    const scale = to.width / (Number(LOGO_VIEWBOX.split(" ")[2]) * k);
+    splash.classList.add("fly");
+    document.getElementById("brand").style.visibility = "hidden"; // logoen i toppen vises når den andre har landet
+    void logo.getBoundingClientRect();
+    logo.style.transformOrigin = `${x}px ${y}px`;
+    logo.style.transform = `translate(${to.left - box.left - x}px, ${to.top - box.top - y}px) scale(${scale})`;
+    setTimeout(() => {
+      document.getElementById("brand").style.visibility = "";
+      splash.remove();
+    }, 850);
+    return;
+  }
   splash.classList.add("out");
   const remove = () => splash.remove();
   splash.addEventListener("animationend", (e) => e.target === splash && remove());

@@ -17,7 +17,7 @@ Logofila må ha samme oppsett som nå, øverste halvdel (den svarte), fra venstr
   og den liggende logoen med slagordet «quick reply, then goodbye.» under.
 Formene finnes ut fra hvor de ligger, ikke rekkefølgen i fila.
 
-Load-skjermen animerer «quiply» til «quick reply, then goodbye.». Bokstavene c, k, r og e (og komma) finnes
+Load-skjermen går fra «quick reply, then goodbye.» til «quiply». Bokstavene c, k, r og e (og komma) finnes
 ikke i ordbildet, så de hentes fra slagordet under den liggende logoen og skaleres opp. Er slagordet fetere
 enn ordbildet, tynnes strekene til samme tykkelse. Står det «the goodbye» i fila, lages n av h-en.
 """
