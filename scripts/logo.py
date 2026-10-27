@@ -11,13 +11,14 @@ Krever pdftocairo (poppler-utils) og shapely. Skriver:
   public/style.css         --bubble-tail (halen på snakkeboblene)
   public/brand/logo-*.svg  den stående logoen som egne filer
 
-Logofila må ha samme oppsett som nå, øverste halvdel (den svarte):
-  til venstre den stående logoen, så appikonet, så den liggende logoen med slagordet under, og symbolet til høyre.
+Logofila må ha samme oppsett som nå, øverste halvdel (den svarte), fra venstre:
+  symbolet, hovedlogoen (merket med «quiply» under), hovedlogoen med slagord, appikonet,
+  og den liggende logoen med slagordet «quick reply, then goodbye.» under.
 Formene finnes ut fra hvor de ligger, ikke rekkefølgen i fila.
 
 Load-skjermen animerer «quiply» til «quick reply, then goodbye.». Bokstavene c, k, r og e (og komma) finnes
-ikke i ordbildet, så de hentes fra slagordet. Slagordet er samme skrift, men fetere, så strekene tynnes til
-samme tykkelse som i ordbildet. Står det «the goodbye» i fila, lages n av h-en.
+ikke i ordbildet, så de hentes fra slagordet under den liggende logoen og skaleres opp. Er slagordet fetere
+enn ordbildet, tynnes strekene til samme tykkelse. Står det «the goodbye» i fila, lages n av h-en.
 """
 import json, re, subprocess, sys, tempfile
 from pathlib import Path
@@ -130,11 +131,11 @@ top = [s for s in shapes if s["b"][1] < 540]  # den svarte halvdelen: hvite form
 by_x = lambda lst: sorted(lst, key=lambda s: s["b"][0])
 width = lambda s: s["b"][2] - s["b"][0]
 
-symbol = max((s for s in top if s["b"][0] > 1400), key=width)
-icon_x = [s for s in top if 460 < s["b"][0] < 700]
-logo_row = by_x([s for s in top if 700 < s["b"][0] < 1400 and s["b"][1] < 340 and s["b"][3] > 250])
-tagline = by_x([s for s in top if 700 < s["b"][0] < 1400 and s["b"][1] > 340])
-stack = [s for s in top if s["b"][2] < 420]
+symbol = max((s for s in top if s["b"][2] < 400), key=width)
+stack = [s for s in top if 400 < s["b"][0] and s["b"][2] < 600]
+icon_x = [s for s in top if 860 < s["b"][0] < 1100]
+logo_row = by_x([s for s in top if s["b"][0] > 1150 and s["b"][1] < 340])
+tagline = by_x([s for s in top if s["b"][0] > 1150 and s["b"][1] > 340])
 stack_mark = max(stack, key=lambda s: s["b"][3] - s["b"][1])
 stack_word = by_x([s for s in stack if s is not stack_mark])
 
