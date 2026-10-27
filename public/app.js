@@ -118,8 +118,8 @@ function brandSvg(viewBox, d, cls) {
   return svg;
 }
 
-// Q-boblen med et levende ansikt: øynene og munnen er egne deler som CSS animerer
-// (blunk og et blikk til siden av og til). Trykk på logoen gir et blunk med ett øye.
+// Q-boblen med et levende ansikt: øynene og munnen er egne deler, så face.js kan få det til å
+// blunke, se seg rundt, smile, gjespe og så videre. Trykk på logoen gir et blunk med ett øye.
 // Med extra legges bokstaver til i samme svg (den liggende og den stående logoen).
 function markSvg(cls = "mark", viewBox = MARK_TIGHT_VIEWBOX, extra) {
   const svg = brandSvg(viewBox, MARK_RING, `${cls} alive`);
@@ -135,13 +135,6 @@ function markSvg(cls = "mark", viewBox = MARK_TIGHT_VIEWBOX, extra) {
   face.append(part(MARK_EYE_LEFT, "eye eye-left"), part(MARK_EYE_RIGHT, "eye eye-right"), part(MARK_MOUTH, "mouth"));
   svg.append(face);
   if (extra) svg.append(part(extra, "letters"));
-  svg.addEventListener("click", () => {
-    svg.classList.remove("wink");
-    void svg.getBoundingClientRect(); // start animasjonen på nytt ved gjentatte trykk
-    svg.classList.add("wink");
-  });
-  // Smilet er den lengste delen av trykk-animasjonen, så den avgjør når den er ferdig.
-  svg.addEventListener("animationend", (e) => e.animationName === "q-smile" && svg.classList.remove("wink"));
   return svg;
 }
 

@@ -1,6 +1,10 @@
 // Felles bunntekst med lenker til all nyttig info. Brukes av appen (app.js) og av de statiske sidene,
 // som har <footer class="site-footer" data-site-footer> og laster denne fila.
 import { APP_NAME, MARK_PATH, LOGO_LETTERS, LOGO_VIEWBOX } from "./brand.js";
+import { startFace } from "./face.js";
+
+// Alle sidene laster denne fila, så det levende ansiktet i logoen startes her.
+startFace();
 
 const LINKS = [
   ["Kom i gang", [["Logg inn", "/"], ["Lag konto", "/#registrer"], ["Legg på hjemskjermen", "/#registrer"]]],

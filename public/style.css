@@ -708,24 +708,44 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 .topbar { border-bottom-color: rgba(22, 22, 25, 0.08); }
 
 /* ---------- Levende logo ---------- */
-/* Rolig: et blunk innimellom og et blikk til siden en sjelden gang. Trykk gir et blunk med ett øye. */
+/* public/face.js velger med noen sekunders mellomrom én av bevegelsene under og legger på .do-<navn>.
+   Forskyvningene er i logoens enheter (merket er 1000 bredt). Trykk gir et blunk med ett øye (.do-wink). */
 .mark.alive { cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.mark.alive .eye, .mark.alive .mouth { transform-box: fill-box; transform-origin: center; }
-.mark.alive .eye { animation: q-blink 7s infinite; }
-.mark.alive .face { animation: q-look 19s ease-in-out infinite; }
-.mark.alive.wink .eye-right { animation: q-wink 0.5s ease-in-out; }
-.mark.alive.wink .mouth { animation: q-smile 0.6s ease-in-out; }
+.mark.alive .eye, .mark.alive .mouth, .mark.alive .face { transform-box: fill-box; transform-origin: center; }
 
-@keyframes q-blink {
-  0%, 93%, 100% { transform: scaleY(1); }
-  95% { transform: scaleY(0.1); }
-}
-@keyframes q-look {
-  0%, 40%, 100% { transform: translate(0, 0); }
-  44%, 52% { transform: translate(-45px, -8px); }
-  56%, 64% { transform: translate(45px, -8px); }
-  68% { transform: translate(0, 0); }
-}
+.mark.alive.do-blink .eye { animation: q-blink .2s ease-in-out; }
+.mark.alive.do-blink-twice .eye { animation: q-blink-twice .5s ease-in-out; }
+.mark.alive.do-look-left .face { animation: q-look-left 1.8s ease-in-out; }
+.mark.alive.do-look-right .face { animation: q-look-right 1.8s ease-in-out; }
+.mark.alive.do-think .face { animation: q-think 2.2s ease-in-out; }
+.mark.alive.do-think .mouth { animation: q-think-mouth 2.2s ease-in-out; }
+.mark.alive.do-happy .eye { animation: q-happy-eyes 1.6s ease-in-out; }
+.mark.alive.do-happy .mouth { animation: q-happy-mouth 1.6s cubic-bezier(.34, 1.56, .64, 1); }
+.mark.alive.do-surprised .face { animation: q-surprised 1.4s ease-out; }
+.mark.alive.do-surprised .eye { animation: q-surprised-eyes 1.4s ease-out; }
+.mark.alive.do-surprised .mouth { animation: q-surprised-mouth 1.4s ease-out; }
+.mark.alive.do-tilt .face { animation: q-tilt 1.8s ease-in-out; }
+.mark.alive.do-sleepy .eye { animation: q-sleepy-eyes 3.2s ease-in-out; }
+.mark.alive.do-sleepy .mouth { animation: q-yawn 3.2s ease-in-out; }
+.mark.alive.do-glance .face { animation: q-glance 1.2s ease-in-out; }
+.mark.alive.do-wink .eye-right { animation: q-wink .5s ease-in-out; }
+.mark.alive.do-wink .mouth { animation: q-smile .6s ease-in-out; }
+
+@keyframes q-blink { 50% { transform: scaleY(.1); } }
+@keyframes q-blink-twice { 20%, 80% { transform: scaleY(.1); } 50% { transform: none; } }
+@keyframes q-look-left { 15%, 80% { transform: translate(-75px, -8px); } }
+@keyframes q-look-right { 15%, 80% { transform: translate(75px, -8px); } }
+@keyframes q-think { 15%, 85% { transform: translate(30px, -60px); } }
+@keyframes q-think-mouth { 15%, 85% { transform: scale(.55, .35); } }
+@keyframes q-happy-eyes { 15%, 80% { transform: scaleY(.4); } }
+@keyframes q-happy-mouth { 15%, 80% { transform: scale(1.25, 1.7); } }
+@keyframes q-surprised { 8%, 70% { transform: translateY(-14px); } }
+@keyframes q-surprised-eyes { 8%, 70% { transform: scale(1.12, 1.4); } }
+@keyframes q-surprised-mouth { 8%, 70% { transform: scale(.42, 1.25); } }
+@keyframes q-tilt { 20%, 75% { transform: rotate(-10deg) translateX(-12px); } }
+@keyframes q-sleepy-eyes { 20%, 38% { transform: scaleY(.4); } 45%, 72% { transform: scaleY(.12); } 85% { transform: scaleY(.5); } }
+@keyframes q-yawn { 40%, 72% { transform: scale(.6, 2.3); } }
+@keyframes q-glance { 20%, 75% { transform: translate(var(--gx, 0), var(--gy, 0)); } }
 @keyframes q-wink {
   0%, 100% { transform: scaleY(1); }
   40%, 60% { transform: scaleY(0.1); }
@@ -733,10 +753,6 @@ a.info-link { display: flex; text-decoration: none; color: inherit; }
 @keyframes q-smile {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.15, 1.35); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mark.alive .eye, .mark.alive .face, .mark.alive.wink .eye-right, .mark.alive.wink .mouth { animation: none; }
 }
 
 /* ---------- Load-skjerm ---------- */

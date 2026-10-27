@@ -33,7 +33,8 @@ const brandJs = read("brand.js").replace(/^export /gm, "");
 const footerBody = read("footer.js")
   .replace(/^import[\s\S]*?from "\.\/[a-z]+\.js";\n/gm, "")
   .replace(/^export /gm, "");
-const footerJs = `const fillFooter = (() => {\n${relink(footerBody, '"')}\nreturn fillFooter;\n})();`;
+const faceJs = `const { startFace } = (() => {\n${read("face.js").replace(/^export /gm, "")}\nreturn { startFace };\n})();`;
+const footerJs = `${faceJs}\nconst fillFooter = (() => {\n${relink(footerBody, '"')}\nreturn fillFooter;\n})();`;
 
 const avatars = Object.fromEntries(readdirSync(new URL("avatars/", PUB)).filter((f) => f.endsWith(".svg"))
   .map((f) => [f.replace(".svg", ""), dataUri(`avatars/${f}`, "image/svg+xml")]));
