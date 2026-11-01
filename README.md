@@ -78,7 +78,7 @@ For at e-postene ikke skal havne i søppelpost, og for at ingen andre skal kunne
 
 E-postene sendes som HTML (serenity bakgrunn, lys logo og tekst, champ knapp) og med en ren tekstversjon for e-postprogrammer uten HTML. Malen ligger i `server/email.js`. Gmail på iPhone snur fargene i mørk modus, så bakgrunnen er låst med en gradient, teksten beskyttes med blandingsmoduser, og logo og knapper er bilder (`server/assets/`, lages med `scripts/email-assets.mjs`). Bildene legges ved inni e-posten, så de vises selv om bilder fra nettet er blokkert.
 
-Uten `SMTP_HOST` sendes ingen e-post. Lenken skrives i stedet til serverloggen (Render → **Logs**). Det gjelder også bekreftelseslenker til nye foresatte, så e-post bør være satt opp før appen åpnes for flere. Kom lenken ikke fram, kan den som drifter tjenesten bekrefte adressen i Shell med `npm run verify-email -- foresatt@epost.no`. Lenkene peker til `APP_URL`, eller til `RENDER_EXTERNAL_URL`, som Render setter automatisk.
+Uten `SMTP_HOST` sendes ingen e-post. Lenken skrives i stedet til serverloggen (Render → **Logs**). Det gjelder også bekreftelseslenker til nye foresatte, så e-post bør være satt opp før appen åpnes for flere. Kom lenken ikke fram, kan den som drifter tjenesten bekrefte adressen i Shell med `npm run verify-email -- foresatt@epost.no`. Ser en foresatt ikke et innlegg, viser `npm run innlegg -- foresatt@epost.no` i Shell hvilke grupper hen ser, og hvorfor hvert av de siste innleggene vises eller ikke (endrer ingenting). Lenkene peker til `APP_URL`, eller til `RENDER_EXTERNAL_URL`, som Render setter automatisk.
 
 ### Lage lenke for nytt passord på serveren
 

@@ -1328,7 +1328,9 @@ export function createApp({
   app.locals.cleanup = cleanup;
 
   app.post("/api/posts", child, (req, res) => {
-    const { groupId, kind, sticker = "", color = COLORS[0], mediaId } = req.body;
+    const { kind, sticker = "", color = COLORS[0], mediaId } = req.body;
+    const groupId = Number(req.body.groupId);
+    if (!Number.isInteger(groupId)) fail(400, "Velg en gruppe");
     const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
     if (req.limits.postsLeft <= 0) fail(429, "Du har delt det du kan i dag. Du kan dele mer i morgen.", "POST_LIMIT");
     if (!q("SELECT 1 FROM memberships WHERE group_id = ? AND user_id = ? AND approved = 1").get(groupId, req.user.id)) fail(403, "Du er ikke med i den gruppa");

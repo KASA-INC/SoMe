@@ -3,6 +3,7 @@
 //   npm run reset-all -- SLETT-ALT                     Sletter alle kontoer, grupper, innlegg og filer
 //   npm run test-mail -- <e-postadresse>               Sender en test-e-post for å sjekke SMTP-oppsettet
 //   npm run verify-email -- <e-postadresse>            Bekrefter e-posten til en foresatt manuelt (hvis e-post ikke kom fram)
+//   npm run innlegg -- <e-postadresse>                 Viser hva en foresatt ser i gruppene sine, og hvorfor (endrer ingenting)
 import { readdirSync, unlinkSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { openDb } from "./db.js";
@@ -20,11 +21,12 @@ if (command === "reset-link" && arg) resetLink(arg);
 else if (command === "reset-all") resetAll(arg);
 else if (command === "test-mail" && arg) await testMail(arg);
 else if (command === "verify-email" && arg) verifyEmail(arg);
+else if (command === "innlegg" && arg) showPosts(arg);
 else if (command === "admin" && arg && process.argv[4] === "nullstill") resetMfa(arg);
 else if (command === "admin" && arg) setAdmin(arg, process.argv[4] !== "av");
 else {
   console.log("Bruk:\n  npm run reset-link -- <e-post eller brukernavn>\n  npm run reset-all -- " + CONFIRM_WORD
-    + "\n  npm run test-mail -- <e-postadresse>\n  npm run verify-email -- <e-postadresse>"
+    + "\n  npm run test-mail -- <e-postadresse>\n  npm run verify-email -- <e-postadresse>\n  npm run innlegg -- <e-postadresse>"
     + "\n  npm run admin -- <e-postadresse> [av | nullstill]");
   process.exit(1);
 }
@@ -42,6 +44,47 @@ function resetLink(username) {
   }
   const app = createApp({ db, mediaDir, appUrl: appUrl() });
   console.log(`Lenke for å sette nytt passord for ${user.display_name} (gyldig i én time):\n${app.locals.createResetLink(user.id)}`);
+}
+
+// Feilsøking: hva en foresatt ser i gruppene sine, og hvorfor hvert av de siste innleggene vises eller ikke.
+// Samme regler som GET /api/groups/:id/posts i app.js. Skriver bare navn og tidspunkt, ikke teksten i innleggene.
+function showPosts(email) {
+  const p = db.prepare("SELECT id, display_name, email_verified FROM users WHERE email = ? AND role = 'parent'").get(email.trim().toLowerCase());
+  if (!p) {
+    console.error(`Fant ingen foresatt med «${email}».`);
+    process.exit(1);
+  }
+  const when = (t) => new Date(t).toLocaleString("nb-NO", { timeZone: "Europe/Oslo", dateStyle: "short", timeStyle: "short" });
+  console.log(`${p.display_name} (${email})${p.email_verified ? "" : " – E-POSTEN ER IKKE BEKREFTET, så foresatt-delen er stengt"}`);
+  const children = db.prepare("SELECT u.id, u.display_name FROM guardians g JOIN users u ON u.id = g.child_id WHERE g.parent_id = ?").all(p.id);
+  console.log(`Barn: ${children.map((c) => c.display_name).join(", ") || "ingen"}`);
+  for (const c of children) {
+    for (const m of db.prepare("SELECT g.name, m.approved FROM memberships m JOIN groups g ON g.id = m.group_id WHERE m.user_id = ?").all(c.id)) {
+      if (!m.approved) console.log(`  ${c.display_name} venter på å bli godkjent i ${m.name}. Til da ser ${p.display_name} ikke gruppa.`);
+    }
+  }
+  const groups = db.prepare(`SELECT DISTINCT g.id, g.name, g.owner_id, g.media_review FROM groups g
+    LEFT JOIN memberships m ON m.group_id = g.id AND m.approved = 1 LEFT JOIN guardians gd ON gd.child_id = m.user_id
+    WHERE g.owner_id = ? OR gd.parent_id = ? ORDER BY g.name`).all(p.id, p.id);
+  if (!groups.length) console.log("Ser ingen grupper: eier ingen, og har ingen godkjente barn i noen gruppe.");
+  for (const g of groups) {
+    const owner = g.owner_id === p.id;
+    console.log(`\nGruppe «${g.name}» (${owner ? "eier" : "har barn i gruppa"}, godkjenning av bilder/video: ${g.media_review ? "på" : "av"})`);
+    const posts = db.prepare(`SELECT p.id, p.status, p.created_at, u.display_name AS author, md.id AS media, md.approved,
+        EXISTS (SELECT 1 FROM guardians gd WHERE gd.child_id = u.id AND gd.parent_id = ?) AS mine
+      FROM posts p JOIN users u ON u.id = p.author_id LEFT JOIN media md ON md.post_id = p.id
+      WHERE p.group_id = ? ORDER BY p.id DESC LIMIT 10`).all(p.id, g.id);
+    if (!posts.length) console.log("  Ingen innlegg i gruppa.");
+    for (const x of posts) {
+      let why = null;
+      if (x.status === "removed") why = "fjernet";
+      else if (x.status === "hidden" && !owner) why = "rapportert og skjult (bare eieren ser det)";
+      else if (x.media && !x.approved && !owner && !x.mine) why = "bilde/video venter på at eieren godkjenner";
+      console.log(`  #${x.id} ${when(x.created_at)} ${x.author}${x.media ? " (med bilde/video)" : ""}: ${why ? `SES IKKE – ${why}` : "ses"}`);
+    }
+    const adult = db.prepare("SELECT COUNT(*) AS n, MAX(created_at) AS last FROM adult_messages WHERE group_id = ?").get(g.id);
+    console.log(`  Voksenkontakt: ${adult.n} meldinger${adult.n ? `, siste ${when(adult.last)}` : ""}`);
+  }
 }
 
 function verifyEmail(email) {

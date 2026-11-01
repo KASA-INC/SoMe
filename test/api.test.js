@@ -136,6 +136,12 @@ test("barn i samme gruppe ser hverandres innlegg, uten reaksjoner eller tall", a
   for (const key of Object.keys(body.posts[0])) assert.doesNotMatch(key, /like|reaction|count|view/i);
 });
 
+test("innlegg uten gruppe gir en forståelig feil, ikke serverfeil", async () => {
+  const a = await setupFamily("nogrp");
+  const res = await a.kid("/posts", { method: "POST", body: { kind: "glad", text: "Hei alle sammen" } });
+  assert.equal(res.status, 400);
+});
+
 test("barn utenfor gruppa ser ingenting", async () => {
   const a = await setupFamily("c");
   const other = await setupFamily("d");
