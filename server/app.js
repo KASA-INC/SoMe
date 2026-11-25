@@ -192,7 +192,7 @@ export function createApp({
 
   app.use("/api", (req, res, next) => {
     const token = readCookie(req, COOKIE);
-    req.user = userFromToken(db, token);
+    req.user = userFromToken(db, token, now());
     req.sessionHash = token ? sha256(token) : null;
     if (req.user) q("UPDATE sessions SET last_seen = ? WHERE token_hash = ? AND last_seen < ?").run(now(), req.sessionHash, now() - 5 * 60e3);
     // Kontoen er i bruk: den slettes ikke for inaktivitet, og et varsel om sletting gjelder ikke lenger.

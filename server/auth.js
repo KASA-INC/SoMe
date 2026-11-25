@@ -29,11 +29,11 @@ export function destroySession(db, token) {
   db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(sha256(token));
 }
 
-export function userFromToken(db, token) {
+export function userFromToken(db, token, now = Date.now()) {
   if (!token) return null;
   return db.prepare(`
     SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
-    WHERE s.token_hash = ? AND s.expires_at > ?`).get(sha256(token), Date.now()) || null;
+    WHERE s.token_hash = ? AND s.expires_at > ?`).get(sha256(token), now) || null;
 }
 
 export function readCookie(req, name) {
