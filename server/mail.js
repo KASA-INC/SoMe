@@ -6,6 +6,14 @@ import nodemailer from "nodemailer";
 // Lenkekoder (64 tegn hex) byttes ut før tekst skrives til loggen.
 export const hideTokens = (text) => text.replace(/([#=])[0-9a-f]{64}/g, "$1[skjult]");
 
+// Avsendernavnet er alltid «quiply», uansett hvilket navn som står i MAIL_FROM
+// (der stod det «quipu» fra før navnebyttet). Bare adressen hentes fra innstillingen.
+export const SENDER_NAME = "quiply";
+export function senderAddress(value = "") {
+  const address = (value.match(/<([^>]+)>/)?.[1] || value).trim();
+  return address ? `${SENDER_NAME} <${address}>` : "";
+}
+
 export function createMailer(env = process.env) {
   if (!env.SMTP_HOST) {
     return {
@@ -24,7 +32,7 @@ export function createMailer(env = process.env) {
     secure: port === 465,
     auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
   });
-  const from = env.MAIL_FROM || env.SMTP_USER;
+  const from = senderAddress(env.MAIL_FROM || env.SMTP_USER);
   return {
     configured: true,
     async send({ to, subject, text, html, attachments }) {

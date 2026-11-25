@@ -6,6 +6,7 @@ import { join, dirname } from "node:path";
 import { openDb } from "../server/db.js";
 import { createApp } from "../server/app.js";
 import { checkText } from "../server/filter.js";
+import { senderAddress } from "../server/mail.js";
 import { createVapidKeys, encryptPayload, vapidHeader } from "../server/push.js";
 import { codeAt } from "../server/totp.js";
 import { createECDH, createDecipheriv, createPublicKey, hkdfSync, randomBytes, verify } from "node:crypto";
@@ -1594,4 +1595,11 @@ test("alvorlig sak uten vaktliste: alle administratorer varsles med en gang", as
   const m = outbox.length;
   await a.kid(`/posts/${p2.id}/report`, { method: "POST", body: { category: "mobbing" } });
   assert.equal(outbox.slice(m).some((x) => /ta ansvar/.test(x.subject)), false);
+});
+
+test("e-post sendes alltid fra «quiply», uansett navn i MAIL_FROM", () => {
+  assert.equal(senderAddress("quipu <hei@quiply.no>"), "quiply <hei@quiply.no>");
+  assert.equal(senderAddress('"Quipu" <hei@quiply.no>'), "quiply <hei@quiply.no>");
+  assert.equal(senderAddress("hei@quiply.no"), "quiply <hei@quiply.no>");
+  assert.equal(senderAddress(""), "");
 });
